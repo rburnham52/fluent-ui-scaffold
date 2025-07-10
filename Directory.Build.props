@@ -1,0 +1,47 @@
+<Project>
+  <PropertyGroup>
+    <!-- Common build settings -->
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <WarningsAsErrors />
+    <WarningsNotAsErrors />
+    
+    <!-- Assembly info -->
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <Company>FluentUIScaffold</Company>
+    <Product>FluentUIScaffold E2E Testing Framework</Product>
+    <Copyright>Copyright © $([System.DateTime]::Now.Year) FluentUIScaffold</Copyright>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    
+    <!-- Package metadata -->
+    <PackageVersion>1.0.0</PackageVersion>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>testing e2e ui automation playwright selenium fluent</PackageTags>
+    <PackageDescription>Framework-agnostic E2E testing library with fluent API for building maintainable UI test automation</PackageDescription>
+    <PackageProjectUrl>https://github.com/fluent-ui-scaffold</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/fluent-ui-scaffold</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    
+    <!-- Code analysis -->
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <AnalysisMode>AllEnabledByDefault</AnalysisMode>
+    
+    <!-- Conditional compilation symbols -->
+    <DefineConstants Condition="'$(TargetFramework)' == 'net6.0'">$(DefineConstants);NET6_0</DefineConstants>
+    <DefineConstants Condition="'$(TargetFramework)' == 'net7.0'">$(DefineConstants);NET7_0</DefineConstants>
+    <DefineConstants Condition="'$(TargetFramework)' == 'net8.0'">$(DefineConstants);NET8_0</DefineConstants>
+    <DefineConstants Condition="'$(TargetFramework)' == 'net9.0'">$(DefineConstants);NET9_0</DefineConstants>
+  </PropertyGroup>
+  
+  <!-- Common package references -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.NetAnalyzers" Version="9.0.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+</Project> 
