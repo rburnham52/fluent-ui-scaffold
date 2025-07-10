@@ -5,7 +5,8 @@ namespace FluentUIScaffold.Core.Configuration;
 /// <summary>
 /// Specifies the wait strategy for element interactions.
 /// </summary>
-public enum WaitStrategy {
+public enum WaitStrategy
+{
     /// <summary>
     /// No waiting - immediate execution.
     /// </summary>

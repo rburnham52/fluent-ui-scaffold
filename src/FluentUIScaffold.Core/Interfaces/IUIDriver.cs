@@ -6,7 +6,8 @@ namespace FluentUIScaffold.Core.Interfaces;
 /// <summary>
 /// Core interface for UI driver implementations that abstract underlying testing frameworks.
 /// </summary>
-public interface IUIDriver : IDisposable {
+public interface IUIDriver : IDisposable
+{
     /// <summary>
     /// Gets the current URL of the browser.
     /// </summary>

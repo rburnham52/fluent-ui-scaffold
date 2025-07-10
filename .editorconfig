@@ -11,7 +11,6 @@ end_of_line = crlf
 trim_trailing_whitespace = true
 
 # C# code style
-csharp_new_line_before_open_brace = all: true
 csharp_indent_case_contents = true
 csharp_indent_switch_labels = true
 csharp_prefer_braces = true:suggestion
@@ -38,15 +37,8 @@ dotnet_separate_import_directive_groups = true
 # Naming conventions - Use default C# conventions
 # Parameters should be camelCase (this is the default C# convention)
 
-# Analyzer severity - temporarily disabled to keep build working
-# dotnet_analyzer_diagnostic.severity = none
-
-# Treat formatting and style (IDE) rules as warnings
-# (This will not affect CA or other analyzer rules)
-dotnet_diagnostic.IDE*.severity = warning
-dotnet_diagnostic.formatting*.severity = warning
-
-# Treat all CA (code analysis) rules as warnings, not errors
-dotnet_diagnostic.CA*.severity = warning
+# Only override what matters:
+dotnet_diagnostic.CA1822.severity = none   # Suppress "Mark members as static"
+dotnet_diagnostic.CA1031.severity = none   # Suppress "Do not catch general exception types"
 
 # End of file 

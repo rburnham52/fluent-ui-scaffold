@@ -1,8 +1,9 @@
 // Copyright (c) FluentUIScaffold. All rights reserved.
 using System;
+using System.Collections.Generic; // Added missing import
+
 using FluentUIScaffold.Core.Configuration;
 using FluentUIScaffold.Core.Interfaces;
-using System.Collections.Generic; // Added missing import
 
 namespace FluentUIScaffold.Core;
 
@@ -14,7 +15,7 @@ public class ElementBuilder
     private readonly string _selector;
     private readonly IUIDriver _driver;
     private readonly FluentUIScaffoldOptions _options;
-    
+
     private TimeSpan _timeout;
     private WaitStrategy _waitStrategy;
     private string _description = string.Empty;
@@ -33,7 +34,7 @@ public class ElementBuilder
         _selector = selector ?? throw new ArgumentNullException(nameof(selector));
         _driver = driver ?? throw new ArgumentNullException(nameof(driver));
         _options = options ?? throw new ArgumentNullException(nameof(options));
-        
+
         // Initialize with default values from options
         _timeout = options.DefaultWaitTimeout;
         _waitStrategy = options.WaitStrategy;
@@ -105,7 +106,7 @@ public class ElementBuilder
     {
         if (string.IsNullOrEmpty(name))
             throw new ArgumentException("Attribute name cannot be null or empty.", nameof(name));
-            
+
         _attributes[name] = value ?? string.Empty;
         return this;
     }
@@ -117,7 +118,7 @@ public class ElementBuilder
     public IElement Build()
     {
         // Create a concrete element implementation
-        return new Element(_selector, _driver, _options, _timeout, _waitStrategy, 
+        return new Element(_selector, _driver, _options, _timeout, _waitStrategy,
             _description, _retryInterval, _customWaitCondition, _attributes);
     }
-} 
+}

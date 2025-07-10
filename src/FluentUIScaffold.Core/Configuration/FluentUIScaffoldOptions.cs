@@ -6,11 +6,13 @@ using FluentUIScaffold.Core.Interfaces;
 
 using Microsoft.Extensions.Logging;
 
-namespace FluentUIScaffold.Core.Configuration {
+namespace FluentUIScaffold.Core.Configuration
+{
     /// <summary>
     /// Configuration options for FluentUIScaffold.
     /// </summary>
-    public class FluentUIScaffoldOptions {
+    public class FluentUIScaffoldOptions
+    {
         public Uri? BaseUrl { get; set; }
         public TimeSpan Timeout { get; set; } = TimeSpan.FromSeconds(30);
         public TimeSpan RetryInterval { get; set; } = TimeSpan.FromSeconds(1);

@@ -1,5 +1,6 @@
 // Copyright (c) FluentUIScaffold. All rights reserved.
 using System;
+
 using FluentUIScaffold.Core.Configuration;
 
 namespace FluentUIScaffold.Core.Interfaces;
@@ -50,7 +51,7 @@ public interface IElement
     /// Selects a value from a dropdown or select element.
     /// </summary>
     /// <param name="value">The value to select.</param>
-    void Select(string value);
+    void SelectOption(string value);
 
     /// <summary>
     /// Gets the text content of the element.
@@ -133,4 +134,4 @@ public interface IElement
     /// <param name="propertyName">The name of the CSS property.</param>
     /// <returns>The CSS property value.</returns>
     string GetCssValue(string propertyName);
-} 
+}

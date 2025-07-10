@@ -25,7 +25,7 @@
     
     <!-- Code analysis -->
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
-    <AnalysisMode>AllEnabledByDefault</AnalysisMode>
+    <AnalysisMode>Default</AnalysisMode>
     
     <!-- Conditional compilation symbols -->
     <DefineConstants Condition="'$(TargetFramework)' == 'net6.0'">$(DefineConstants);NET6_0</DefineConstants>

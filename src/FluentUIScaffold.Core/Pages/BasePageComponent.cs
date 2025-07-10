@@ -6,22 +6,26 @@ using FluentUIScaffold.Core.Interfaces;
 
 using Microsoft.Extensions.Logging;
 
-namespace FluentUIScaffold.Core.Pages {
+namespace FluentUIScaffold.Core.Pages
+{
     /// <summary>
     /// Base class for all page components in the FluentUIScaffold framework.
     /// </summary>
     /// <typeparam name="TApp">The application type (WebApp, MobileApp, etc.)</typeparam>
     public abstract class BasePageComponent<TApp> : IPageComponent<TApp>
-        where TApp : class {
+        where TApp : class
+    {
         protected IUIDriver Driver { get; private set; } = default!;
         protected FluentUIScaffoldOptions Options { get; private set; } = default!;
         protected ILogger Logger { get; private set; } = default!;
 
-        protected BasePageComponent() {
+        protected BasePageComponent()
+        {
             // Properties are initialized with default! to suppress nullability warnings
         }
 
-        protected BasePageComponent(IUIDriver driver, FluentUIScaffoldOptions options, ILogger logger) {
+        protected BasePageComponent(IUIDriver driver, FluentUIScaffoldOptions options, ILogger logger)
+        {
             Driver = driver;
             Options = options;
             Logger = logger;
@@ -32,7 +36,8 @@ namespace FluentUIScaffold.Core.Pages {
         /// <summary>
         /// Initializes the page component with the required dependencies.
         /// </summary>
-        public virtual void Initialize(IUIDriver driver, FluentUIScaffoldOptions options, ILogger logger) {
+        public virtual void Initialize(IUIDriver driver, FluentUIScaffoldOptions options, ILogger logger)
+        {
             Driver = driver ?? throw new ArgumentNullException(nameof(driver));
             Options = options ?? throw new ArgumentNullException(nameof(options));
             Logger = logger ?? throw new ArgumentNullException(nameof(logger));

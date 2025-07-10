@@ -6,7 +6,8 @@ namespace FluentUIScaffold.Core.Configuration;
 /// <summary>
 /// Configuration for wait strategies used in element interactions.
 /// </summary>
-public class WaitStrategyConfig {
+public class WaitStrategyConfig
+{
     /// <summary>
     /// Gets or sets the timeout duration for wait operations.
     /// </summary>

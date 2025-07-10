@@ -5,7 +5,8 @@ namespace FluentUIScaffold.Core.Configuration;
 /// <summary>
 /// Specifies the strategy for validating page navigation.
 /// </summary>
-public enum PageValidationStrategy {
+public enum PageValidationStrategy
+{
     /// <summary>
     /// No page validation is performed.
     /// </summary>

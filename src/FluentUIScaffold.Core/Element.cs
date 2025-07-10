@@ -1,7 +1,9 @@
 // Copyright (c) FluentUIScaffold. All rights reserved.
 using System;
 using System.Collections.Generic;
+
 using FluentUIScaffold.Core.Configuration;
+using FluentUIScaffold.Core.Exceptions;
 using FluentUIScaffold.Core.Interfaces;
 
 namespace FluentUIScaffold.Core;
@@ -19,7 +21,7 @@ public class Element : IElement
     /// <summary>
     /// Initializes a new instance of the <see cref="Element"/> class.
     /// </summary>
-    public Element(string selector, IUIDriver driver, FluentUIScaffoldOptions options, 
+    public Element(string selector, IUIDriver driver, FluentUIScaffoldOptions options,
         TimeSpan timeout, WaitStrategy waitStrategy, string description, TimeSpan retryInterval,
         Func<bool>? customWaitCondition, Dictionary<string, string> attributes)
     {
@@ -64,7 +66,7 @@ public class Element : IElement
     }
 
     /// <inheritdoc/>
-    public void Select(string value)
+    public void SelectOption(string value)
     {
         WaitFor();
         _driver.SelectOption(Selector, value);
@@ -176,7 +178,19 @@ public class Element : IElement
             _driver.GetText(Selector);
             return true;
         }
-        catch
+        catch (ElementTimeoutException)
+        {
+            return false;
+        }
+        catch (ElementValidationException)
+        {
+            return false;
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
+        catch (ArgumentException)
         {
             return false;
         }
@@ -205,4 +219,4 @@ public class Element : IElement
         // For now, return empty string as a placeholder
         return string.Empty;
     }
-} 
+}

@@ -2,6 +2,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+
+using FluentUIScaffold.Core.Exceptions;
 using FluentUIScaffold.Core.Interfaces;
 
 namespace FluentUIScaffold.Core;
@@ -39,7 +41,7 @@ public class ElementCollection : IElementCollection
         {
             if (index < 0 || index >= _elements.Count)
                 throw new ArgumentOutOfRangeException(nameof(index));
-            
+
             return _elements[index];
         }
     }
@@ -47,8 +49,7 @@ public class ElementCollection : IElementCollection
     /// <inheritdoc/>
     public IElementCollection Filter(Func<IElement, bool> predicate)
     {
-        if (predicate == null)
-            throw new ArgumentNullException(nameof(predicate));
+        ArgumentNullException.ThrowIfNull(predicate);
 
         var filteredElements = _elements.Where(predicate);
         return new ElementCollection(filteredElements);
@@ -60,14 +61,26 @@ public class ElementCollection : IElementCollection
         if (string.IsNullOrEmpty(text))
             return new ElementCollection();
 
-        return Filter(element => 
+        return Filter(element =>
         {
             try
             {
                 var elementText = element.GetText();
                 return elementText.Contains(text, StringComparison.OrdinalIgnoreCase);
             }
-            catch
+            catch (ElementTimeoutException)
+            {
+                return false;
+            }
+            catch (ElementValidationException)
+            {
+                return false;
+            }
+            catch (InvalidOperationException)
+            {
+                return false;
+            }
+            catch (ArgumentException)
             {
                 return false;
             }
@@ -87,7 +100,19 @@ public class ElementCollection : IElementCollection
                 var attributeValue = element.GetAttribute(attribute);
                 return string.Equals(attributeValue, value, StringComparison.OrdinalIgnoreCase);
             }
-            catch
+            catch (ElementTimeoutException)
+            {
+                return false;
+            }
+            catch (ElementValidationException)
+            {
+                return false;
+            }
+            catch (InvalidOperationException)
+            {
+                return false;
+            }
+            catch (ArgumentException)
             {
                 return false;
             }
@@ -134,4 +159,4 @@ public class ElementCollection : IElementCollection
     {
         return GetEnumerator();
     }
-} 
+}

@@ -3,11 +3,13 @@ using System;
 using FluentUIScaffold.Core.Configuration;
 using FluentUIScaffold.Core.Interfaces;
 
-namespace FluentUIScaffold.Core.Drivers {
+namespace FluentUIScaffold.Core.Drivers
+{
     /// <summary>
     /// Default implementation of IUIDriver for demonstration and fallback purposes.
     /// </summary>
-    public sealed class DefaultUIDriver : IUIDriver, IDisposable {
+    public sealed class DefaultUIDriver : IUIDriver, IDisposable
+    {
         public Uri CurrentUrl => new Uri("about:blank");
         public void Click(string selector) { }
         public void Type(string selector, string text) { }
@@ -23,7 +25,8 @@ namespace FluentUIScaffold.Core.Drivers {
         public TTarget NavigateTo<TTarget>() where TTarget : class => default!;
         public TDriver GetFrameworkDriver<TDriver>() where TDriver : class => default!;
         public static void Initialize() { }
-        public void Dispose() {
+        public void Dispose()
+        {
             // No resources to dispose
             GC.SuppressFinalize(this);
         }

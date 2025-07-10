@@ -1,6 +1,7 @@
 // Copyright (c) FluentUIScaffold. All rights reserved.
 using System;
 using System.Collections.Generic;
+
 using FluentUIScaffold.Core.Configuration;
 using FluentUIScaffold.Core.Interfaces;
 
@@ -49,9 +50,8 @@ public class ElementFactory
     {
         if (string.IsNullOrEmpty(selector))
             throw new ArgumentException("Selector cannot be null or empty.", nameof(selector));
-        
-        if (configure == null)
-            throw new ArgumentNullException(nameof(configure));
+
+        ArgumentNullException.ThrowIfNull(configure);
 
         var builder = new ElementBuilder(selector, _driver, _options);
         configure(builder);
@@ -68,7 +68,7 @@ public class ElementFactory
     {
         if (string.IsNullOrEmpty(key))
             throw new ArgumentException("Key cannot be null or empty.", nameof(key));
-        
+
         if (string.IsNullOrEmpty(selector))
             throw new ArgumentException("Selector cannot be null or empty.", nameof(selector));
 
@@ -91,9 +91,8 @@ public class ElementFactory
     {
         if (string.IsNullOrEmpty(key))
             throw new ArgumentException("Key cannot be null or empty.", nameof(key));
-        
-        if (element == null)
-            throw new ArgumentNullException(nameof(element));
+
+        ArgumentNullException.ThrowIfNull(element);
 
         _elementCache[key] = element;
     }
@@ -130,4 +129,4 @@ public class ElementFactory
     {
         return _elementCache.Remove(key);
     }
-} 
+}

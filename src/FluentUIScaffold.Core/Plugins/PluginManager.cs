@@ -12,18 +12,21 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
-namespace FluentUIScaffold.Core.Plugins {
+namespace FluentUIScaffold.Core.Plugins
+{
     /// <summary>
     /// Manages the registration and lifecycle of UI testing framework plugins.
     /// </summary>
-    public class PluginManager {
+    public class PluginManager
+    {
         private readonly List<IUITestingFrameworkPlugin> _plugins = new();
         private readonly ILogger _logger;
 
         /// <summary>
         /// Initializes a new instance of the PluginManager class.
         /// </summary>
-        public PluginManager() {
+        public PluginManager()
+        {
             _logger = NullLogger<PluginManager>.Instance;
         }
 
@@ -31,7 +34,8 @@ namespace FluentUIScaffold.Core.Plugins {
         /// Initializes a new instance of the PluginManager class with a logger.
         /// </summary>
         /// <param name="logger">The logger instance</param>
-        public PluginManager(ILogger logger) {
+        public PluginManager(ILogger logger)
+        {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
@@ -39,14 +43,17 @@ namespace FluentUIScaffold.Core.Plugins {
         /// Registers a plugin with the manager.
         /// </summary>
         /// <param name="plugin">The plugin to register</param>
-        public void RegisterPlugin(IUITestingFrameworkPlugin plugin) {
+        public void RegisterPlugin(IUITestingFrameworkPlugin plugin)
+        {
             ArgumentNullException.ThrowIfNull(plugin);
 
-            try {
+            try
+            {
                 _plugins.Add(plugin);
                 _logger.LogInformation("Plugin {PluginName} registered successfully", plugin.GetType().Name);
             }
-            catch (Exception ex) {
+            catch (Exception ex)
+            {
                 _logger.LogError(ex, "Failed to register plugin {PluginName}", plugin.GetType().Name);
                 throw new FluentUIScaffoldPluginException($"Failed to register plugin {plugin.GetType().Name}", ex);
             }
@@ -56,12 +63,15 @@ namespace FluentUIScaffold.Core.Plugins {
         /// Registers a plugin type with the manager.
         /// </summary>
         /// <typeparam name="TPlugin">The plugin type to register</typeparam>
-        public void RegisterPlugin<TPlugin>() where TPlugin : IUITestingFrameworkPlugin {
-            try {
+        public void RegisterPlugin<TPlugin>() where TPlugin : IUITestingFrameworkPlugin
+        {
+            try
+            {
                 var plugin = Activator.CreateInstance<TPlugin>();
                 RegisterPlugin(plugin);
             }
-            catch (Exception ex) {
+            catch (Exception ex)
+            {
                 _logger.LogWarning(ex, "Failed to create plugin instance for type {PluginType}", typeof(TPlugin).Name);
                 throw new FluentUIScaffoldPluginException($"Failed to create plugin instance for type {typeof(TPlugin).Name}", ex);
             }
@@ -74,28 +84,46 @@ namespace FluentUIScaffold.Core.Plugins {
         /// Discovers and registers plugins from assemblies.
         /// </summary>
         /// <param name="assembly">The assembly to search for plugins</param>
-        public void DiscoverPlugins(Assembly assembly) {
-            try {
+#pragma warning disable CA1031 // Do not catch general exception types
+        public void DiscoverPlugins(Assembly assembly)
+        {
+            ArgumentNullException.ThrowIfNull(assembly);
+
+            try
+            {
                 var pluginTypes = assembly.GetTypes()
                     .Where(t => typeof(IUITestingFrameworkPlugin).IsAssignableFrom(t) && !t.IsInterface && !t.IsAbstract)
                     .ToList();
 
-                foreach (var pluginType in pluginTypes) {
-                    try {
+                foreach (var pluginType in pluginTypes)
+                {
+                    try
+                    {
                         var plugin = (IUITestingFrameworkPlugin)Activator.CreateInstance(pluginType)!;
                         RegisterPlugin(plugin);
                     }
-                    catch (Exception ex) {
+                    catch (Exception ex)
+                    {
                         _logger.LogWarning(ex, "Failed to create plugin instance for type {PluginType}", pluginType.Name);
                     }
                 }
 
                 _logger.LogInformation("Discovered {PluginCount} plugins in assembly {AssemblyName}", pluginTypes.Count, assembly.GetName().Name);
             }
-            catch (InvalidOperationException ex) {
+            catch (InvalidOperationException ex)
+            {
+                LogPluginDiscoveryWarning(_logger, ex);
+            }
+            catch (ReflectionTypeLoadException ex)
+            {
+                LogPluginDiscoveryWarning(_logger, ex);
+            }
+            catch (NotSupportedException ex)
+            {
                 LogPluginDiscoveryWarning(_logger, ex);
             }
         }
+#pragma warning restore CA1031
 
         private static readonly Action<ILogger, Exception?> LogDriverCreationWarning =
             LoggerMessage.Define(LogLevel.Warning, new EventId(2, "DriverCreationWarning"), "Failed to create driver");
@@ -105,19 +133,26 @@ namespace FluentUIScaffold.Core.Plugins {
         /// </summary>
         /// <param name="options">The configuration options</param>
         /// <returns>The created driver instance</returns>
-        public IUIDriver CreateDriver(FluentUIScaffoldOptions options) {
+#pragma warning disable CA1031 // Do not catch general exception types
+        public IUIDriver CreateDriver(FluentUIScaffoldOptions options)
+        {
             ArgumentNullException.ThrowIfNull(options);
 
-            try {
-                foreach (var plugin in _plugins) {
-                    try {
+            try
+            {
+                foreach (var plugin in _plugins)
+                {
+                    try
+                    {
                         var driver = plugin.CreateDriver(options);
-                        if (driver != null) {
+                        if (driver != null)
+                        {
                             _logger.LogInformation("Driver created successfully using plugin {PluginName}", plugin.GetType().Name);
                             return driver;
                         }
                     }
-                    catch (Exception ex) {
+                    catch (Exception ex)
+                    {
                         _logger.LogWarning(ex, "Plugin {PluginName} failed to create driver", plugin.GetType().Name);
                     }
                 }
@@ -125,24 +160,41 @@ namespace FluentUIScaffold.Core.Plugins {
                 _logger.LogInformation("No plugins could create a driver, using default driver");
                 return new DefaultUIDriver();
             }
-            catch (InvalidOperationException ex) {
+            catch (InvalidOperationException ex)
+            {
+                LogDriverCreationWarning(_logger, ex);
+                return new DefaultUIDriver();
+            }
+            catch (ArgumentException ex)
+            {
+                LogDriverCreationWarning(_logger, ex);
+                return new DefaultUIDriver();
+            }
+            catch (NotSupportedException ex)
+            {
                 LogDriverCreationWarning(_logger, ex);
                 return new DefaultUIDriver();
             }
         }
+#pragma warning restore CA1031
 
         /// <summary>
         /// Validates all registered plugins.
         /// </summary>
-        public void ValidatePlugins() {
-            try {
-                foreach (var plugin in _plugins) {
-                    try {
+        public void ValidatePlugins()
+        {
+            try
+            {
+                foreach (var plugin in _plugins)
+                {
+                    try
+                    {
                         // Note: IUITestingFrameworkPlugin doesn't have a Validate method
                         // This is a placeholder for future validation logic
                         _logger.LogInformation("Plugin {PluginName} validation passed", plugin.GetType().Name);
                     }
-                    catch (Exception ex) {
+                    catch (Exception ex)
+                    {
                         _logger.LogError(ex, "Plugin {PluginName} validation failed", plugin.GetType().Name);
                         throw new FluentUIScaffoldPluginException($"Plugin {plugin.GetType().Name} validation failed", ex);
                     }
@@ -150,7 +202,8 @@ namespace FluentUIScaffold.Core.Plugins {
 
                 _logger.LogInformation("All plugins validated successfully");
             }
-            catch (Exception ex) {
+            catch (Exception ex)
+            {
                 _logger.LogError(ex, "Plugin validation failed");
                 throw new FluentUIScaffoldPluginException("Plugin validation failed", ex);
             }
@@ -160,7 +213,8 @@ namespace FluentUIScaffold.Core.Plugins {
         /// Gets all registered plugins.
         /// </summary>
         /// <returns>A list of registered plugins</returns>
-        public IReadOnlyList<IUITestingFrameworkPlugin> GetPlugins() {
+        public IReadOnlyList<IUITestingFrameworkPlugin> GetPlugins()
+        {
             return _plugins.AsReadOnly();
         }
 
@@ -169,10 +223,12 @@ namespace FluentUIScaffold.Core.Plugins {
         /// </summary>
         /// <param name="assembly">The assembly to search</param>
         /// <returns>A list of discovered plugin types</returns>
-        public IReadOnlyList<Type> DiscoverPluginsInAssembly(Assembly assembly) {
+        public IReadOnlyList<Type> DiscoverPluginsInAssembly(Assembly assembly)
+        {
             ArgumentNullException.ThrowIfNull(assembly);
 
-            try {
+            try
+            {
                 var pluginTypes = assembly.GetTypes()
                     .Where(t => typeof(IUITestingFrameworkPlugin).IsAssignableFrom(t) && !t.IsInterface && !t.IsAbstract)
                     .ToList();
@@ -180,7 +236,8 @@ namespace FluentUIScaffold.Core.Plugins {
                 _logger.LogInformation("Discovered {PluginCount} plugin types in assembly {AssemblyName}", pluginTypes.Count, assembly.GetName().Name);
                 return pluginTypes.AsReadOnly();
             }
-            catch (Exception ex) {
+            catch (Exception ex)
+            {
                 _logger.LogWarning(ex, "Failed to discover plugin types in assembly {AssemblyName}", assembly.GetName().Name);
                 throw new FluentUIScaffoldPluginException($"Failed to discover plugin types in assembly {assembly.GetName().Name}", ex);
             }

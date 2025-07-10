@@ -66,4 +66,4 @@ public interface IElementCollection : IEnumerable<IElement>
     /// </summary>
     /// <returns>The last element, or null if the collection is empty.</returns>
     IElement? LastOrDefault();
-} 
+}

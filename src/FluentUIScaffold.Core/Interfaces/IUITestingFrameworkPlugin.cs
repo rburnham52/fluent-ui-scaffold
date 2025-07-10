@@ -11,7 +11,8 @@ namespace FluentUIScaffold.Core.Interfaces;
 /// <summary>
 /// Interface for UI testing framework plugins that provide driver implementations.
 /// </summary>
-public interface IUITestingFrameworkPlugin {
+public interface IUITestingFrameworkPlugin
+{
     /// <summary>
     /// Gets the name of the plugin.
     /// </summary>

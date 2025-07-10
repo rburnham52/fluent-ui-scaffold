@@ -88,7 +88,7 @@ public class ElementTests
         _mockDriver.Setup(d => d.WaitForElementToBeVisible("#test-element"));
 
         // Act
-        _element.Select("option1");
+        _element.SelectOption("option1");
 
         // Assert
         _mockDriver.Verify(d => d.WaitForElementToBeVisible("#test-element"), Times.Once);

@@ -7,7 +7,8 @@ namespace FluentUIScaffold.Core.Interfaces;
 /// Interface for page components that represent web pages in the application.
 /// </summary>
 /// <typeparam name="TApp">The type representing the application context.</typeparam>
-public interface IPageComponent<TApp> {
+public interface IPageComponent<TApp>
+{
     /// <summary>
     /// Gets the URL pattern that identifies this page.
     /// </summary>
