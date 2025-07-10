@@ -1,16 +1,17 @@
 // Copyright (c) FluentUIScaffold. All rights reserved.
 using System;
 using System.Collections.Generic;
-using Microsoft.Extensions.DependencyInjection;
+
 using FluentUIScaffold.Core.Configuration;
+
+using Microsoft.Extensions.DependencyInjection;
 
 namespace FluentUIScaffold.Core.Interfaces;
 
 /// <summary>
 /// Interface for UI testing framework plugins that provide driver implementations.
 /// </summary>
-public interface IUITestingFrameworkPlugin
-{
+public interface IUITestingFrameworkPlugin {
     /// <summary>
     /// Gets the name of the plugin.
     /// </summary>

@@ -39,6 +39,14 @@ dotnet_separate_import_directive_groups = true
 # Parameters should be camelCase (this is the default C# convention)
 
 # Analyzer severity - temporarily disabled to keep build working
-dotnet_analyzer_diagnostic.severity = none
+# dotnet_analyzer_diagnostic.severity = none
+
+# Treat formatting and style (IDE) rules as warnings
+# (This will not affect CA or other analyzer rules)
+dotnet_diagnostic.IDE*.severity = warning
+dotnet_diagnostic.formatting*.severity = warning
+
+# Treat all CA (code analysis) rules as warnings, not errors
+dotnet_diagnostic.CA*.severity = warning
 
 # End of file 

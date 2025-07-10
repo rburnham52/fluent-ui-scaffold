@@ -6,8 +6,7 @@ namespace FluentUIScaffold.Core.Interfaces;
 /// <summary>
 /// Core interface for UI driver implementations that abstract underlying testing frameworks.
 /// </summary>
-public interface IUIDriver : IDisposable
-{
+public interface IUIDriver : IDisposable {
     /// <summary>
     /// Gets the current URL of the browser.
     /// </summary>
@@ -91,4 +90,4 @@ public interface IUIDriver : IDisposable
     /// <typeparam name="TDriver">The type of the framework-specific driver.</typeparam>
     /// <returns>The framework-specific driver instance.</returns>
     TDriver GetFrameworkDriver<TDriver>() where TDriver : class;
-} 
+}

@@ -7,8 +7,7 @@ namespace FluentUIScaffold.Core.Interfaces;
 /// Interface for verification context that provides fluent verification methods.
 /// </summary>
 /// <typeparam name="TApp">The type representing the application context.</typeparam>
-public interface IVerificationContext<TApp>
-{
+public interface IVerificationContext<TApp> {
     /// <summary>
     /// Verifies that an element is visible.
     /// </summary>
@@ -92,4 +91,4 @@ public interface IVerificationContext<TApp>
     /// <param name="description">A description of the verification.</param>
     /// <returns>The verification context for method chaining.</returns>
     IVerificationContext<TApp> That<T>(Func<T> actual, Func<T, bool> condition, string description);
-} 
+}
