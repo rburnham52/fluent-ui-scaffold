@@ -1,6 +1,7 @@
-﻿namespace FluentUIScaffold.Playwright;
+// "// Copyright (c) FluentUIScaffold. All rights reserved."
 
-public class Class1
-{
+namespace FluentUIScaffold.Playwright;
+
+public class Class1 {
 
 }

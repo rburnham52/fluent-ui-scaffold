@@ -19,10 +19,10 @@
 - **File**: `phase-1-foundation/epic-1.1-project-setup/story-1.1.1-project-structure.md`
 
 #### Story 1.1.2: Core Interfaces & Abstractions
-- **Status**: 🔴 Not Started
+- **Status**: 🟡 In Progress
 - **Priority**: Critical
 - **Estimated Time**: 2-3 weeks
-- **Assigned To**: TBD
+- **Assigned To**: Senior Developer
 - **Dependencies**: Story 1.1.1
 - **File**: `phase-1-foundation/epic-1.1-project-setup/story-1.1.2-core-interfaces.md`
 

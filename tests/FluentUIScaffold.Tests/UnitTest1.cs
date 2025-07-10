@@ -1,10 +1,12 @@
-﻿namespace FluentUIScaffold.Tests;
+﻿// Copyright (c) FluentUIScaffold. All rights reserved.
 
-public class UnitTest1
+namespace FluentUIScaffold.Tests;
+
+internal static class UnitTest1
 {
     [Fact]
-    public void Test1()
+    public static void Test1()
     {
-
+        // TODO: Add unit tests for FluentUIScaffold.Core
     }
 }
