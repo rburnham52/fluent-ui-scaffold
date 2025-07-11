@@ -38,5 +38,10 @@ namespace FluentUIScaffold.Core.Configuration
         public bool AcceptInsecureCertificates { get; set; }
         public TimeSpan PageLoadTimeout { get; set; } = TimeSpan.FromSeconds(60);
         public TimeSpan ScriptTimeout { get; set; } = TimeSpan.FromSeconds(30);
+
+        // Additional properties for sample tests
+        public TimeSpan DefaultTimeout { get; set; } = TimeSpan.FromSeconds(30);
+        public TimeSpan DefaultRetryInterval { get; set; } = TimeSpan.FromMilliseconds(500);
+        public bool CaptureScreenshotsOnFailure { get; set; } = true;
     }
 }

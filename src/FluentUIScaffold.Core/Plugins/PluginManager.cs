@@ -49,6 +49,13 @@ namespace FluentUIScaffold.Core.Plugins
 
             try
             {
+                // Check if plugin is already registered
+                if (_plugins.Any(p => p.GetType() == plugin.GetType()))
+                {
+                    _logger.LogWarning("Plugin {PluginName} is already registered, skipping", plugin.GetType().Name);
+                    return;
+                }
+
                 _plugins.Add(plugin);
                 _logger.LogInformation("Plugin {PluginName} registered successfully", plugin.GetType().Name);
             }
@@ -189,8 +196,16 @@ namespace FluentUIScaffold.Core.Plugins
                 {
                     try
                     {
-                        // Note: IUITestingFrameworkPlugin doesn't have a Validate method
-                        // This is a placeholder for future validation logic
+                        // Test plugin by attempting to create a driver and configure services
+                        var testOptions = new FluentUIScaffoldOptions();
+                        var testServices = new ServiceCollection();
+
+                        // Test ConfigureServices
+                        plugin.ConfigureServices(testServices);
+
+                        // Test CreateDriver
+                        var driver = plugin.CreateDriver(testOptions);
+
                         _logger.LogInformation("Plugin {PluginName} validation passed", plugin.GetType().Name);
                     }
                     catch (Exception ex)

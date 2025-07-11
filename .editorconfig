@@ -11,21 +11,6 @@ end_of_line = crlf
 trim_trailing_whitespace = true
 
 # C# code style
-csharp_indent_case_contents = true
-csharp_indent_switch_labels = true
-csharp_prefer_braces = true:suggestion
-csharp_prefer_simple_default_expression = true:suggestion
-csharp_prefer_pattern_matching_over_is_with_cast_check = true:suggestion
-csharp_prefer_pattern_matching_over_as_with_null_check = true:suggestion
-csharp_prefer_static_local_function = true:suggestion
-csharp_style_var_for_built_in_types = true:suggestion
-csharp_style_var_when_type_is_apparent = true:suggestion
-csharp_style_var_elsewhere = false:suggestion
-csharp_style_expression_bodied_methods = false:suggestion
-csharp_style_expression_bodied_properties = false:suggestion
-csharp_style_expression_bodied_ctors = false:suggestion
-csharp_style_expression_bodied_accessors = false:suggestion
-csharp_style_namespace_declarations = file_scoped:suggestion
 
 # Organize usings
 dotnet_sort_system_directives_first = true
@@ -38,7 +23,7 @@ dotnet_separate_import_directive_groups = true
 # Parameters should be camelCase (this is the default C# convention)
 
 # Only override what matters:
-dotnet_diagnostic.CA1822.severity = none   # Suppress "Mark members as static"
-dotnet_diagnostic.CA1031.severity = none   # Suppress "Do not catch general exception types"
+# dotnet_diagnostic.CA1822.severity = none   # Suppress "Mark members as static"
+# dotnet_diagnostic.CA1031.severity = none   # Suppress "Do not catch general exception types"
 
 # End of file 

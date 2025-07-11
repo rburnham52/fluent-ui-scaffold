@@ -1,10 +1,14 @@
 // Copyright (c) FluentUIScaffold. All rights reserved.
 using System;
 using System.Collections.Generic;
+
 using FluentUIScaffold.Core;
 using FluentUIScaffold.Core.Configuration;
+using FluentUIScaffold.Core.Exceptions;
 using FluentUIScaffold.Core.Interfaces;
+
 using Moq;
+
 using NUnit.Framework;
 
 namespace FluentUIScaffold.Core.Tests;
@@ -21,8 +25,8 @@ public class ElementTests
     {
         _mockDriver = new Mock<IUIDriver>();
         _options = new FluentUIScaffoldOptions();
-        _element = new Element("#test-element", _mockDriver.Object, _options, 
-            TimeSpan.FromSeconds(10), WaitStrategy.Visible, "Test Element", 
+        _element = new Element("#test-element", _mockDriver.Object, _options,
+            TimeSpan.FromSeconds(10), WaitStrategy.Visible, "Test Element",
             TimeSpan.FromMilliseconds(500), null, new Dictionary<string, string>());
     }
 
@@ -31,7 +35,7 @@ public class ElementTests
     {
         // Arrange & Act
         var element = new Element("#test", _mockDriver.Object, _options,
-            TimeSpan.FromSeconds(5), WaitStrategy.Clickable, "Test", 
+            TimeSpan.FromSeconds(5), WaitStrategy.Clickable, "Test",
             TimeSpan.FromMilliseconds(100), null, new Dictionary<string, string>());
 
         // Assert
@@ -47,9 +51,9 @@ public class ElementTests
     {
         // Act & Assert
         var ex = Assert.Throws<ArgumentNullException>(() => new Element(null!, _mockDriver.Object, _options,
-            TimeSpan.FromSeconds(5), WaitStrategy.Visible, "Test", 
+            TimeSpan.FromSeconds(5), WaitStrategy.Visible, "Test",
             TimeSpan.FromMilliseconds(100), null, new Dictionary<string, string>()));
-        
+
         Assert.That(ex.ParamName, Is.EqualTo("selector"));
     }
 
@@ -158,7 +162,7 @@ public class ElementTests
     {
         // Arrange
         var element = new Element("#test", _mockDriver.Object, _options,
-            TimeSpan.FromSeconds(5), WaitStrategy.Visible, "Test", 
+            TimeSpan.FromSeconds(5), WaitStrategy.Visible, "Test",
             TimeSpan.FromMilliseconds(100), null, new Dictionary<string, string>());
 
         // Act
@@ -173,7 +177,7 @@ public class ElementTests
     {
         // Arrange
         var element = new Element("#test", _mockDriver.Object, _options,
-            TimeSpan.FromSeconds(5), WaitStrategy.Hidden, "Test", 
+            TimeSpan.FromSeconds(5), WaitStrategy.Hidden, "Test",
             TimeSpan.FromMilliseconds(100), null, new Dictionary<string, string>());
 
         // Act
@@ -188,7 +192,7 @@ public class ElementTests
     {
         // Arrange
         var element = new Element("#test", _mockDriver.Object, _options,
-            TimeSpan.FromSeconds(5), WaitStrategy.Clickable, "Test", 
+            TimeSpan.FromSeconds(5), WaitStrategy.Clickable, "Test",
             TimeSpan.FromMilliseconds(100), null, new Dictionary<string, string>());
 
         // Act
@@ -203,7 +207,7 @@ public class ElementTests
     {
         // Arrange
         var element = new Element("#test", _mockDriver.Object, _options,
-            TimeSpan.FromSeconds(5), WaitStrategy.None, "Test", 
+            TimeSpan.FromSeconds(5), WaitStrategy.None, "Test",
             TimeSpan.FromMilliseconds(100), null, new Dictionary<string, string>());
 
         // Act
@@ -219,7 +223,7 @@ public class ElementTests
     {
         // Arrange
         var element = new Element("#test", _mockDriver.Object, _options,
-            TimeSpan.FromSeconds(5), (WaitStrategy)999, "Test", 
+            TimeSpan.FromSeconds(5), (WaitStrategy)999, "Test",
             TimeSpan.FromMilliseconds(100), null, new Dictionary<string, string>());
 
         // Act & Assert
@@ -264,7 +268,7 @@ public class ElementTests
     public void Exists_WhenElementDoesNotExist_ShouldReturnFalse()
     {
         // Arrange
-        _mockDriver.Setup(d => d.GetText("#test-element")).Throws(new Exception("Element not found"));
+        _mockDriver.Setup(d => d.GetText("#test-element")).Throws(new ElementTimeoutException("Element not found"));
 
         // Act
         var result = _element.Exists();
@@ -302,4 +306,4 @@ public class ElementTests
         // Assert
         Assert.That(result, Is.EqualTo(string.Empty));
     }
-} 
+}

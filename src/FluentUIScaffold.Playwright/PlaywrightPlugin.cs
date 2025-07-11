@@ -1,6 +1,7 @@
 // Copyright (c) FluentUIScaffold. All rights reserved.
 using System;
 using System.Collections.Generic;
+using System.Linq; // Added for .Any()
 
 using FluentUIScaffold.Core.Configuration;
 using FluentUIScaffold.Core.Interfaces;
@@ -56,5 +57,14 @@ public class PlaywrightPlugin : IUITestingFrameworkPlugin
         services.AddSingleton<PlaywrightPlugin>();
         services.AddTransient<PlaywrightDriver>();
         services.AddSingleton<Microsoft.Playwright.IPlaywright>(provider => Microsoft.Playwright.Playwright.CreateAsync().Result);
+
+        // Register IUIDriver with PlaywrightDriver implementation
+        services.AddTransient<IUIDriver, PlaywrightDriver>();
+
+        // Register FluentUIScaffoldOptions if not already registered
+        if (!services.Any(s => s.ServiceType == typeof(FluentUIScaffoldOptions)))
+        {
+            services.AddSingleton<FluentUIScaffoldOptions>(provider => new FluentUIScaffoldOptions());
+        }
     }
-} 
+}

@@ -26,7 +26,7 @@ public class PlaywrightDriver : IUIDriver, IDisposable
     /// <summary>
     /// Gets the current URL of the browser.
     /// </summary>
-    public Uri? CurrentUrl => _page?.Url != null ? new Uri(_page.Url) : null;
+    public Uri? CurrentUrl => _page?.Url != null ? new Uri(_page.Url) : new Uri("about:blank");
 
     /// <summary>
     /// Initializes a new instance of the <see cref="PlaywrightDriver"/> class.
@@ -140,7 +140,10 @@ public class PlaywrightDriver : IUIDriver, IDisposable
             throw new ArgumentException("Selector cannot be null or empty.", nameof(selector));
 
         _logger?.LogDebug("Getting text from element with selector: {Selector}", selector);
-        return _page?.TextContentAsync(selector).Result ?? string.Empty;
+        var text = _page?.TextContentAsync(selector).Result;
+        if (text == null)
+            throw new InvalidOperationException($"Element with selector '{selector}' was not found or has no text content.");
+        return text;
     }
 
     /// <summary>
@@ -289,4 +292,4 @@ public class PlaywrightDriver : IUIDriver, IDisposable
             _disposed = true;
         }
     }
-} 
+}

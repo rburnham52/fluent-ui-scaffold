@@ -354,7 +354,7 @@ namespace FluentUIScaffold.Core.Configuration
                 errors.Add("Script timeout must be greater than zero");
             }
 
-            if (errors.Count == 0)
+            if (errors.Count > 0)
             {
                 throw new FluentUIScaffoldValidationException(
                     $"Configuration validation failed: {string.Join("; ", errors)}",

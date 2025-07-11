@@ -1,9 +1,12 @@
 // Copyright (c) FluentUIScaffold. All rights reserved.
 using System;
+
 using FluentUIScaffold.Core;
 using FluentUIScaffold.Core.Configuration;
 using FluentUIScaffold.Core.Interfaces;
+
 using Moq;
+
 using NUnit.Framework;
 
 namespace FluentUIScaffold.Core.Tests;
@@ -77,7 +80,7 @@ public class ElementFactoryTests
     public void CreateElement_WithConfiguration_ShouldReturnConfiguredElement()
     {
         // Act
-        var element = _factory.CreateElement("#test", builder => 
+        var element = _factory.CreateElement("#test", builder =>
         {
             builder.WithTimeout(TimeSpan.FromSeconds(20))
                    .WithWaitStrategy(WaitStrategy.Enabled)
@@ -280,4 +283,4 @@ public class ElementFactoryTests
         _factory.RemoveFromCache("key1");
         Assert.That(_factory.CacheCount, Is.EqualTo(1));
     }
-} 
+}

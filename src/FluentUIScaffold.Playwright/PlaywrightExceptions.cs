@@ -21,8 +21,8 @@ public class PlaywrightException : FluentUIScaffoldException
     /// <param name="message">The error message.</param>
     /// <param name="selector">The selector that was being used.</param>
     /// <param name="innerException">The inner exception.</param>
-    public PlaywrightException(string message, string? selector = null, Exception? innerException = null) 
-        : base(message, innerException ?? new Exception())
+    public PlaywrightException(string message, string? selector = null, Exception? innerException = null)
+        : base(message, innerException)
     {
         Selector = selector;
     }
@@ -44,7 +44,7 @@ public class PlaywrightTimeoutException : PlaywrightException
     /// <param name="message">The error message.</param>
     /// <param name="selector">The selector that was being used.</param>
     /// <param name="timeout">The timeout duration that was exceeded.</param>
-    public PlaywrightTimeoutException(string message, string? selector = null, TimeSpan timeout = default) 
+    public PlaywrightTimeoutException(string message, string? selector = null, TimeSpan timeout = default)
         : base(message, selector, null)
     {
         Timeout = timeout;
@@ -61,7 +61,7 @@ public class PlaywrightElementNotFoundException : PlaywrightException
     /// </summary>
     /// <param name="selector">The selector that was not found.</param>
     /// <param name="innerException">The inner exception.</param>
-    public PlaywrightElementNotFoundException(string selector, Exception? innerException = null) 
+    public PlaywrightElementNotFoundException(string selector, Exception? innerException = null)
         : base($"Element with selector '{selector}' was not found.", selector, innerException)
     {
     }
@@ -77,7 +77,7 @@ public class PlaywrightElementNotVisibleException : PlaywrightException
     /// </summary>
     /// <param name="selector">The selector that was not visible.</param>
     /// <param name="innerException">The inner exception.</param>
-    public PlaywrightElementNotVisibleException(string selector, Exception? innerException = null) 
+    public PlaywrightElementNotVisibleException(string selector, Exception? innerException = null)
         : base($"Element with selector '{selector}' is not visible.", selector, innerException)
     {
     }
@@ -93,7 +93,7 @@ public class PlaywrightElementNotEnabledException : PlaywrightException
     /// </summary>
     /// <param name="selector">The selector that was not enabled.</param>
     /// <param name="innerException">The inner exception.</param>
-    public PlaywrightElementNotEnabledException(string selector, Exception? innerException = null) 
+    public PlaywrightElementNotEnabledException(string selector, Exception? innerException = null)
         : base($"Element with selector '{selector}' is not enabled.", selector, innerException)
     {
     }
@@ -115,7 +115,7 @@ public class PlaywrightNavigationException : PlaywrightException
     /// <param name="message">The error message.</param>
     /// <param name="url">The URL that was being navigated to.</param>
     /// <param name="innerException">The inner exception.</param>
-    public PlaywrightNavigationException(string message, string? url = null, Exception? innerException = null) 
+    public PlaywrightNavigationException(string message, string? url = null, Exception? innerException = null)
         : base(message, null, innerException)
     {
         Url = url;
@@ -138,9 +138,9 @@ public class PlaywrightBrowserStartupException : PlaywrightException
     /// <param name="message">The error message.</param>
     /// <param name="browserType">The browser type that failed to start.</param>
     /// <param name="innerException">The inner exception.</param>
-    public PlaywrightBrowserStartupException(string message, string? browserType = null, Exception? innerException = null) 
+    public PlaywrightBrowserStartupException(string message, string? browserType = null, Exception? innerException = null)
         : base(message, null, innerException)
     {
         BrowserType = browserType;
     }
-} 
+}

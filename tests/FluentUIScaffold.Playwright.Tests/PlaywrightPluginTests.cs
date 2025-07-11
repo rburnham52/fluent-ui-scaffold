@@ -114,15 +114,15 @@ public class PlaywrightPluginTests
 
         // Assert
         var serviceProvider = services.BuildServiceProvider();
-        
+
         // Check that PlaywrightPlugin is registered as singleton
         var plugin = serviceProvider.GetService<PlaywrightPlugin>();
         Assert.That(plugin, Is.Not.Null);
-        
+
         // Check that PlaywrightDriver is registered as transient
         var driver = serviceProvider.GetService<PlaywrightDriver>();
         Assert.That(driver, Is.Not.Null);
-        
+
         // Check that IPlaywright is registered as singleton
         var playwright = serviceProvider.GetService<Microsoft.Playwright.IPlaywright>();
         Assert.That(playwright, Is.Not.Null);
@@ -139,20 +139,20 @@ public class PlaywrightPluginTests
 
         // Assert
         var serviceProvider = services.BuildServiceProvider();
-        
+
         // Get the same plugin instance twice to verify singleton
         var plugin1 = serviceProvider.GetService<PlaywrightPlugin>();
         var plugin2 = serviceProvider.GetService<PlaywrightPlugin>();
         Assert.That(plugin1, Is.SameAs(plugin2));
-        
+
         // Get different driver instances to verify transient
         var driver1 = serviceProvider.GetService<PlaywrightDriver>();
         var driver2 = serviceProvider.GetService<PlaywrightDriver>();
         Assert.That(driver1, Is.Not.SameAs(driver2));
-        
+
         // Get the same playwright instance twice to verify singleton
         var playwright1 = serviceProvider.GetService<Microsoft.Playwright.IPlaywright>();
         var playwright2 = serviceProvider.GetService<Microsoft.Playwright.IPlaywright>();
         Assert.That(playwright1, Is.SameAs(playwright2));
     }
-} 
+}

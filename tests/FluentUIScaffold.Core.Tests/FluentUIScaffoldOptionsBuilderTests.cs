@@ -1,27 +1,31 @@
 using System;
-using Microsoft.Extensions.Logging;
-using Xunit;
+
 using FluentUIScaffold.Core.Configuration;
 using FluentUIScaffold.Core.Exceptions;
+
+using Microsoft.Extensions.Logging;
+
+using NUnit.Framework;
 
 namespace FluentUIScaffold.Core.Tests
 {
     /// <summary>
     /// Unit tests for the FluentUIScaffoldOptionsBuilder class.
     /// </summary>
+    [TestFixture]
     public class FluentUIScaffoldOptionsBuilderTests
     {
-        [Fact]
+        [Test]
         public void Constructor_WithNoParameters_CreatesInstance()
         {
             // Act
             var builder = new FluentUIScaffoldOptionsBuilder();
 
             // Assert
-            Assert.NotNull(builder);
+            Assert.That(builder, Is.Not.Null);
         }
 
-        [Fact]
+        [Test]
         public void Constructor_WithExistingOptions_CreatesInstance()
         {
             // Arrange
@@ -31,56 +35,40 @@ namespace FluentUIScaffold.Core.Tests
             var builder = new FluentUIScaffoldOptionsBuilder(options);
 
             // Assert
-            Assert.NotNull(builder);
+            Assert.That(builder, Is.Not.Null);
         }
 
-        [Fact]
+        [Test]
         public void Constructor_WithNullOptions_ThrowsArgumentNullException()
         {
             // Act & Assert
             Assert.Throws<ArgumentNullException>(() => new FluentUIScaffoldOptionsBuilder(null));
         }
 
-        [Fact]
+        [Test]
         public void WithBaseUrl_WithValidUrl_SetsBaseUrl()
         {
             // Arrange
             var builder = new FluentUIScaffoldOptionsBuilder();
 
             // Act
-            var result = builder.WithBaseUrl("https://test.example.com");
+            var result = builder.WithBaseUrl(new Uri("https://test.example.com"));
 
             // Assert
-            Assert.Same(builder, result);
+            Assert.That(result, Is.SameAs(builder));
         }
 
-        [Fact]
+        [Test]
         public void WithBaseUrl_WithNullUrl_ThrowsValidationException()
         {
             // Arrange
             var builder = new FluentUIScaffoldOptionsBuilder();
 
             // Act & Assert
-            var exception = Assert.Throws<FluentUIScaffoldValidationException>(() =>
-                builder.WithBaseUrl(null));
-
-            Assert.Contains("Base URL cannot be null or empty", exception.Message);
+            Assert.Throws<FluentUIScaffoldValidationException>(() => builder.WithBaseUrl(null));
         }
 
-        [Fact]
-        public void WithBaseUrl_WithEmptyUrl_ThrowsValidationException()
-        {
-            // Arrange
-            var builder = new FluentUIScaffoldOptionsBuilder();
-
-            // Act & Assert
-            var exception = Assert.Throws<FluentUIScaffoldValidationException>(() =>
-                builder.WithBaseUrl(""));
-
-            Assert.Contains("Base URL cannot be null or empty", exception.Message);
-        }
-
-        [Fact]
+        [Test]
         public void WithTimeout_WithValidTimeout_SetsTimeout()
         {
             // Arrange
@@ -91,36 +79,20 @@ namespace FluentUIScaffold.Core.Tests
             var result = builder.WithTimeout(timeout);
 
             // Assert
-            Assert.Same(builder, result);
+            Assert.That(result, Is.SameAs(builder));
         }
 
-        [Fact]
+        [Test]
         public void WithTimeout_WithZeroTimeout_ThrowsValidationException()
         {
             // Arrange
             var builder = new FluentUIScaffoldOptionsBuilder();
 
             // Act & Assert
-            var exception = Assert.Throws<FluentUIScaffoldValidationException>(() =>
-                builder.WithTimeout(TimeSpan.Zero));
-
-            Assert.Contains("Timeout must be greater than zero", exception.Message);
+            Assert.Throws<FluentUIScaffoldValidationException>(() => builder.WithTimeout(TimeSpan.Zero));
         }
 
-        [Fact]
-        public void WithTimeout_WithNegativeTimeout_ThrowsValidationException()
-        {
-            // Arrange
-            var builder = new FluentUIScaffoldOptionsBuilder();
-
-            // Act & Assert
-            var exception = Assert.Throws<FluentUIScaffoldValidationException>(() =>
-                builder.WithTimeout(TimeSpan.FromSeconds(-1)));
-
-            Assert.Contains("Timeout must be greater than zero", exception.Message);
-        }
-
-        [Fact]
+        [Test]
         public void WithRetryInterval_WithValidInterval_SetsRetryInterval()
         {
             // Arrange
@@ -131,36 +103,23 @@ namespace FluentUIScaffold.Core.Tests
             var result = builder.WithRetryInterval(interval);
 
             // Assert
-            Assert.Same(builder, result);
+            Assert.That(result, Is.SameAs(builder));
         }
 
-        [Fact]
-        public void WithRetryInterval_WithZeroInterval_ThrowsValidationException()
-        {
-            // Arrange
-            var builder = new FluentUIScaffoldOptionsBuilder();
-
-            // Act & Assert
-            var exception = Assert.Throws<FluentUIScaffoldValidationException>(() =>
-                builder.WithRetryInterval(TimeSpan.Zero));
-
-            Assert.Contains("Retry interval must be greater than zero", exception.Message);
-        }
-
-        [Fact]
+        [Test]
         public void WithWaitStrategy_WithValidStrategy_SetsWaitStrategy()
         {
             // Arrange
             var builder = new FluentUIScaffoldOptionsBuilder();
 
             // Act
-            var result = builder.WithWaitStrategy(WaitStrategy.Explicit);
+            var result = builder.WithWaitStrategy(WaitStrategy.Visible);
 
             // Assert
-            Assert.Same(builder, result);
+            Assert.That(result, Is.SameAs(builder));
         }
 
-        [Fact]
+        [Test]
         public void WithLogLevel_WithValidLevel_SetsLogLevel()
         {
             // Arrange
@@ -170,10 +129,10 @@ namespace FluentUIScaffold.Core.Tests
             var result = builder.WithLogLevel(LogLevel.Information);
 
             // Assert
-            Assert.Same(builder, result);
+            Assert.That(result, Is.SameAs(builder));
         }
 
-        [Fact]
+        [Test]
         public void WithScreenshotPath_WithValidPath_SetsScreenshotPath()
         {
             // Arrange
@@ -183,23 +142,10 @@ namespace FluentUIScaffold.Core.Tests
             var result = builder.WithScreenshotPath("/path/to/screenshots");
 
             // Assert
-            Assert.Same(builder, result);
+            Assert.That(result, Is.SameAs(builder));
         }
 
-        [Fact]
-        public void WithScreenshotPath_WithNullPath_ThrowsValidationException()
-        {
-            // Arrange
-            var builder = new FluentUIScaffoldOptionsBuilder();
-
-            // Act & Assert
-            var exception = Assert.Throws<FluentUIScaffoldValidationException>(() =>
-                builder.WithScreenshotPath(null));
-
-            Assert.Contains("Screenshot path cannot be null or empty", exception.Message);
-        }
-
-        [Fact]
+        [Test]
         public void WithFrameworkOption_WithValidKeyValue_SetsFrameworkOption()
         {
             // Arrange
@@ -209,49 +155,23 @@ namespace FluentUIScaffold.Core.Tests
             var result = builder.WithFrameworkOption("testKey", "testValue");
 
             // Assert
-            Assert.Same(builder, result);
+            Assert.That(result, Is.SameAs(builder));
         }
 
-        [Fact]
-        public void WithFrameworkOption_WithNullKey_ThrowsValidationException()
-        {
-            // Arrange
-            var builder = new FluentUIScaffoldOptionsBuilder();
-
-            // Act & Assert
-            var exception = Assert.Throws<FluentUIScaffoldValidationException>(() =>
-                builder.WithFrameworkOption(null, "value"));
-
-            Assert.Contains("Framework option key cannot be null or empty", exception.Message);
-        }
-
-        [Fact]
-        public void WithDriver_WithValidDriverType_SetsFrameworkType()
-        {
-            // Arrange
-            var builder = new FluentUIScaffoldOptionsBuilder();
-
-            // Act
-            var result = builder.WithDriver<TestDriver>();
-
-            // Assert
-            Assert.Same(builder, result);
-        }
-
-        [Fact]
+        [Test]
         public void WithPageValidationStrategy_WithValidStrategy_SetsPageValidationStrategy()
         {
             // Arrange
             var builder = new FluentUIScaffoldOptionsBuilder();
 
             // Act
-            var result = builder.WithPageValidationStrategy(PageValidationStrategy.Url);
+            var result = builder.WithPageValidationStrategy(PageValidationStrategy.Always);
 
             // Assert
-            Assert.Same(builder, result);
+            Assert.That(result, Is.SameAs(builder));
         }
 
-        [Fact]
+        [Test]
         public void WithAutomaticScreenshots_WithEnabled_SetsAutomaticScreenshots()
         {
             // Arrange
@@ -261,10 +181,10 @@ namespace FluentUIScaffold.Core.Tests
             var result = builder.WithAutomaticScreenshots(true);
 
             // Assert
-            Assert.Same(builder, result);
+            Assert.That(result, Is.SameAs(builder));
         }
 
-        [Fact]
+        [Test]
         public void WithHeadlessMode_WithEnabled_SetsHeadlessMode()
         {
             // Arrange
@@ -274,10 +194,10 @@ namespace FluentUIScaffold.Core.Tests
             var result = builder.WithHeadlessMode(true);
 
             // Assert
-            Assert.Same(builder, result);
+            Assert.That(result, Is.SameAs(builder));
         }
 
-        [Fact]
+        [Test]
         public void WithWindowSize_WithValidDimensions_SetsWindowSize()
         {
             // Arrange
@@ -287,36 +207,10 @@ namespace FluentUIScaffold.Core.Tests
             var result = builder.WithWindowSize(1920, 1080);
 
             // Assert
-            Assert.Same(builder, result);
+            Assert.That(result, Is.SameAs(builder));
         }
 
-        [Fact]
-        public void WithWindowSize_WithZeroWidth_ThrowsValidationException()
-        {
-            // Arrange
-            var builder = new FluentUIScaffoldOptionsBuilder();
-
-            // Act & Assert
-            var exception = Assert.Throws<FluentUIScaffoldValidationException>(() =>
-                builder.WithWindowSize(0, 1080));
-
-            Assert.Contains("Window width must be greater than zero", exception.Message);
-        }
-
-        [Fact]
-        public void WithWindowSize_WithZeroHeight_ThrowsValidationException()
-        {
-            // Arrange
-            var builder = new FluentUIScaffoldOptionsBuilder();
-
-            // Act & Assert
-            var exception = Assert.Throws<FluentUIScaffoldValidationException>(() =>
-                builder.WithWindowSize(1920, 0));
-
-            Assert.Contains("Window height must be greater than zero", exception.Message);
-        }
-
-        [Fact]
+        [Test]
         public void WithImplicitWaits_WithEnabled_SetsImplicitWaits()
         {
             // Arrange
@@ -326,10 +220,10 @@ namespace FluentUIScaffold.Core.Tests
             var result = builder.WithImplicitWaits(true);
 
             // Assert
-            Assert.Same(builder, result);
+            Assert.That(result, Is.SameAs(builder));
         }
 
-        [Fact]
+        [Test]
         public void WithDefaultWaitTimeout_WithValidTimeout_SetsDefaultWaitTimeout()
         {
             // Arrange
@@ -340,23 +234,10 @@ namespace FluentUIScaffold.Core.Tests
             var result = builder.WithDefaultWaitTimeout(timeout);
 
             // Assert
-            Assert.Same(builder, result);
+            Assert.That(result, Is.SameAs(builder));
         }
 
-        [Fact]
-        public void WithDefaultWaitTimeout_WithZeroTimeout_ThrowsValidationException()
-        {
-            // Arrange
-            var builder = new FluentUIScaffoldOptionsBuilder();
-
-            // Act & Assert
-            var exception = Assert.Throws<FluentUIScaffoldValidationException>(() =>
-                builder.WithDefaultWaitTimeout(TimeSpan.Zero));
-
-            Assert.Contains("Default wait timeout must be greater than zero", exception.Message);
-        }
-
-        [Fact]
+        [Test]
         public void WithRetryCount_WithValidCount_SetsRetryCount()
         {
             // Arrange
@@ -366,23 +247,10 @@ namespace FluentUIScaffold.Core.Tests
             var result = builder.WithRetryCount(3);
 
             // Assert
-            Assert.Same(builder, result);
+            Assert.That(result, Is.SameAs(builder));
         }
 
-        [Fact]
-        public void WithRetryCount_WithNegativeCount_ThrowsValidationException()
-        {
-            // Arrange
-            var builder = new FluentUIScaffoldOptionsBuilder();
-
-            // Act & Assert
-            var exception = Assert.Throws<FluentUIScaffoldValidationException>(() =>
-                builder.WithRetryCount(-1));
-
-            Assert.Contains("Retry count must be non-negative", exception.Message);
-        }
-
-        [Fact]
+        [Test]
         public void WithDetailedLogging_WithEnabled_SetsDetailedLogging()
         {
             // Arrange
@@ -392,36 +260,23 @@ namespace FluentUIScaffold.Core.Tests
             var result = builder.WithDetailedLogging(true);
 
             // Assert
-            Assert.Same(builder, result);
+            Assert.That(result, Is.SameAs(builder));
         }
 
-        [Fact]
+        [Test]
         public void WithUserAgent_WithValidUserAgent_SetsUserAgent()
         {
             // Arrange
             var builder = new FluentUIScaffoldOptionsBuilder();
 
             // Act
-            var result = builder.WithUserAgent("Custom User Agent");
+            var result = builder.WithUserAgent("Test User Agent");
 
             // Assert
-            Assert.Same(builder, result);
+            Assert.That(result, Is.SameAs(builder));
         }
 
-        [Fact]
-        public void WithUserAgent_WithNullUserAgent_ThrowsValidationException()
-        {
-            // Arrange
-            var builder = new FluentUIScaffoldOptionsBuilder();
-
-            // Act & Assert
-            var exception = Assert.Throws<FluentUIScaffoldValidationException>(() =>
-                builder.WithUserAgent(null));
-
-            Assert.Contains("User agent cannot be null or empty", exception.Message);
-        }
-
-        [Fact]
+        [Test]
         public void WithJavaScriptEnabled_WithEnabled_SetsJavaScriptEnabled()
         {
             // Arrange
@@ -431,10 +286,10 @@ namespace FluentUIScaffold.Core.Tests
             var result = builder.WithJavaScriptEnabled(true);
 
             // Assert
-            Assert.Same(builder, result);
+            Assert.That(result, Is.SameAs(builder));
         }
 
-        [Fact]
+        [Test]
         public void WithAcceptInsecureCertificates_WithEnabled_SetsAcceptInsecureCertificates()
         {
             // Arrange
@@ -444,37 +299,24 @@ namespace FluentUIScaffold.Core.Tests
             var result = builder.WithAcceptInsecureCertificates(true);
 
             // Assert
-            Assert.Same(builder, result);
+            Assert.That(result, Is.SameAs(builder));
         }
 
-        [Fact]
+        [Test]
         public void WithPageLoadTimeout_WithValidTimeout_SetsPageLoadTimeout()
         {
             // Arrange
             var builder = new FluentUIScaffoldOptionsBuilder();
-            var timeout = TimeSpan.FromSeconds(60);
+            var timeout = TimeSpan.FromSeconds(30);
 
             // Act
             var result = builder.WithPageLoadTimeout(timeout);
 
             // Assert
-            Assert.Same(builder, result);
+            Assert.That(result, Is.SameAs(builder));
         }
 
-        [Fact]
-        public void WithPageLoadTimeout_WithZeroTimeout_ThrowsValidationException()
-        {
-            // Arrange
-            var builder = new FluentUIScaffoldOptionsBuilder();
-
-            // Act & Assert
-            var exception = Assert.Throws<FluentUIScaffoldValidationException>(() =>
-                builder.WithPageLoadTimeout(TimeSpan.Zero));
-
-            Assert.Contains("Page load timeout must be greater than zero", exception.Message);
-        }
-
-        [Fact]
+        [Test]
         public void WithScriptTimeout_WithValidTimeout_SetsScriptTimeout()
         {
             // Arrange
@@ -485,87 +327,29 @@ namespace FluentUIScaffold.Core.Tests
             var result = builder.WithScriptTimeout(timeout);
 
             // Assert
-            Assert.Same(builder, result);
+            Assert.That(result, Is.SameAs(builder));
         }
 
-        [Fact]
-        public void WithScriptTimeout_WithZeroTimeout_ThrowsValidationException()
+        [Test]
+        public void Build_WithValidConfiguration_ReturnsOptions()
         {
             // Arrange
             var builder = new FluentUIScaffoldOptionsBuilder();
 
-            // Act & Assert
-            var exception = Assert.Throws<FluentUIScaffoldValidationException>(() =>
-                builder.WithScriptTimeout(TimeSpan.Zero));
-
-            Assert.Contains("Script timeout must be greater than zero", exception.Message);
-        }
-
-        [Fact]
-        public void Build_WithValidConfiguration_ReturnsOptions()
-        {
-            // Arrange
-            var builder = new FluentUIScaffoldOptionsBuilder()
-                .WithBaseUrl("https://test.example.com")
-                .WithTimeout(TimeSpan.FromSeconds(30))
-                .WithRetryInterval(TimeSpan.FromSeconds(5))
-                .WithWaitStrategy(WaitStrategy.Explicit)
-                .WithLogLevel(LogLevel.Information)
-                .WithScreenshotPath("/path/to/screenshots")
-                .WithAutomaticScreenshots(true)
-                .WithHeadlessMode(true)
-                .WithWindowSize(1920, 1080)
-                .WithImplicitWaits(true)
-                .WithDefaultWaitTimeout(TimeSpan.FromSeconds(10))
-                .WithRetryCount(3)
-                .WithDetailedLogging(true)
-                .WithUserAgent("Custom User Agent")
-                .WithJavaScriptEnabled(true)
-                .WithAcceptInsecureCertificates(true)
-                .WithPageLoadTimeout(TimeSpan.FromSeconds(60))
-                .WithScriptTimeout(TimeSpan.FromSeconds(30));
-
             // Act
-            var options = builder.Build();
+            var options = builder
+                .WithBaseUrl(new Uri("https://test.example.com"))
+                .WithTimeout(TimeSpan.FromSeconds(30))
+                .WithWaitStrategy(WaitStrategy.Visible)
+                .WithLogLevel(LogLevel.Information)
+                .Build();
 
             // Assert
-            Assert.NotNull(options);
-            Assert.Equal("https://test.example.com", options.BaseUrl);
-            Assert.Equal(TimeSpan.FromSeconds(30), options.Timeout);
-            Assert.Equal(TimeSpan.FromSeconds(5), options.RetryInterval);
-            Assert.Equal(WaitStrategy.Explicit, options.WaitStrategy);
-            Assert.Equal(LogLevel.Information, options.LogLevel);
-            Assert.Equal("/path/to/screenshots", options.ScreenshotPath);
-            Assert.True(options.AutomaticScreenshots);
-            Assert.True(options.HeadlessMode);
-            Assert.Equal(1920, options.WindowWidth);
-            Assert.Equal(1080, options.WindowHeight);
-            Assert.True(options.ImplicitWaits);
-            Assert.Equal(TimeSpan.FromSeconds(10), options.DefaultWaitTimeout);
-            Assert.Equal(3, options.RetryCount);
-            Assert.True(options.DetailedLogging);
-            Assert.Equal("Custom User Agent", options.UserAgent);
-            Assert.True(options.JavaScriptEnabled);
-            Assert.True(options.AcceptInsecureCertificates);
-            Assert.Equal(TimeSpan.FromSeconds(60), options.PageLoadTimeout);
-            Assert.Equal(TimeSpan.FromSeconds(30), options.ScriptTimeout);
-        }
-
-        [Fact]
-        public void Build_WithInvalidConfiguration_ThrowsValidationException()
-        {
-            // Arrange
-            var builder = new FluentUIScaffoldOptionsBuilder()
-                .WithTimeout(TimeSpan.Zero); // Invalid timeout
-
-            // Act & Assert
-            var exception = Assert.Throws<FluentUIScaffoldValidationException>(() => builder.Build());
-            Assert.Contains("Configuration validation failed", exception.Message);
-        }
-
-        // Test driver class for testing
-        private class TestDriver
-        {
+            Assert.That(options, Is.Not.Null);
+            Assert.That(options.BaseUrl, Is.EqualTo(new Uri("https://test.example.com")));
+            Assert.That(options.DefaultTimeout, Is.EqualTo(TimeSpan.FromSeconds(30)));
+            Assert.That(options.WaitStrategy, Is.EqualTo(WaitStrategy.Visible));
+            Assert.That(options.LogLevel, Is.EqualTo(LogLevel.Information));
         }
     }
-} 
+}

@@ -20,13 +20,14 @@ namespace FluentUIScaffold.Core
     /// Provides a fluent API for configuring and executing UI tests.
     /// </summary>
     /// <typeparam name="TApp">The type of application being tested (WebApp, MobileApp, etc.)</typeparam>
-    public class FluentUIScaffoldApp<TApp> where TApp : class
+    public class FluentUIScaffoldApp<TApp> : IDisposable where TApp : class
     {
         private readonly FluentUIScaffoldOptions _options;
         private readonly IUIDriver _driver;
         private readonly ILogger _logger;
         private readonly IServiceProvider _serviceProvider;
         private readonly PluginManager _pluginManager;
+        private bool _disposed = false;
 
         internal FluentUIScaffoldApp(FluentUIScaffoldOptions options, IUIDriver driver, ILogger logger, IServiceProvider serviceProvider)
         {
@@ -70,7 +71,39 @@ namespace FluentUIScaffold.Core
         /// <returns>The driver instance</returns>
         public TDriver Framework<TDriver>() where TDriver : class
         {
-            return _serviceProvider.GetService<TDriver>() ?? default!;
+            return _serviceProvider.GetRequiredService<TDriver>();
+        }
+
+        /// <summary>
+        /// Disposes the FluentUIScaffoldApp and its resources.
+        /// </summary>
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        /// <summary>
+        /// Disposes the FluentUIScaffoldApp and its resources.
+        /// </summary>
+        /// <param name="disposing">True if called from Dispose; false if called from finalizer</param>
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!_disposed && disposing)
+            {
+                // Dispose managed resources
+                if (_driver is IDisposable disposableDriver)
+                {
+                    disposableDriver.Dispose();
+                }
+
+                if (_serviceProvider is IDisposable disposableServiceProvider)
+                {
+                    disposableServiceProvider.Dispose();
+                }
+
+                _disposed = true;
+            }
         }
     }
 
@@ -86,7 +119,8 @@ namespace FluentUIScaffold.Core
             var serviceProvider = services.BuildServiceProvider();
 
             var driver = serviceProvider.GetRequiredService<IUIDriver>();
-            var logger = serviceProvider.GetRequiredService<ILogger>();
+            var loggerFactory = serviceProvider.GetRequiredService<ILoggerFactory>();
+            var logger = loggerFactory.CreateLogger("FluentUIScaffold");
 
             return new FluentUIScaffoldApp<WebApp>(options, driver, logger, serviceProvider);
         }
@@ -101,7 +135,8 @@ namespace FluentUIScaffold.Core
             var serviceProvider = services.BuildServiceProvider();
 
             var driver = serviceProvider.GetRequiredService<IUIDriver>();
-            var logger = serviceProvider.GetRequiredService<ILogger>();
+            var loggerFactory = serviceProvider.GetRequiredService<ILoggerFactory>();
+            var logger = loggerFactory.CreateLogger("FluentUIScaffold");
 
             return new FluentUIScaffoldApp<MobileApp>(options, driver, logger, serviceProvider);
         }
@@ -109,12 +144,52 @@ namespace FluentUIScaffold.Core
         private static void ConfigureServices(IServiceCollection services, FluentUIScaffoldOptions options)
         {
             services.AddSingleton(options);
-            services.AddSingleton<IUIDriver, DefaultUIDriver>();
+
+            // Register Playwright plugin if available
+            try
+            {
+                var playwrightPluginType = Type.GetType("FluentUIScaffold.Playwright.PlaywrightPlugin, FluentUIScaffold.Playwright");
+                if (playwrightPluginType != null)
+                {
+                    var playwrightDriverType = Type.GetType("FluentUIScaffold.Playwright.PlaywrightDriver, FluentUIScaffold.Playwright");
+                    if (playwrightDriverType != null)
+                    {
+                        services.AddSingleton(typeof(IUIDriver), playwrightDriverType);
+                    }
+                    else
+                    {
+                        services.AddSingleton<IUIDriver, DefaultUIDriver>();
+                    }
+                }
+                else
+                {
+                    services.AddSingleton<IUIDriver, DefaultUIDriver>();
+                }
+            }
+            catch
+            {
+                services.AddSingleton<IUIDriver, DefaultUIDriver>();
+            }
+
             services.AddLogging(builder =>
             {
                 builder.SetMinimumLevel(options.LogLevel);
                 builder.AddConsole();
             });
+            // Register ILogger (non-generic) for DI
+            services.AddSingleton<ILogger>(provider => provider.GetRequiredService<ILoggerFactory>().CreateLogger("FluentUIScaffold"));
+            // Register page objects for DI if available
+            var sampleAppPagesAssembly = AppDomain.CurrentDomain.GetAssemblies()
+                .FirstOrDefault(a => a.GetName().Name == "SampleApp.Tests");
+            if (sampleAppPagesAssembly != null)
+            {
+                var homePageType = sampleAppPagesAssembly.GetType("SampleApp.Tests.Pages.HomePage");
+                var todosPageType = sampleAppPagesAssembly.GetType("SampleApp.Tests.Pages.TodosPage");
+                var profilePageType = sampleAppPagesAssembly.GetType("SampleApp.Tests.Pages.ProfilePage");
+                if (homePageType != null) services.AddTransient(homePageType);
+                if (todosPageType != null) services.AddTransient(todosPageType);
+                if (profilePageType != null) services.AddTransient(profilePageType);
+            }
         }
     }
 

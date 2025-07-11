@@ -43,35 +43,35 @@ public class PlaywrightWaitStrategy
         switch (strategy)
         {
             case WaitStrategy.Visible:
-                locator.WaitForAsync(new LocatorWaitForOptions 
-                { 
-                    State = WaitForSelectorState.Visible, 
-                    Timeout = timeoutMs 
+                locator.WaitForAsync(new LocatorWaitForOptions
+                {
+                    State = WaitForSelectorState.Visible,
+                    Timeout = timeoutMs
                 }).Wait();
                 break;
 
             case WaitStrategy.Hidden:
-                locator.WaitForAsync(new LocatorWaitForOptions 
-                { 
-                    State = WaitForSelectorState.Hidden, 
-                    Timeout = timeoutMs 
+                locator.WaitForAsync(new LocatorWaitForOptions
+                {
+                    State = WaitForSelectorState.Hidden,
+                    Timeout = timeoutMs
                 }).Wait();
                 break;
 
             case WaitStrategy.Clickable:
-                locator.WaitForAsync(new LocatorWaitForOptions 
-                { 
-                    State = WaitForSelectorState.Visible, 
-                    Timeout = timeoutMs 
+                locator.WaitForAsync(new LocatorWaitForOptions
+                {
+                    State = WaitForSelectorState.Visible,
+                    Timeout = timeoutMs
                 }).Wait();
                 break;
 
             case WaitStrategy.Enabled:
                 // For enabled state, we wait for visible first, then check if enabled
-                locator.WaitForAsync(new LocatorWaitForOptions 
-                { 
-                    State = WaitForSelectorState.Visible, 
-                    Timeout = timeoutMs 
+                locator.WaitForAsync(new LocatorWaitForOptions
+                {
+                    State = WaitForSelectorState.Visible,
+                    Timeout = timeoutMs
                 }).Wait();
                 if (!locator.IsEnabledAsync().Result)
                 {
@@ -81,10 +81,10 @@ public class PlaywrightWaitStrategy
 
             case WaitStrategy.Disabled:
                 // For disabled state, we wait for visible first, then check if disabled
-                locator.WaitForAsync(new LocatorWaitForOptions 
-                { 
-                    State = WaitForSelectorState.Visible, 
-                    Timeout = timeoutMs 
+                locator.WaitForAsync(new LocatorWaitForOptions
+                {
+                    State = WaitForSelectorState.Visible,
+                    Timeout = timeoutMs
                 }).Wait();
                 if (locator.IsEnabledAsync().Result)
                 {
@@ -94,10 +94,10 @@ public class PlaywrightWaitStrategy
 
             case WaitStrategy.TextPresent:
                 // For text present, we wait for visible first, then check if text is present
-                locator.WaitForAsync(new LocatorWaitForOptions 
-                { 
-                    State = WaitForSelectorState.Visible, 
-                    Timeout = timeoutMs 
+                locator.WaitForAsync(new LocatorWaitForOptions
+                {
+                    State = WaitForSelectorState.Visible,
+                    Timeout = timeoutMs
                 }).Wait();
                 break;
 
@@ -126,10 +126,10 @@ public class PlaywrightWaitStrategy
         try
         {
             // First try: Wait for visible
-            locator.WaitForAsync(new LocatorWaitForOptions 
-            { 
-                State = WaitForSelectorState.Visible, 
-                Timeout = timeoutMs 
+            locator.WaitForAsync(new LocatorWaitForOptions
+            {
+                State = WaitForSelectorState.Visible,
+                Timeout = timeoutMs
             }).Wait();
         }
         catch
@@ -137,26 +137,26 @@ public class PlaywrightWaitStrategy
             try
             {
                 // Second try: Wait for attached (element exists in DOM but might not be visible)
-                locator.WaitForAsync(new LocatorWaitForOptions 
-                { 
-                    State = WaitForSelectorState.Attached, 
-                    Timeout = timeoutMs 
+                locator.WaitForAsync(new LocatorWaitForOptions
+                {
+                    State = WaitForSelectorState.Attached,
+                    Timeout = timeoutMs
                 }).Wait();
             }
             catch
             {
                 // Third try: Wait for detached (element was removed and might be re-added)
-                locator.WaitForAsync(new LocatorWaitForOptions 
-                { 
-                    State = WaitForSelectorState.Detached, 
-                    Timeout = timeoutMs / 2 
+                locator.WaitForAsync(new LocatorWaitForOptions
+                {
+                    State = WaitForSelectorState.Detached,
+                    Timeout = timeoutMs / 2
                 }).Wait();
-                
+
                 // Then wait for attached
-                locator.WaitForAsync(new LocatorWaitForOptions 
-                { 
-                    State = WaitForSelectorState.Attached, 
-                    Timeout = timeoutMs / 2 
+                locator.WaitForAsync(new LocatorWaitForOptions
+                {
+                    State = WaitForSelectorState.Attached,
+                    Timeout = timeoutMs / 2
                 }).Wait();
             }
         }
@@ -177,10 +177,10 @@ public class PlaywrightWaitStrategy
         var timeoutMs = (float)timeout.TotalMilliseconds;
 
         // Wait for element to be visible first
-        locator.WaitForAsync(new LocatorWaitForOptions 
-        { 
-            State = WaitForSelectorState.Visible, 
-            Timeout = timeoutMs 
+        locator.WaitForAsync(new LocatorWaitForOptions
+        {
+            State = WaitForSelectorState.Visible,
+            Timeout = timeoutMs
         }).Wait();
 
         // Then wait for text content
@@ -214,10 +214,10 @@ public class PlaywrightWaitStrategy
         var timeoutMs = (float)timeout.TotalMilliseconds;
 
         // Wait for element to be visible first
-        locator.WaitForAsync(new LocatorWaitForOptions 
-        { 
-            State = WaitForSelectorState.Visible, 
-            Timeout = timeoutMs 
+        locator.WaitForAsync(new LocatorWaitForOptions
+        {
+            State = WaitForSelectorState.Visible,
+            Timeout = timeoutMs
         }).Wait();
 
         // Then wait for attribute value
@@ -234,4 +234,4 @@ public class PlaywrightWaitStrategy
 
         throw new TimeoutException($"Element {selector} did not have expected attribute '{attributeName}' with value '{expectedValue}' within {timeout.TotalSeconds} seconds.");
     }
-} 
+}

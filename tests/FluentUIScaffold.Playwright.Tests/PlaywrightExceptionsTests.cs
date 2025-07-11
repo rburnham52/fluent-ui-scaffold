@@ -352,4 +352,4 @@ public class PlaywrightExceptionsTests
         // Assert
         Assert.That(exception, Is.InstanceOf<PlaywrightException>());
     }
-} 
+}

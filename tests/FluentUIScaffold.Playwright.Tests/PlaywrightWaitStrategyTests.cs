@@ -5,6 +5,8 @@ using FluentUIScaffold.Core.Configuration;
 
 using Microsoft.Playwright;
 
+using Moq;
+
 using NUnit.Framework;
 
 namespace FluentUIScaffold.Playwright.Tests;
@@ -201,7 +203,7 @@ public class PlaywrightWaitStrategyTests
     public void WaitForElement_WithDisabledStrategy_ShouldNotThrowException()
     {
         // Arrange
-        var page = CreateMockPage();
+        var page = CreateMockPage(isEnabled: false);
         var strategy = new PlaywrightWaitStrategy(page, _options);
 
         // Act & Assert
@@ -230,10 +232,19 @@ public class PlaywrightWaitStrategyTests
         Assert.DoesNotThrow(() => strategy.WaitForElement("selector", WaitStrategy.Smart, TimeSpan.FromSeconds(1)));
     }
 
-    private static IPage CreateMockPage()
+    private static IPage CreateMockPage(bool isEnabled = true)
     {
-        // This is a simplified mock for testing purposes
-        // In a real implementation, you would use a proper mocking framework
-        return null!;
+        var mock = new Mock<IPage>();
+        var locatorMock = new Mock<ILocator>();
+
+        // Setup the Locator method
+        mock.Setup(p => p.Locator(It.IsAny<string>(), It.IsAny<PageLocatorOptions>())).Returns(locatorMock.Object);
+
+        // Setup locator methods that are used by wait strategies
+        locatorMock.Setup(l => l.IsEnabledAsync(It.IsAny<LocatorIsEnabledOptions>())).ReturnsAsync(isEnabled);
+        locatorMock.Setup(l => l.IsVisibleAsync(It.IsAny<LocatorIsVisibleOptions>())).ReturnsAsync(true);
+        locatorMock.Setup(l => l.TextContentAsync(It.IsAny<LocatorTextContentOptions>())).ReturnsAsync("test text");
+
+        return mock.Object;
     }
-} 
+}

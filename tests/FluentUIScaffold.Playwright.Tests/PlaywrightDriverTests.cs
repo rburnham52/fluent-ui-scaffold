@@ -65,7 +65,7 @@ public class PlaywrightDriverTests
     }
 
     [Test]
-    public void CurrentUrl_WhenNotNavigated_ShouldReturnNull()
+    public void CurrentUrl_WhenNotNavigated_ShouldReturnDefaultUrl()
     {
         // Arrange
         using var driver = new PlaywrightDriver(_options);
@@ -74,7 +74,8 @@ public class PlaywrightDriverTests
         var currentUrl = driver.CurrentUrl;
 
         // Assert
-        Assert.That(currentUrl, Is.Null);
+        Assert.That(currentUrl, Is.Not.Null);
+        Assert.That(currentUrl!.ToString(), Is.EqualTo("about:blank"));
     }
 
     [Test]
@@ -369,4 +370,4 @@ public class PlaywrightDriverTests
         Assert.DoesNotThrow(() => driver.Dispose());
         Assert.DoesNotThrow(() => driver.Dispose());
     }
-} 
+}

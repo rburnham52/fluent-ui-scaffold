@@ -4,6 +4,8 @@ using System.Threading.Tasks;
 
 using Microsoft.Playwright;
 
+using Moq;
+
 using NUnit.Framework;
 
 namespace FluentUIScaffold.Playwright.Tests;
@@ -390,8 +392,30 @@ public class PlaywrightAdvancedFeaturesTests
 
     private static IPage CreateMockPage()
     {
-        // This is a simplified mock for testing purposes
-        // In a real implementation, you would use a proper mocking framework
-        return null!;
+        var mock = new Mock<IPage>();
+        var locatorMock = new Mock<ILocator>();
+        var contextMock = new Mock<IBrowserContext>();
+
+        // Setup the Locator method
+        mock.Setup(p => p.Locator(It.IsAny<string>(), It.IsAny<PageLocatorOptions>())).Returns(locatorMock.Object);
+        // Setup ScreenshotAsync for page and locator
+        mock.Setup(p => p.ScreenshotAsync(It.IsAny<PageScreenshotOptions>())).ReturnsAsync(new byte[1]);
+        locatorMock.Setup(l => l.ScreenshotAsync(It.IsAny<LocatorScreenshotOptions>())).ReturnsAsync(new byte[1]);
+        // Setup PdfAsync
+        mock.Setup(p => p.PdfAsync(It.IsAny<PagePdfOptions>())).ReturnsAsync(new byte[1]);
+        // Setup EvaluateAsync for object and JsonElement return types
+        mock.Setup(p => p.EvaluateAsync<object>(It.IsAny<string>(), It.IsAny<object>())).ReturnsAsync((object?)1);
+        mock.Setup(p => p.EvaluateAsync(It.IsAny<string>(), It.IsAny<object>())).ReturnsAsync(System.Text.Json.JsonDocument.Parse("null").RootElement);
+        // Setup AddInitScriptAsync
+        mock.Setup(p => p.AddInitScriptAsync(It.IsAny<string>(), null)).Returns(Task.CompletedTask);
+        // Setup WaitForResponseAsync
+        mock.Setup(p => p.WaitForResponseAsync(It.IsAny<string>(), It.IsAny<PageWaitForResponseOptions>())).ReturnsAsync(new Mock<IResponse>().Object);
+        // Setup WaitForRequestAsync
+        mock.Setup(p => p.WaitForRequestAsync(It.IsAny<string>(), It.IsAny<PageWaitForRequestOptions>())).ReturnsAsync(new Mock<IRequest>().Object);
+        // Setup Context property and its methods
+        mock.Setup(p => p.Context).Returns(contextMock.Object);
+        contextMock.Setup(c => c.SetGeolocationAsync(It.IsAny<Geolocation>())).Returns(Task.CompletedTask);
+        contextMock.Setup(c => c.GrantPermissionsAsync(It.IsAny<string[]>(), null)).Returns(Task.CompletedTask);
+        return mock.Object;
     }
-} 
+}

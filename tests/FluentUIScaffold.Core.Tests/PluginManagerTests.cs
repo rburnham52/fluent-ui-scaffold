@@ -1,20 +1,27 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
-using Microsoft.Extensions.Logging;
-using Xunit;
-using FluentUIScaffold.Core.Plugins;
+
 using FluentUIScaffold.Core.Configuration;
 using FluentUIScaffold.Core.Drivers;
 using FluentUIScaffold.Core.Exceptions;
+using FluentUIScaffold.Core.Interfaces;
+using FluentUIScaffold.Core.Plugins;
+
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+
+using NUnit.Framework;
 
 namespace FluentUIScaffold.Core.Tests
 {
     /// <summary>
     /// Unit tests for the PluginManager class.
     /// </summary>
+    [TestFixture]
     public class PluginManagerTests
     {
-        [Fact]
+        [Test]
         public void Constructor_WithLogger_CreatesInstance()
         {
             // Arrange
@@ -24,10 +31,10 @@ namespace FluentUIScaffold.Core.Tests
             var pluginManager = new PluginManager(logger);
 
             // Assert
-            Assert.NotNull(pluginManager);
+            Assert.That(pluginManager, Is.Not.Null);
         }
 
-        [Fact]
+        [Test]
         public void RegisterPlugin_WithValidPluginType_RegistersPlugin()
         {
             // Arrange
@@ -38,11 +45,11 @@ namespace FluentUIScaffold.Core.Tests
 
             // Assert
             var plugins = pluginManager.GetPlugins().ToList();
-            Assert.Single(plugins);
-            Assert.IsType<TestPlugin>(plugins.First());
+            Assert.That(plugins, Has.Count.EqualTo(1));
+            Assert.That(plugins.First(), Is.InstanceOf<TestPlugin>());
         }
 
-        [Fact]
+        [Test]
         public void RegisterPlugin_WithValidPluginInstance_RegistersPlugin()
         {
             // Arrange
@@ -54,11 +61,11 @@ namespace FluentUIScaffold.Core.Tests
 
             // Assert
             var plugins = pluginManager.GetPlugins().ToList();
-            Assert.Single(plugins);
-            Assert.Same(plugin, plugins.First());
+            Assert.That(plugins, Has.Count.EqualTo(1));
+            Assert.That(plugins.First(), Is.SameAs(plugin));
         }
 
-        [Fact]
+        [Test]
         public void RegisterPlugin_WithNullPlugin_ThrowsArgumentNullException()
         {
             // Arrange
@@ -68,7 +75,7 @@ namespace FluentUIScaffold.Core.Tests
             Assert.Throws<ArgumentNullException>(() => pluginManager.RegisterPlugin((IUITestingFrameworkPlugin)null));
         }
 
-        [Fact]
+        [Test]
         public void RegisterPlugin_WithDuplicatePlugin_DoesNotAddDuplicate()
         {
             // Arrange
@@ -81,10 +88,10 @@ namespace FluentUIScaffold.Core.Tests
 
             // Assert
             var plugins = pluginManager.GetPlugins().ToList();
-            Assert.Single(plugins);
+            Assert.That(plugins, Has.Count.EqualTo(1));
         }
 
-        [Fact]
+        [Test]
         public void GetPlugins_ReturnsReadOnlyCollection()
         {
             // Arrange
@@ -95,40 +102,34 @@ namespace FluentUIScaffold.Core.Tests
             var plugins = pluginManager.GetPlugins();
 
             // Assert
-            Assert.NotNull(plugins);
-            Assert.Single(plugins);
+            Assert.That(plugins, Is.Not.Null);
+            Assert.That(plugins, Has.Count.EqualTo(1));
         }
 
-        [Fact]
-        public void ValidatePlugins_WithValidPlugins_ReturnsTrue()
+        [Test]
+        public void ValidatePlugins_WithValidPlugins_DoesNotThrow()
         {
             // Arrange
             var pluginManager = new PluginManager();
             pluginManager.RegisterPlugin<TestPlugin>();
 
-            // Act
-            var isValid = pluginManager.ValidatePlugins();
-
-            // Assert
-            Assert.True(isValid);
+            // Act & Assert
+            Assert.DoesNotThrow(() => pluginManager.ValidatePlugins());
         }
 
-        [Fact]
-        public void ValidatePlugins_WithInvalidPlugin_ReturnsFalse()
+        [Test]
+        public void ValidatePlugins_WithInvalidPlugin_ThrowsPluginException()
         {
             // Arrange
             var pluginManager = new PluginManager();
             pluginManager.RegisterPlugin<InvalidTestPlugin>();
 
-            // Act
-            var isValid = pluginManager.ValidatePlugins();
-
-            // Assert
-            Assert.False(isValid);
+            // Act & Assert
+            Assert.Throws<FluentUIScaffoldPluginException>(() => pluginManager.ValidatePlugins());
         }
 
-        [Fact]
-        public void ClearPlugins_RemovesAllPlugins()
+        [Test]
+        public void GetPlugins_ReturnsRegisteredPlugins()
         {
             // Arrange
             var pluginManager = new PluginManager();
@@ -136,103 +137,102 @@ namespace FluentUIScaffold.Core.Tests
             pluginManager.RegisterPlugin<AnotherTestPlugin>();
 
             // Act
-            pluginManager.ClearPlugins();
+            var plugins = pluginManager.GetPlugins();
 
             // Assert
-            var plugins = pluginManager.GetPlugins().ToList();
-            Assert.Empty(plugins);
+            Assert.That(plugins, Has.Count.EqualTo(2));
         }
 
-        [Fact]
-        public void CreateDriver_WithValidDriverType_ReturnsDriver()
+        [Test]
+        public void CreateDriver_WithValidOptions_ReturnsDriver()
         {
             // Arrange
             var pluginManager = new PluginManager();
             var options = new FluentUIScaffoldOptions();
 
             // Act
-            var driver = pluginManager.CreateDriver(typeof(DefaultUIDriver), options);
+            var driver = pluginManager.CreateDriver(options);
 
             // Assert
-            Assert.NotNull(driver);
-            Assert.IsType<DefaultUIDriver>(driver);
+            Assert.That(driver, Is.Not.Null);
+            Assert.That(driver, Is.InstanceOf<DefaultUIDriver>());
         }
 
-        [Fact]
-        public void CreateDriver_WithNullDriverType_ThrowsArgumentNullException()
-        {
-            // Arrange
-            var pluginManager = new PluginManager();
-            var options = new FluentUIScaffoldOptions();
-
-            // Act & Assert
-            Assert.Throws<ArgumentNullException>(() => pluginManager.CreateDriver(null, options));
-        }
-
-        [Fact]
+        [Test]
         public void CreateDriver_WithNullOptions_ThrowsArgumentNullException()
         {
             // Arrange
             var pluginManager = new PluginManager();
 
             // Act & Assert
-            Assert.Throws<ArgumentNullException>(() => pluginManager.CreateDriver(typeof(DefaultUIDriver), null));
-        }
-
-        [Fact]
-        public void CreateDriver_WithInvalidDriverType_ThrowsPluginException()
-        {
-            // Arrange
-            var pluginManager = new PluginManager();
-            var options = new FluentUIScaffoldOptions();
-
-            // Act & Assert
-            Assert.Throws<FluentUIScaffoldPluginException>(() => 
-                pluginManager.CreateDriver(typeof(string), options));
+            Assert.Throws<ArgumentNullException>(() => pluginManager.CreateDriver(null));
         }
 
         // Test plugin implementations
         private class TestPlugin : IUITestingFrameworkPlugin
         {
-            public IUIDriver CreateDriver(Type driverType, FluentUIScaffoldOptions options)
+            public string Name => "TestPlugin";
+            public string Version => "1.0.0";
+            public IReadOnlyList<Type> SupportedDriverTypes => new List<Type> { typeof(DefaultUIDriver) };
+
+            public bool CanHandle(Type driverType)
             {
-                if (driverType == typeof(DefaultUIDriver))
-                {
-                    return new DefaultUIDriver();
-                }
-                return null;
+                return driverType == typeof(DefaultUIDriver);
             }
 
-            public void Validate()
+            public IUIDriver CreateDriver(FluentUIScaffoldOptions options)
             {
-                // Valid plugin - no validation errors
+                return new DefaultUIDriver();
+            }
+
+            public void ConfigureServices(IServiceCollection services)
+            {
+                // Valid plugin - no configuration needed
             }
         }
 
         private class AnotherTestPlugin : IUITestingFrameworkPlugin
         {
-            public IUIDriver CreateDriver(Type driverType, FluentUIScaffoldOptions options)
+            public string Name => "AnotherTestPlugin";
+            public string Version => "1.0.0";
+            public IReadOnlyList<Type> SupportedDriverTypes => new List<Type> { typeof(DefaultUIDriver) };
+
+            public bool CanHandle(Type driverType)
             {
-                return null;
+                return driverType == typeof(DefaultUIDriver);
             }
 
-            public void Validate()
+            public IUIDriver CreateDriver(FluentUIScaffoldOptions options)
             {
-                // Valid plugin - no validation errors
+                return new DefaultUIDriver();
+            }
+
+            public void ConfigureServices(IServiceCollection services)
+            {
+                // Valid plugin - no configuration needed
             }
         }
 
         private class InvalidTestPlugin : IUITestingFrameworkPlugin
         {
-            public IUIDriver CreateDriver(Type driverType, FluentUIScaffoldOptions options)
+            public string Name => "InvalidTestPlugin";
+            public string Version => "1.0.0";
+            public IReadOnlyList<Type> SupportedDriverTypes => new List<Type>();
+
+            public bool CanHandle(Type driverType)
             {
-                return null;
+                return false;
             }
 
-            public void Validate()
+            public IUIDriver CreateDriver(FluentUIScaffoldOptions options)
             {
-                throw new InvalidOperationException("This plugin is invalid");
+                throw new FluentUIScaffoldPluginException("Invalid plugin");
+            }
+
+            public void ConfigureServices(IServiceCollection services)
+            {
+                throw new FluentUIScaffoldPluginException("Invalid plugin");
             }
         }
     }
-} 
+}

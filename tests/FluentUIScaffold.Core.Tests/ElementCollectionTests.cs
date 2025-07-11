@@ -2,10 +2,13 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+
 using FluentUIScaffold.Core;
 using FluentUIScaffold.Core.Configuration;
 using FluentUIScaffold.Core.Interfaces;
+
 using Moq;
+
 using NUnit.Framework;
 
 namespace FluentUIScaffold.Core.Tests;
@@ -343,4 +346,4 @@ public class ElementCollectionTests
         Assert.That(elements[1].Selector, Is.EqualTo("#element2"));
         Assert.That(elements[2].Selector, Is.EqualTo("#element3"));
     }
-} 
+}

@@ -1,10 +1,13 @@
 // Copyright (c) FluentUIScaffold. All rights reserved.
 using System;
 using System.Collections.Generic;
+
 using FluentUIScaffold.Core;
 using FluentUIScaffold.Core.Configuration;
 using FluentUIScaffold.Core.Interfaces;
+
 using Moq;
+
 using NUnit.Framework;
 
 namespace FluentUIScaffold.Core.Tests;
@@ -263,4 +266,4 @@ public class ElementBuilderTests
         Assert.That(element.Description, Is.EqualTo("Test Element"));
         Assert.That(element.RetryInterval, Is.EqualTo(TimeSpan.FromMilliseconds(500)));
     }
-} 
+}
