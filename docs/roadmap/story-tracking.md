@@ -81,6 +81,14 @@
 - **Dependencies**: Story 1.3.1, Story 1.3.2
 - **File**: `phase-1-foundation/epic-1.3-page-objects/story-1.3.3-page-navigation.md`
 
+#### Story 1.3.4: Sample App Integration
+- **Status**: 🔴 Not Started
+- **Priority**: Critical
+- **Estimated Time**: 2-3 weeks
+- **Assigned To**: TBD
+- **Dependencies**: Story 1.3.1, Story 1.3.2, Story 1.3.3
+- **File**: `phase-1-foundation/epic-1.3-page-objects/story-1.3.4-sample-app-integration.md`
+
 ## Phase 2: Advanced Features & Verification
 
 ### Epic 2.1: Verification System
@@ -159,7 +167,7 @@
 - **Dependencies**: Story 1.3.1, Story 2.1.1
 - **File**: `phase-3-documentation/epic-3.1-api-docs/story-3.1.1-api-documentation.md`
 
-#### Story 3.1.2: Tutorial and Best Practices
+#### Story 3.1.2: Tutorials and Best Practices
 - **Status**: 🔴 Not Started
 - **Priority**: High
 - **Estimated Time**: 2-3 weeks
@@ -167,14 +175,16 @@
 - **Dependencies**: Story 3.1.1
 - **File**: `phase-3-documentation/epic-3.1-api-docs/story-3.1.2-tutorials-best-practices.md`
 
+
+
 ### Epic 3.2: Sample Applications and Integration Tests
 
-#### Story 3.2.1: Sample Web Application
+#### Story 3.2.1: Advanced Sample Web Application
 - **Status**: 🔴 Not Started
 - **Priority**: Medium
 - **Estimated Time**: 2-3 weeks
 - **Assigned To**: TBD
-- **Dependencies**: Story 1.3.1, Story 2.1.1
+- **Dependencies**: Story 1.3.4, Story 2.1.1
 - **File**: `phase-3-documentation/epic-3.2-samples/story-3.2.1-sample-web-app.md`
 
 #### Story 3.2.2: Integration Test Suite
@@ -238,11 +248,11 @@
 ## Story Completion Tracking
 
 ### Phase 1 Progress
-- **Total Stories**: 6
+- **Total Stories**: 7
 - **Completed**: 4
 - **In Progress**: 0
-- **Not Started**: 2
-- **Completion**: 67%
+- **Not Started**: 3
+- **Completion**: 57%
 
 ### Phase 2 Progress
 - **Total Stories**: 6
@@ -266,11 +276,11 @@
 - **Completion**: 0%
 
 ### Overall Progress
-- **Total Stories**: 21
+- **Total Stories**: 22
 - **Completed**: 4
 - **In Progress**: 0
-- **Not Started**: 17
-- **Completion**: 19%
+- **Not Started**: 18
+- **Completion**: 18%
 
 ## Next Steps
 

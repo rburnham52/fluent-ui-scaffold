@@ -1,19 +1,19 @@
-# Story 3.2.1: Sample Web Application (MVP Focus)
+# Story 3.2.1: Advanced Sample Web Application
 
 ## Story Information
 - **Epic**: Epic 3.2 - Sample Applications and Integration Tests
-- **Priority**: High (MVP Focus)
-- **Estimated Time**: 1-2 weeks
+- **Priority**: Medium
+- **Estimated Time**: 2-3 weeks
 - **Status**: 🔴 Not Started
 - **Assigned To**: TBD
-- **Dependencies**: Story 1.2.1, Story 1.3.1 (minimal)
+- **Dependencies**: Story 1.3.4, Story 2.1.1
 - **File**: `phase-3-documentation/epic-3.2-samples/story-3.2.1-sample-web-app.md`
 
 ## User Story
 
 **As a** test developer  
-**I want** a simple sample web application with example tests that demonstrate the framework's core capabilities  
-**So that** I can quickly understand how to use FluentUIScaffold and validate the framework design
+**I want** an advanced sample web application with comprehensive tests that demonstrate all framework features  
+**So that** I can understand advanced usage patterns and have a complete reference implementation
 
 ## Acceptance Criteria
 

@@ -1,0 +1,660 @@
+# FluentUIScaffold API Reference
+
+## Overview
+
+This document provides a comprehensive reference for the FluentUIScaffold API, including all implemented features and their usage.
+
+## Table of Contents
+
+- [Core Framework](#core-framework)
+- [Configuration](#configuration)
+- [Element System](#element-system)
+- [Page Object Pattern](#page-object-pattern)
+- [Playwright Integration](#playwright-integration)
+- [Plugin System](#plugin-system)
+- [Exceptions](#exceptions)
+
+## Core Framework
+
+### FluentUIScaffoldBuilder
+
+The main entry point for creating FluentUIScaffold instances.
+
+```csharp
+public static class FluentUIScaffoldBuilder
+{
+    public static FluentUIScaffoldApp<WebApp> Web(Action<FluentUIScaffoldOptions>? configureOptions = null)
+    public static FluentUIScaffoldApp<MobileApp> Mobile(Action<FluentUIScaffoldOptions>? configureOptions = null)
+}
+```
+
+#### Usage
+
+```csharp
+// Web application
+var fluentUI = FluentUIScaffoldBuilder.Web(options =>
+{
+    options.BaseUrl = new Uri("https://your-app.com");
+    options.DefaultTimeout = TimeSpan.FromSeconds(30);
+});
+
+// Mobile application (future)
+var mobileUI = FluentUIScaffoldBuilder.Mobile(options =>
+{
+    options.BaseUrl = new Uri("https://your-app.com");
+});
+```
+
+### FluentUIScaffoldApp<TApp>
+
+The main application class that provides the fluent API for UI testing.
+
+```csharp
+public class FluentUIScaffoldApp<TApp> : IDisposable where TApp : class
+{
+    public FluentUIScaffoldApp<TApp> WithBaseUrl(Uri baseUrl)
+    public FluentUIScaffoldApp<TApp> NavigateToUrl(Uri url)
+    public TDriver Framework<TDriver>() where TDriver : class
+    public void Dispose()
+}
+```
+
+#### Methods
+
+| Method | Description | Parameters | Returns |
+|--------|-------------|------------|---------|
+| `WithBaseUrl` | Sets the base URL for the application | `Uri baseUrl` | `FluentUIScaffoldApp<TApp>` |
+| `NavigateToUrl` | Navigates to a specific URL | `Uri url` | `FluentUIScaffoldApp<TApp>` |
+| `Framework<TDriver>` | Gets a framework-specific driver instance | `TDriver` type parameter | `TDriver` |
+| `Dispose` | Disposes the application and its resources | None | `void` |
+
+#### Usage
+
+```csharp
+var fluentUI = FluentUIScaffoldBuilder.Web()
+    .WithBaseUrl(new Uri("https://your-app.com"))
+    .NavigateToUrl(new Uri("https://your-app.com/home"));
+
+var playwrightDriver = fluentUI.Framework<PlaywrightDriver>();
+```
+
+## Configuration
+
+### FluentUIScaffoldOptions
+
+Configuration options for the FluentUIScaffold framework.
+
+```csharp
+public class FluentUIScaffoldOptions
+{
+    public Uri? BaseUrl { get; set; }
+    public TimeSpan DefaultTimeout { get; set; } = TimeSpan.FromSeconds(30);
+    public TimeSpan DefaultRetryInterval { get; set; } = TimeSpan.FromMilliseconds(500);
+    public WaitStrategy DefaultWaitStrategy { get; set; } = WaitStrategy.Smart;
+    public PageValidationStrategy PageValidationStrategy { get; set; } = PageValidationStrategy.Configurable;
+    public LogLevel LogLevel { get; set; } = LogLevel.Information;
+    public bool CaptureScreenshotsOnFailure { get; set; } = true;
+    public bool CaptureDOMStateOnFailure { get; set; } = true;
+    public string ScreenshotPath { get; set; } = "./screenshots";
+    public Dictionary<string, object> FrameworkSpecificOptions { get; set; } = new();
+}
+```
+
+#### Properties
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `BaseUrl` | `Uri?` | `null` | Base URL for the application |
+| `DefaultTimeout` | `TimeSpan` | `30 seconds` | Default timeout for operations |
+| `DefaultRetryInterval` | `TimeSpan` | `500ms` | Default retry interval |
+| `DefaultWaitStrategy` | `WaitStrategy` | `Smart` | Default wait strategy |
+| `PageValidationStrategy` | `PageValidationStrategy` | `Configurable` | Page validation strategy |
+| `LogLevel` | `LogLevel` | `Information` | Logging level |
+| `CaptureScreenshotsOnFailure` | `bool` | `true` | Capture screenshots on failure |
+| `CaptureDOMStateOnFailure` | `bool` | `true` | Capture DOM state on failure |
+| `ScreenshotPath` | `string` | `"./screenshots"` | Path for screenshot storage |
+| `FrameworkSpecificOptions` | `Dictionary<string, object>` | `new()` | Framework-specific options |
+
+### WaitStrategy
+
+Enumeration of available wait strategies.
+
+```csharp
+public enum WaitStrategy
+{
+    None,
+    Visible,
+    Hidden,
+    Clickable,
+    Enabled,
+    Disabled,
+    TextPresent,
+    Smart
+}
+```
+
+#### Values
+
+| Value | Description |
+|-------|-------------|
+| `None` | No waiting |
+| `Visible` | Wait for element to be visible |
+| `Hidden` | Wait for element to be hidden |
+| `Clickable` | Wait for element to be clickable |
+| `Enabled` | Wait for element to be enabled |
+| `Disabled` | Wait for element to be disabled |
+| `TextPresent` | Wait for specific text to be present |
+| `Smart` | Framework-specific intelligent waiting |
+
+### PageValidationStrategy
+
+Enumeration of page validation strategies.
+
+```csharp
+public enum PageValidationStrategy
+{
+    None,
+    Configurable,
+    Strict
+}
+```
+
+#### Values
+
+| Value | Description |
+|-------|-------------|
+| `None` | No page validation |
+| `Configurable` | Configurable page validation |
+| `Strict` | Strict page validation |
+
+## Element System
+
+### IElement
+
+Interface for element interactions.
+
+```csharp
+public interface IElement
+{
+    string Selector { get; }
+    string Description { get; }
+    TimeSpan Timeout { get; }
+    WaitStrategy WaitStrategy { get; }
+    
+    void Click();
+    void Type(string text);
+    void Select(string value);
+    string GetText();
+    bool IsVisible();
+    bool IsEnabled();
+    void WaitFor();
+}
+```
+
+#### Methods
+
+| Method | Description | Parameters | Returns |
+|--------|-------------|------------|---------|
+| `Click` | Clicks the element | None | `void` |
+| `Type` | Types text into the element | `string text` | `void` |
+| `Select` | Selects a value from the element | `string value` | `void` |
+| `GetText` | Gets the text content of the element | None | `string` |
+| `IsVisible` | Checks if the element is visible | None | `bool` |
+| `IsEnabled` | Checks if the element is enabled | None | `bool` |
+| `WaitFor` | Waits for the element according to its wait strategy | None | `void` |
+
+### ElementBuilder
+
+Fluent API for element configuration.
+
+```csharp
+public class ElementBuilder : IElement
+{
+    public ElementBuilder WithDescription(string description)
+    public ElementBuilder WithTimeout(TimeSpan timeout)
+    public ElementBuilder WithWaitStrategy(WaitStrategy strategy)
+    public ElementBuilder WithRetryInterval(TimeSpan interval)
+    public IElement Build()
+}
+```
+
+#### Methods
+
+| Method | Description | Parameters | Returns |
+|--------|-------------|------------|---------|
+| `WithDescription` | Sets the element description | `string description` | `ElementBuilder` |
+| `WithTimeout` | Sets the element timeout | `TimeSpan timeout` | `ElementBuilder` |
+| `WithWaitStrategy` | Sets the wait strategy | `WaitStrategy strategy` | `ElementBuilder` |
+| `WithRetryInterval` | Sets the retry interval | `TimeSpan interval` | `ElementBuilder` |
+| `Build` | Builds the element | None | `IElement` |
+
+#### Usage
+
+```csharp
+var button = Element("#submit-button")
+    .WithDescription("Submit Button")
+    .WithTimeout(TimeSpan.FromSeconds(10))
+    .WithWaitStrategy(WaitStrategy.Clickable)
+    .Build();
+```
+
+### ElementFactory
+
+Factory for creating elements with caching.
+
+```csharp
+public class ElementFactory
+{
+    public IElement CreateElement(string selector, Action<ElementBuilder>? configure = null)
+    public IElement GetOrCreateElement(string selector, Action<ElementBuilder>? configure = null)
+    public void ClearCache()
+}
+```
+
+#### Methods
+
+| Method | Description | Parameters | Returns |
+|--------|-------------|------------|---------|
+| `CreateElement` | Creates a new element | `string selector`, `Action<ElementBuilder>?` | `IElement` |
+| `GetOrCreateElement` | Gets or creates an element with caching | `string selector`, `Action<ElementBuilder>?` | `IElement` |
+| `ClearCache` | Clears the element cache | None | `void` |
+
+### ElementCollection
+
+Collection of elements with filtering capabilities.
+
+```csharp
+public class ElementCollection : IElementCollection
+{
+    public IElement this[int index] { get; }
+    public int Count { get; }
+    public IElement First();
+    public IElement Last();
+    public IElementCollection Where(Func<IElement, bool> predicate);
+    public IElementCollection WithText(string text);
+    public IElementCollection WithAttribute(string attribute, string value);
+}
+```
+
+#### Methods
+
+| Method | Description | Parameters | Returns |
+|--------|-------------|------------|---------|
+| `First` | Gets the first element | None | `IElement` |
+| `Last` | Gets the last element | None | `IElement` |
+| `Where` | Filters elements by predicate | `Func<IElement, bool>` | `IElementCollection` |
+| `WithText` | Filters elements by text content | `string text` | `IElementCollection` |
+| `WithAttribute` | Filters elements by attribute | `string attribute`, `string value` | `IElementCollection` |
+
+## Page Object Pattern
+
+### BasePageComponent<TApp>
+
+Base class for all page objects.
+
+```csharp
+public abstract class BasePageComponent<TApp> : IPageComponent<TApp>
+{
+    protected IUIDriver Driver { get; }
+    protected FluentUIScaffoldOptions Options { get; }
+    protected ILogger Logger { get; }
+    
+    public abstract string UrlPattern { get; }
+    public virtual bool ShouldValidateOnNavigation => true;
+    
+    protected abstract void ConfigureElements();
+    
+    protected virtual void Click(string selector);
+    protected virtual void Type(string selector, string text);
+    protected virtual void Select(string selector, string value);
+    protected virtual string GetText(string selector);
+    protected virtual bool IsVisible(string selector);
+    protected virtual void WaitForElement(string selector);
+    
+    public virtual TTarget NavigateTo<TTarget>() where TTarget : BasePageComponent<TApp>;
+    public virtual bool IsCurrentPage();
+    public virtual void ValidateCurrentPage();
+    public TDriver Framework<TDriver>() where TDriver : class;
+    public IVerificationContext<TApp> Verify { get; }
+}
+```
+
+#### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `Driver` | `IUIDriver` | The UI driver instance |
+| `Options` | `FluentUIScaffoldOptions` | Framework options |
+| `Logger` | `ILogger` | Logger instance |
+| `UrlPattern` | `string` | URL pattern for page validation |
+| `ShouldValidateOnNavigation` | `bool` | Whether to validate on navigation |
+| `Verify` | `IVerificationContext<TApp>` | Verification context |
+
+#### Methods
+
+| Method | Description | Parameters | Returns |
+|--------|-------------|------------|---------|
+| `ConfigureElements` | Configures page elements | None | `void` |
+| `Click` | Clicks an element | `string selector` | `void` |
+| `Type` | Types text into an element | `string selector`, `string text` | `void` |
+| `Select` | Selects a value from an element | `string selector`, `string value` | `void` |
+| `GetText` | Gets text from an element | `string selector` | `string` |
+| `IsVisible` | Checks if an element is visible | `string selector` | `bool` |
+| `WaitForElement` | Waits for an element | `string selector` | `void` |
+| `NavigateTo<TTarget>` | Navigates to another page | `TTarget` type parameter | `TTarget` |
+| `IsCurrentPage` | Checks if currently on this page | None | `bool` |
+| `ValidateCurrentPage` | Validates current page | None | `void` |
+| `Framework<TDriver>` | Gets framework-specific driver | `TDriver` type parameter | `TDriver` |
+
+#### Usage
+
+```csharp
+public class HomePage : BasePageComponent<WebApp>
+{
+    public override string UrlPattern => "/home";
+    
+    private IElement _button;
+    private IElement _input;
+    
+    protected override void ConfigureElements()
+    {
+        _button = Element("#submit-button")
+            .WithDescription("Submit Button")
+            .WithWaitStrategy(WaitStrategy.Clickable);
+            
+        _input = Element("#search-input")
+            .WithDescription("Search Input")
+            .WithTimeout(TimeSpan.FromSeconds(10));
+    }
+    
+    public HomePage ClickSubmit()
+    {
+        _button.Click();
+        return this;
+    }
+    
+    public HomePage EnterSearchText(string text)
+    {
+        _input.Type(text);
+        return this;
+    }
+}
+```
+
+### IPageComponent<TApp>
+
+Interface for page components.
+
+```csharp
+public interface IPageComponent<TApp>
+{
+    string UrlPattern { get; }
+    bool ShouldValidateOnNavigation { get; }
+    bool IsCurrentPage();
+    void ValidateCurrentPage();
+    TTarget NavigateTo<TTarget>() where TTarget : BasePageComponent<TApp>;
+    IVerificationContext<TApp> Verify { get; }
+}
+```
+
+## Playwright Integration
+
+### PlaywrightPlugin
+
+Plugin for Playwright integration.
+
+```csharp
+public class PlaywrightPlugin : IUITestingFrameworkPlugin
+{
+    public string Name => "Playwright";
+    public string Version => "1.0.0";
+    public Type[] SupportedDriverTypes => new[] { typeof(PlaywrightDriver) };
+    
+    public bool CanHandle(Type driverType);
+    public IUIDriver CreateDriver(FluentUIScaffoldOptions options);
+    public void ConfigureServices(IServiceCollection services);
+}
+```
+
+### PlaywrightDriver
+
+Playwright-specific driver implementation.
+
+```csharp
+public class PlaywrightDriver : IUIDriver
+{
+    public string CurrentUrl { get; }
+    
+    public void Click(string selector);
+    public void Type(string selector, string text);
+    public void Select(string selector, string value);
+    public string GetText(string selector);
+    public bool IsVisible(string selector);
+    public bool IsEnabled(string selector);
+    public void WaitForElement(string selector);
+    public void WaitForElementToBeVisible(string selector);
+    public void WaitForElementToBeHidden(string selector);
+    public void NavigateToUrl(string url);
+    public TTarget NavigateTo<TTarget>() where TTarget : BasePageComponent;
+    public TDriver GetFrameworkDriver<TDriver>() where TDriver : class;
+    public void Dispose();
+}
+```
+
+### PlaywrightAdvancedFeatures
+
+Advanced Playwright-specific features.
+
+```csharp
+public class PlaywrightAdvancedFeatures
+{
+    public void InterceptNetworkRequests(string urlPattern, Action<IResponse> handler);
+    public async Task<byte[]> TakeScreenshotAsync(string path = null);
+    public async Task<byte[]> GeneratePdfAsync(string path = null);
+    public void SetViewportSize(int width, int height);
+    public void SetUserAgent(string userAgent);
+    public void SetGeolocation(double latitude, double longitude);
+    public void SetPermissions(string[] permissions);
+}
+```
+
+#### Methods
+
+| Method | Description | Parameters | Returns |
+|--------|-------------|------------|---------|
+| `InterceptNetworkRequests` | Intercepts network requests | `string urlPattern`, `Action<IResponse>` | `void` |
+| `TakeScreenshotAsync` | Takes a screenshot | `string path` | `Task<byte[]>` |
+| `GeneratePdfAsync` | Generates a PDF | `string path` | `Task<byte[]>` |
+| `SetViewportSize` | Sets viewport size | `int width`, `int height` | `void` |
+| `SetUserAgent` | Sets user agent | `string userAgent` | `void` |
+| `SetGeolocation` | Sets geolocation | `double latitude`, `double longitude` | `void` |
+| `SetPermissions` | Sets browser permissions | `string[] permissions` | `void` |
+
+### PlaywrightWaitStrategy
+
+Playwright-specific wait strategy implementation.
+
+```csharp
+public class PlaywrightWaitStrategy
+{
+    public void WaitForElement(string selector, WaitStrategy strategy, TimeSpan timeout);
+    public void WaitForElementToBeVisible(string selector, TimeSpan timeout);
+    public void WaitForElementToBeHidden(string selector, TimeSpan timeout);
+    public void WaitForElementToBeClickable(string selector, TimeSpan timeout);
+    public void WaitForTextToBePresent(string selector, string text, TimeSpan timeout);
+}
+```
+
+## Plugin System
+
+### IUITestingFrameworkPlugin
+
+Interface for testing framework plugins.
+
+```csharp
+public interface IUITestingFrameworkPlugin
+{
+    string Name { get; }
+    string Version { get; }
+    Type[] SupportedDriverTypes { get; }
+    bool CanHandle(Type driverType);
+    IUIDriver CreateDriver(FluentUIScaffoldOptions options);
+    void ConfigureServices(IServiceCollection services);
+}
+```
+
+#### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `Name` | `string` | Plugin name |
+| `Version` | `string` | Plugin version |
+| `SupportedDriverTypes` | `Type[]` | Supported driver types |
+
+#### Methods
+
+| Method | Description | Parameters | Returns |
+|--------|-------------|------------|---------|
+| `CanHandle` | Checks if plugin can handle driver type | `Type driverType` | `bool` |
+| `CreateDriver` | Creates a driver instance | `FluentUIScaffoldOptions options` | `IUIDriver` |
+| `ConfigureServices` | Configures services for the plugin | `IServiceCollection services` | `void` |
+
+### PluginManager
+
+Manages plugin registration and discovery.
+
+```csharp
+public class PluginManager
+{
+    public void RegisterPlugin<TPlugin>() where TPlugin : IUITestingFrameworkPlugin;
+    public void RegisterPlugin(IUITestingFrameworkPlugin plugin);
+    public IUITestingFrameworkPlugin GetPlugin(Type driverType);
+    public IEnumerable<IUITestingFrameworkPlugin> GetAllPlugins();
+    public void ClearPlugins();
+}
+```
+
+#### Methods
+
+| Method | Description | Parameters | Returns |
+|--------|-------------|------------|---------|
+| `RegisterPlugin<TPlugin>` | Registers a plugin by type | `TPlugin` type parameter | `void` |
+| `RegisterPlugin` | Registers a plugin instance | `IUITestingFrameworkPlugin plugin` | `void` |
+| `GetPlugin` | Gets plugin for driver type | `Type driverType` | `IUITestingFrameworkPlugin` |
+| `GetAllPlugins` | Gets all registered plugins | None | `IEnumerable<IUITestingFrameworkPlugin>` |
+| `ClearPlugins` | Clears all plugins | None | `void` |
+
+## Exceptions
+
+### FluentUIScaffoldException
+
+Base exception for FluentUIScaffold.
+
+```csharp
+public class FluentUIScaffoldException : Exception
+{
+    public string ScreenshotPath { get; set; }
+    public string DOMState { get; set; }
+    public string CurrentUrl { get; set; }
+    public Dictionary<string, object> Context { get; set; }
+}
+```
+
+### FluentUIScaffoldValidationException
+
+Exception for validation errors.
+
+```csharp
+public class FluentUIScaffoldValidationException : FluentUIScaffoldException
+{
+    public string PropertyName { get; }
+}
+```
+
+### ElementTimeoutException
+
+Exception for element timeout errors.
+
+```csharp
+public class ElementTimeoutException : FluentUIScaffoldException
+{
+    public string Selector { get; }
+    public TimeSpan Timeout { get; }
+    public WaitStrategy WaitStrategy { get; }
+}
+```
+
+### ElementValidationException
+
+Exception for element validation errors.
+
+```csharp
+public class ElementValidationException : FluentUIScaffoldException
+{
+    public string Selector { get; }
+    public string ExpectedValue { get; }
+    public string ActualValue { get; }
+}
+```
+
+### FluentUIScaffoldPluginException
+
+Exception for plugin errors.
+
+```csharp
+public class FluentUIScaffoldPluginException : FluentUIScaffoldException
+{
+    public string PluginName { get; }
+    public string PluginVersion { get; }
+}
+```
+
+## Verification Context
+
+### IVerificationContext<TApp>
+
+Interface for verification context.
+
+```csharp
+public interface IVerificationContext<TApp>
+{
+    IVerificationContext<TApp> ElementIsVisible(string selector);
+    IVerificationContext<TApp> ElementIsHidden(string selector);
+    IVerificationContext<TApp> ElementIsEnabled(string selector);
+    IVerificationContext<TApp> ElementIsDisabled(string selector);
+    IVerificationContext<TApp> ElementContainsText(string selector, string text);
+    IVerificationContext<TApp> ElementHasAttribute(string selector, string attribute, string value);
+    IVerificationContext<TApp> CurrentPageIs<TPage>() where TPage : BasePageComponent<TApp>;
+    IVerificationContext<TApp> UrlMatches(string pattern);
+    IVerificationContext<TApp> TitleContains(string text);
+    IVerificationContext<TApp> That(Func<bool> condition, string description);
+    IVerificationContext<TApp> That<T>(Func<T> actual, Func<T, bool> condition, string description);
+}
+```
+
+#### Methods
+
+| Method | Description | Parameters | Returns |
+|--------|-------------|------------|---------|
+| `ElementIsVisible` | Verifies element is visible | `string selector` | `IVerificationContext<TApp>` |
+| `ElementIsHidden` | Verifies element is hidden | `string selector` | `IVerificationContext<TApp>` |
+| `ElementIsEnabled` | Verifies element is enabled | `string selector` | `IVerificationContext<TApp>` |
+| `ElementIsDisabled` | Verifies element is disabled | `string selector` | `IVerificationContext<TApp>` |
+| `ElementContainsText` | Verifies element contains text | `string selector`, `string text` | `IVerificationContext<TApp>` |
+| `ElementHasAttribute` | Verifies element has attribute | `string selector`, `string attribute`, `string value` | `IVerificationContext<TApp>` |
+| `CurrentPageIs<TPage>` | Verifies current page type | `TPage` type parameter | `IVerificationContext<TApp>` |
+| `UrlMatches` | Verifies URL matches pattern | `string pattern` | `IVerificationContext<TApp>` |
+| `TitleContains` | Verifies title contains text | `string text` | `IVerificationContext<TApp>` |
+| `That` | Verifies custom condition | `Func<bool> condition`, `string description` | `IVerificationContext<TApp>` |
+| `That<T>` | Verifies custom condition with actual value | `Func<T> actual`, `Func<T, bool> condition`, `string description` | `IVerificationContext<TApp>` |
+
+#### Usage
+
+```csharp
+page.Verify
+    .ElementIsVisible("#submit-button")
+    .ElementContainsText("#message", "Success")
+    .CurrentPageIs<HomePage>()
+    .UrlMatches("/home")
+    .That(() => page.GetElementCount() > 0, "Should have elements");
+``` 

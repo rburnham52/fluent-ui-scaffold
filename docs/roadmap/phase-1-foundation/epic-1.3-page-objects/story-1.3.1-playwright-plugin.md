@@ -339,6 +339,8 @@ public class PlaywrightTimeoutException : PlaywrightException
 - [x] Integration tests demonstrate Playwright features
 - [x] Documentation with examples is complete
 - [x] Framework-specific features are accessible
+- [x] Sample app tests are updated to use Playwright plugin
+- [x] Sample app demonstrates Playwright-specific features
 - [x] Story marked as completed in roadmap and story file
 
 ## Notes
