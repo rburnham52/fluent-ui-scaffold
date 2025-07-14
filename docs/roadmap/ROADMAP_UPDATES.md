@@ -1,131 +1,164 @@
-# FluentUIScaffold Roadmap Updates
+# Roadmap Updates - V2.0 Implementation
 
 ## Overview
 
-This document summarizes the updates made to the FluentUIScaffold roadmap to ensure all story files are present and the sample app is properly integrated as part of the MVP.
+The roadmap has been completely restructured to align with the V2.0 specification and focus on incremental development based on the 10 example scenarios.
 
-## Changes Made
+## Major Changes
 
-### 1. Missing Story Files Created
+### 1. Structure Reorganization
 
-The following story files were missing from the roadmap and have been created:
+**Old Structure:**
+- Phase-based approach (Phase 1, 2, 3, 4)
+- Generic epics and stories
+- No clear connection to specific examples
 
-#### Phase 3: Documentation & Examples
-- **Story 3.1.1**: API Documentation Generation
-  - File: `phase-3-documentation/epic-3.1-api-docs/story-3.1.1-api-documentation.md`
-  - Dependencies: Story 1.3.1, Story 2.1.1
-  - Priority: High
-  - Estimated Time: 2-3 weeks
+**New Structure:**
+- Example-driven approach (Example 1, 2, 3, etc.)
+- Milestone-based development within each example
+- Clear connection to V2.0 specification examples
 
-- **Story 3.1.2**: Tutorials and Best Practices
-  - File: `phase-3-documentation/epic-3.1-api-docs/story-3.1.2-tutorials-best-practices.md`
-  - Dependencies: Story 3.1.1
-  - Priority: High
-  - Estimated Time: 2-3 weeks
+### 2. Example-Driven Development
 
-- **Story 3.2.2**: Integration Test Suite
-  - File: `phase-3-documentation/epic-3.2-samples/story-3.2.2-integration-tests.md`
-  - Dependencies: Story 3.2.1
-  - Priority: Medium
-  - Estimated Time: 2-3 weeks
+The new roadmap is structured around the 10 example scenarios from the V2.0 specification:
 
-- **Story 3.3.1**: Performance Benchmarking
-  - File: `phase-3-documentation/epic-3.3-performance/story-3.3.1-performance-benchmarks.md`
-  - Dependencies: Story 3.2.2
-  - Priority: Low
-  - Estimated Time: 2-3 weeks
+1. **User Registration and Login Flow** - Basic navigation and form interactions
+2. **Shopping Cart with Dynamic Pricing** - Complex state management and calculations
+3. **Multi-Step Form with Validation** - Advanced form handling and validation
+4. **Real-Time Data Dashboard** - Async data handling and auto-refresh
+5. **File Upload with Progress Tracking** - File handling and progress monitoring
+6. **Search with Advanced Filters** - Complex filtering and pagination
+7. **Chat Application** - Real-time messaging and history
+8. **Calendar Event Scheduling** - Date/time handling and conflict detection
+9. **Payment Processing** - Complex form validation and payment flows
+10. **Performance Testing** - Network interception and performance monitoring
 
-#### Phase 4: Future Enhancements
-- **Story 4.1.1**: Selenium Plugin Implementation
-  - File: `phase-4-future/epic-4.1-selenium/story-4.1.1-selenium-plugin.md`
-  - Dependencies: Story 1.3.1, Story 2.1.1
-  - Priority: Low
-  - Estimated Time: 4-5 weeks
+### 3. Milestone Structure
 
-- **Story 4.2.1**: Mobile Testing Support
-  - File: `phase-4-future/epic-4.2-mobile/story-4.2.1-mobile-support.md`
-  - Dependencies: Story 1.3.1, Story 2.1.1
-  - Priority: Low
-  - Estimated Time: 6-8 weeks
+Each example spans multiple milestones, with each milestone focusing on specific features:
 
-- **Story 4.3.1**: Visual Debugging Tools
-  - File: `phase-4-future/epic-4.3-advanced/story-4.3.1-visual-debugging.md`
-  - Dependencies: Story 2.3.2
-  - Priority: Low
-  - Estimated Time: 4-5 weeks
+- **Milestone 1.x**: Core framework features needed for Example 1
+- **Milestone 2.x**: Additional features needed for Example 2
+- **And so on...**
 
-- **Story 4.3.2**: Advanced Reporting
-  - File: `phase-4-future/epic-4.3-advanced/story-4.3.2-advanced-reporting.md`
-  - Dependencies: Story 2.1.1
-  - Priority: Low
-  - Estimated Time: 3-4 weeks
+### 4. Feature Increments
 
-### 2. Sample App Integration (MVP)
+Each milestone adds only the features required for the current example:
+- Base element actions (Click, Type, Select, etc.)
+- Verification patterns (simple, generic, fluent API)
+- Navigation patterns (direct and custom navigation)
+- Framework-specific features as needed
 
-#### New Story Added to Phase 1
-- **Story 1.3.4**: Sample App Integration
-  - File: `phase-1-foundation/epic-1.3-page-objects/story-1.3.4-sample-app-integration.md`
-  - Dependencies: Story 1.3.1, Story 1.3.2, Story 1.3.3
-  - Priority: Critical
-  - Estimated Time: 2-3 weeks
+## Example 1: User Registration and Login Flow
 
-This story ensures the sample app is properly integrated as part of the MVP (Phase 1) rather than being deferred to Phase 3.
+### Milestone 1.1: Basic Navigation and Framework Setup
+- **Story 1.1.1**: Refactor to V2.0 BasePageComponent Pattern
+- **Story 1.1.2**: Implement Basic Navigation Methods
 
-#### Updated Phase 3 Sample App Story
-- **Story 3.2.1**: Advanced Sample Web Application (updated)
-  - Dependencies changed from Story 1.3.1, Story 2.1.1 to Story 1.3.4, Story 2.1.1
-  - Focus shifted from basic MVP to advanced features demonstration
-  - Priority changed from High to Medium
-  - Estimated Time increased from 1-2 weeks to 2-3 weeks
+### Milestone 1.2: Form Interactions
+- **Story 1.2.1**: Implement Base Element Actions
+- **Story 1.2.2**: Create Registration and Login Pages
 
-### 3. Story Tracking Updates
+### Milestone 1.3: Basic Verification
+- **Story 1.3.1**: Implement Generic Verification
+- **Story 1.3.2**: Complete Example 1 Implementation
 
-#### Updated Progress Tracking
-- **Phase 1**: Total Stories increased from 6 to 7
-  - Completion percentage updated from 67% to 57%
-  - Not Started stories increased from 2 to 3
+## Implementation Approach
 
-- **Overall Progress**: Total Stories increased from 21 to 22
-  - Completion percentage updated from 19% to 18%
-  - Not Started stories increased from 17 to 18
+### 1. Incremental Development
 
-### 4. Story Content Updates
+Each milestone builds upon the previous, adding features as needed:
+- Start with basic navigation and framework setup
+- Add form interactions and element actions
+- Implement verification and validation
+- Complete the example with comprehensive tests
 
-#### Sample App Integration Added to Existing Stories
-- **Story 1.3.1** (Playwright Plugin): Added sample app integration tasks to Definition of Done
-- **Story 1.3.2** (Base Page Component): Added sample app integration tasks to Definition of Done
+### 2. Framework-Agnostic Design
 
-These updates ensure that when the core framework components are implemented, they are immediately validated with the sample app.
+All implementations follow the V2.0 specification:
+- Framework-agnostic core framework
+- Pluggable framework implementations
+- Consistent fluent API across frameworks
+- Dependency injection first approach
 
-## Impact on Development
+### 3. Test-Driven Development
 
-### Phase 1 (MVP) - Now Includes Sample App
-- The sample app is now part of the MVP, ensuring early validation
-- Developers can see working examples immediately
-- Framework design is validated against real-world usage
+Each story includes:
+- Comprehensive unit tests
+- Integration tests
+- Working examples
+- Documentation updates
 
-### Dependencies Updated
-- Phase 3 sample app story now depends on Phase 1 sample app integration
-- This ensures proper sequencing and prevents duplication
-- Advanced features build on the foundation established in Phase 1
+## Benefits of New Structure
 
-### Quality Assurance
-- All stories now have proper dependencies
-- Sample app integration ensures real-world testing
-- Framework features are validated against actual usage scenarios
+### 1. Clear Focus
+
+- Each milestone has a specific goal
+- Features are added only when needed
+- Clear connection to real-world scenarios
+
+### 2. Incremental Learning
+
+- Developers can learn the framework progressively
+- Each example builds on previous knowledge
+- Complex features are introduced gradually
+
+### 3. Better Testing
+
+- Each example provides comprehensive test scenarios
+- Real-world validation of framework capabilities
+- Clear acceptance criteria for each story
+
+### 4. Improved Documentation
+
+- Examples serve as documentation
+- Clear progression from simple to complex
+- Practical demonstrations of framework usage
+
+## Migration from Old Structure
+
+### Completed Stories (Removed)
+- Story 1.1.1: Project Structure Setup ✅
+- Story 1.1.2: Core Interfaces & Abstractions ✅
+- Story 1.2.1: Fluent Entry Point ✅
+- Story 1.2.2: Element Configuration System ✅
+- Story 1.3.1: Playwright Plugin Implementation ✅
+
+### New Stories (Added)
+- Story 1.1.1: Refactor to V2.0 BasePageComponent Pattern
+- Story 1.1.2: Implement Basic Navigation Methods
+- Story 1.2.1: Implement Base Element Actions
+- Story 1.2.2: Create Registration and Login Pages
+- Story 1.3.1: Implement Generic Verification
+- Story 1.3.2: Complete Example 1 Implementation
 
 ## Next Steps
 
-1. **Start with Phase 1 stories** in dependency order
-2. **Update sample app** as each Phase 1 story is completed
-3. **Validate framework features** using the sample app
-4. **Proceed to Phase 2** once all Phase 1 stories are complete
-5. **Use sample app** as reference for Phase 3 advanced features
+### Immediate Actions
+1. **Start with Story 1.1.1**: Refactor to V2.0 BasePageComponent Pattern
+2. **Follow dependency chain**: Complete stories in order
+3. **Update documentation**: Keep documentation in sync with implementation
+4. **Test thoroughly**: Ensure all tests pass at each milestone
+
+### Future Examples
+- Example 2: Shopping Cart with Dynamic Pricing
+- Example 3: Multi-Step Form with Validation
+- Examples 4-10: Advanced scenarios
+
+## Success Metrics
+
+- [ ] All public APIs have unit tests
+- [ ] Framework works with any testing framework
+- [ ] Fluent API matches V2.0 specification exactly
+- [ ] Documentation is comprehensive and up-to-date
+- [ ] NuGet package is published and functional
+- [ ] CI/CD pipeline is automated
+- [ ] Sample applications demonstrate framework usage
+- [ ] Each milestone has working examples and tests
 
 ## Notes
 
-- All missing story files have been created with comprehensive content
-- Sample app integration ensures practical validation of framework features
-- Dependencies are properly sequenced to avoid conflicts
-- Progress tracking accurately reflects the current state
-- Story files follow consistent format and structure 
+- The new structure provides a clear path for implementation
+- Each example demonstrates specific framework capabilities
+- The incremental approach reduces risk and complexity
+- The V2.0 specification provides the foundation for all development 

@@ -1,4 +1,4 @@
-# FluentUIScaffold E2E Testing Framework - Story Tracking
+# FluentUIScaffold V2.0 - Story Tracking
 
 ## Story Status Legend
 - 🔴 **Not Started**: Story not yet assigned or started
@@ -6,293 +6,254 @@
 - 🟢 **Completed**: Story finished and tested
 - 🔵 **Blocked**: Story blocked by dependencies
 
-## Phase 1: Foundation & Core Architecture (MVP)
+## Example 1: User Registration and Login Flow
 
-### Epic 1.1: Project Setup & Infrastructure
+### Milestone 1.1: Basic Navigation and Framework Setup
+**Goal**: Implement basic navigation and framework structure needed for Example 1
 
-#### Story 1.1.1: Project Structure Setup
-- **Status**: 🟢 Completed
-- **Priority**: Critical
-- **Estimated Time**: 2-3 weeks
-- **Assigned To**: Senior Developer
-- **Dependencies**: None
-- **File**: `phase-1-foundation/epic-1.1-project-setup/story-1.1.1-project-structure.md`
-- **Completion Date**: 2025-01-07
-- **Notes**: Project structure established with proper build configuration, editorconfig, and multi-target framework support
-
-#### Story 1.1.2: Core Interfaces & Abstractions
-- **Status**: 🟢 Completed
-- **Priority**: Critical
-- **Estimated Time**: 2-3 weeks
-- **Assigned To**: Senior Developer
-- **Dependencies**: Story 1.1.1
-- **File**: `phase-1-foundation/epic-1.1-project-setup/story-1.1.2-core-interfaces.md`
-- **Completion Date**: 2025-01.07
-- **Notes**: Core interfaces implemented including IUIDriver, IPageComponent, IUITestingFrameworkPlugin, and configuration classes
-
-### Epic 1.2: Fluent API Foundation
-
-#### Story 1.2.1: Fluent Entry Point
-- **Status**: 🟢 Completed
-- **Priority**: Critical
-- **Estimated Time**: 2-3 weeks
-- **Assigned To**: TBD
-- **Dependencies**: Story 1.1.1, Story 1.1.2
-- **File**: `phase-1-foundation/epic-1.2-fluent-api/story-1.2.1-fluent-entry-point.md`
-- **Completion Date**: 2025-01-07
-- **Notes**: Main FluentUIScaffoldApp<TApp> class implemented with fluent configuration builder, plugin management, and static factory methods
-
-#### Story 1.2.2: Element Configuration System
-- **Status**: 🟢 Completed
-- **Priority**: Critical
-- **Estimated Time**: 2-3 weeks
-- **Assigned To**: Senior Developer
-- **Dependencies**: Story 1.1.1, Story 1.1.2, Story 1.2.1
-- **File**: `phase-1-foundation/epic-1.2-fluent-api/story-1.2.2-element-configuration.md`
-- **Completion Date**: 2025-01-07
-- **Notes**: Element configuration system implemented with IElement interface, ElementBuilder fluent API, ElementFactory with caching, ElementCollection with filtering, and comprehensive unit tests
-
-### Epic 1.3: Page Object Pattern Implementation
-
-#### Story 1.3.1: Playwright Plugin Implementation
-- **Status**: 🟢 Completed
-- **Priority**: Critical
-- **Estimated Time**: 3-4 weeks
-- **Assigned To**: Senior Developer
-- **Dependencies**: Story 1.1.1, Story 1.1.2, Story 1.2.1, Story 1.2.2
-- **File**: `phase-1-foundation/epic-1.3-page-objects/story-1.3.1-playwright-plugin.md`
-- **Completion Date**: 2025-01-08
-- **Notes**: Playwright plugin, driver, wait strategies, advanced features, error handling, and unit tests fully implemented and passing.
-
-#### Story 1.3.2: Base Page Component Implementation
+#### Story 1.1.1: Refactor to V2.0 BasePageComponent Pattern
 - **Status**: 🟡 In Progress
 - **Priority**: Critical
-- **Estimated Time**: 2-3 weeks
-- **Assigned To**: TBD
-- **Dependencies**: Story 1.1.1, Story 1.1.2, Story 1.2.1, Story 1.2.2
-- **File**: `phase-1-foundation/epic-1.3-page-objects/story-1.3.2-base-page-component.md`
-- **Notes**: BasePageComponent<TApp> class implemented as stub - needs full implementation
+- **Estimated Time**: 3-4 weeks
+- **Dependencies**: None
+- **File**: `example-1-registration-login/milestone-1.1-basic-navigation/story-1.1.1-refactor-to-v2-pattern.md`
+- **Acceptance Criteria**:
+  - [ ] Implement `BasePageComponent<TDriver, TPage>` following V2.0 spec
+  - [ ] Refactor existing pages to use new pattern
+  - [ ] Update FluentUIScaffoldBuilder to match V2.0 spec
+  - [ ] All existing tests pass with new implementation
+  - [ ] Remove old implementation code
 
-#### Story 1.3.3: Page Navigation and Validation
-- **Status**: 🔴 Not Started
-- **Priority**: High
-- **Estimated Time**: 2-3 weeks
-- **Assigned To**: TBD
-- **Dependencies**: Story 1.3.1, Story 1.3.2
-- **File**: `phase-1-foundation/epic-1.3-page-objects/story-1.3.3-page-navigation.md`
-
-#### Story 1.3.4: Sample App Integration
+#### Story 1.1.2: Implement Basic Navigation Methods
 - **Status**: 🔴 Not Started
 - **Priority**: Critical
 - **Estimated Time**: 2-3 weeks
-- **Assigned To**: TBD
-- **Dependencies**: Story 1.3.1, Story 1.3.2, Story 1.3.3
-- **File**: `phase-1-foundation/epic-1.3-page-objects/story-1.3.4-sample-app-integration.md`
+- **Dependencies**: Story 1.1.1
+- **File**: `example-1-registration-login/milestone-1.1-basic-navigation/story-1.1.2-basic-navigation-methods.md`
+- **Acceptance Criteria**:
+  - [ ] Implement `NavigateTo<TTarget>()` method
+  - [ ] Support direct navigation using IoC container
+  - [ ] Add URL pattern configuration for pages
+  - [ ] Create working example with RegistrationPage and LoginPage navigation
 
-## Phase 2: Advanced Features & Verification
+### Milestone 1.2: Form Interactions
+**Goal**: Implement form interaction methods needed for Example 1
 
-### Epic 2.1: Verification System
-
-#### Story 2.1.1: Verification Context Implementation
+#### Story 1.2.1: Implement Base Element Actions
 - **Status**: 🔴 Not Started
-- **Priority**: High
+- **Priority**: Critical
 - **Estimated Time**: 2-3 weeks
-- **Assigned To**: TBD
-- **Dependencies**: Story 1.3.1, Story 1.3.2
-- **File**: `phase-2-advanced-features/epic-2.1-verification/story-2.1.1-verification-context.md`
+- **Dependencies**: Story 1.1.1
+- **File**: `example-1-registration-login/milestone-1.2-form-interactions/story-1.2.1-base-element-actions.md`
+- **Acceptance Criteria**:
+  - [ ] Implement `Click(Func<TPage, IElement> elementSelector)`
+  - [ ] Implement `Type(Func<TPage, IElement> elementSelector, string text)`
+  - [ ] Add element configuration system for pages
+  - [ ] Create working example with form field interactions
 
-#### Story 2.1.2: Element Verification Methods
+#### Story 1.2.2: Create Registration and Login Pages
 - **Status**: 🔴 Not Started
-- **Priority**: High
+- **Priority**: Critical
 - **Estimated Time**: 2-3 weeks
-- **Assigned To**: TBD
-- **Dependencies**: Story 2.1.1
-- **File**: `phase-2-advanced-features/epic-2.1-verification/story-2.1.2-element-verification.md`
+- **Dependencies**: Story 1.2.1
+- **File**: `example-1-registration-login/milestone-1.2-form-interactions/story-1.2.2-registration-login-pages.md`
+- **Acceptance Criteria**:
+  - [ ] Create RegistrationPage with form elements
+  - [ ] Create LoginPage with form elements
+  - [ ] Add sample app pages for registration and login
+  - [ ] Implement working registration and login flow
 
-### Epic 2.2: Wait Strategies and Smart Waiting
+### Milestone 1.3: Basic Verification
+**Goal**: Implement verification methods needed for Example 1
 
-#### Story 2.2.1: Advanced Wait Strategy Implementation
+#### Story 1.3.1: Implement Generic Verification
 - **Status**: 🔴 Not Started
-- **Priority**: Medium
+- **Priority**: Critical
 - **Estimated Time**: 2-3 weeks
-- **Assigned To**: TBD
+- **Dependencies**: Story 1.2.1
+- **File**: `example-1-registration-login/milestone-1.3-verification/story-1.3.1-generic-verification.md`
+- **Acceptance Criteria**:
+  - [ ] Implement `Verify(Func<IElement, string> elementSelector, string expectedText)`
+  - [ ] Support default inner text comparison
+  - [ ] Add verification context system
+  - [ ] Create working example with success message verification
+
+#### Story 1.3.2: Complete Example 1 Implementation
+- **Status**: 🔴 Not Started
+- **Priority**: Critical
+- **Estimated Time**: 2-3 weeks
 - **Dependencies**: Story 1.3.1
-- **File**: `phase-2-advanced-features/epic-2.2-wait-strategies/story-2.2.1-advanced-wait-strategies.md`
+- **File**: `example-1-registration-login/milestone-1.3-verification/story-1.3.2-complete-example-1.md`
+- **Acceptance Criteria**:
+  - [ ] Implement complete Example 1 scenario
+  - [ ] Add comprehensive tests for registration and login flow
+  - [ ] Update documentation with Example 1
+  - [ ] All tests pass and demonstrate working framework
 
-#### Story 2.2.2: Smart Wait Implementation
-- **Status**: 🔴 Not Started
-- **Priority**: Medium
-- **Estimated Time**: 2-3 weeks
-- **Assigned To**: TBD
-- **Dependencies**: Story 2.2.1
-- **File**: `phase-2-advanced-features/epic-2.2-wait-strategies/story-2.2.2-smart-wait.md`
+## Example 2: Shopping Cart with Dynamic Pricing
 
-### Epic 2.3: Error Handling and Debugging
+### Milestone 2.1: Advanced Verification Patterns
+**Goal**: Implement advanced verification patterns needed for Example 2
 
-#### Story 2.3.1: Enhanced Error Handling
-- **Status**: 🔴 Not Started
-- **Priority**: Medium
-- **Estimated Time**: 2-3 weeks
-- **Assigned To**: TBD
-- **Dependencies**: Story 1.1.2
-- **File**: `phase-2-advanced-features/epic-2.3-error-handling/story-2.3.1-enhanced-error-handling.md`
-
-#### Story 2.3.2: Debugging and Diagnostics
-- **Status**: 🔴 Not Started
-- **Priority**: Low
-- **Estimated Time**: 2-3 weeks
-- **Assigned To**: TBD
-- **Dependencies**: Story 2.3.1
-- **File**: `phase-2-advanced-features/epic-2.3-error-handling/story-2.3.2-debugging-diagnostics.md`
-
-### Epic 2.4: Logging Integration
-
-#### Story 2.4.1: Logging Framework Integration
-- **Status**: 🔴 Not Started
-- **Priority**: Medium
-- **Estimated Time**: 2-3 weeks
-- **Assigned To**: TBD
-- **Dependencies**: Story 1.1.2
-- **File**: `phase-2-advanced-features/epic-2.4-logging/story-2.4.1-logging-framework.md`
-
-## Phase 3: Documentation & Examples
-
-### Epic 3.1: API Documentation
-
-#### Story 3.1.1: API Documentation Generation
+#### Story 2.1.1: Implement Internal Fluent Verification API
 - **Status**: 🔴 Not Started
 - **Priority**: High
-- **Estimated Time**: 2-3 weeks
-- **Assigned To**: TBD
-- **Dependencies**: Story 1.3.1, Story 2.1.1
-- **File**: `phase-3-documentation/epic-3.1-api-docs/story-3.1.1-api-documentation.md`
-
-#### Story 3.1.2: Tutorials and Best Practices
-- **Status**: 🔴 Not Started
-- **Priority**: High
-- **Estimated Time**: 2-3 weeks
-- **Assigned To**: TBD
-- **Dependencies**: Story 3.1.1
-- **File**: `phase-3-documentation/epic-3.1-api-docs/story-3.1.2-tutorials-best-practices.md`
-
-
-
-### Epic 3.2: Sample Applications and Integration Tests
-
-#### Story 3.2.1: Advanced Sample Web Application
-- **Status**: 🔴 Not Started
-- **Priority**: Medium
-- **Estimated Time**: 2-3 weeks
-- **Assigned To**: TBD
-- **Dependencies**: Story 1.3.4, Story 2.1.1
-- **File**: `phase-3-documentation/epic-3.2-samples/story-3.2.1-sample-web-app.md`
-
-#### Story 3.2.2: Integration Test Suite
-- **Status**: 🔴 Not Started
-- **Priority**: Medium
-- **Estimated Time**: 2-3 weeks
-- **Assigned To**: TBD
-- **Dependencies**: Story 3.2.1
-- **File**: `phase-3-documentation/epic-3.2-samples/story-3.2.2-integration-tests.md`
-
-### Epic 3.3: Performance and Benchmarks
-
-#### Story 3.3.1: Performance Benchmarking
-- **Status**: 🔴 Not Started
-- **Priority**: Low
-- **Estimated Time**: 2-3 weeks
-- **Assigned To**: TBD
-- **Dependencies**: Story 3.2.2
-- **File**: `phase-3-documentation/epic-3.3-performance/story-3.3.1-performance-benchmarks.md`
-
-## Phase 4: Future Enhancements
-
-### Epic 4.1: Selenium Plugin
-
-#### Story 4.1.1: Selenium Plugin Implementation
-- **Status**: 🔴 Not Started
-- **Priority**: Low
-- **Estimated Time**: 4-5 weeks
-- **Assigned To**: TBD
-- **Dependencies**: Story 1.3.1, Story 2.1.1
-- **File**: `phase-4-future/epic-4.1-selenium/story-4.1.1-selenium-plugin.md`
-
-### Epic 4.2: Mobile Support
-
-#### Story 4.2.1: Mobile Testing Support
-- **Status**: 🔴 Not Started
-- **Priority**: Low
-- **Estimated Time**: 6-8 weeks
-- **Assigned To**: TBD
-- **Dependencies**: Story 1.3.1, Story 2.1.1
-- **File**: `phase-4-future/epic-4.2-mobile/story-4.2.1-mobile-support.md`
-
-### Epic 4.3: Advanced Features
-
-#### Story 4.3.1: Visual Debugging Tools
-- **Status**: 🔴 Not Started
-- **Priority**: Low
-- **Estimated Time**: 4-5 weeks
-- **Assigned To**: TBD
-- **Dependencies**: Story 2.3.2
-- **File**: `phase-4-future/epic-4.3-advanced/story-4.3.1-visual-debugging.md`
-
-#### Story 4.3.2: Advanced Reporting
-- **Status**: 🔴 Not Started
-- **Priority**: Low
 - **Estimated Time**: 3-4 weeks
-- **Assigned To**: TBD
+- **Dependencies**: Story 1.3.2
+- **File**: `example-2-shopping-cart/milestone-2.1-advanced-verification/story-2.1.1-internal-fluent-verification.md`
+- **Acceptance Criteria**:
+  - [ ] Implement `HasText(string text)` verification method
+  - [ ] Implement `IsVisible()` verification method
+  - [ ] Implement `HasValue(string value)` verification method
+  - [ ] Support chained verification methods
+  - [ ] Create working example with shopping cart verification
+
+#### Story 2.1.2: Create Shopping Cart Pages
+- **Status**: 🔴 Not Started
+- **Priority**: High
+- **Estimated Time**: 2-3 weeks
 - **Dependencies**: Story 2.1.1
-- **File**: `phase-4-future/epic-4.3-advanced/story-4.3.2-advanced-reporting.md`
+- **File**: `example-2-shopping-cart/milestone-2.1-advanced-verification/story-2.1.2-shopping-cart-pages.md`
+- **Acceptance Criteria**:
+  - [ ] Create ProductCatalogPage with add to cart buttons
+  - [ ] Create ShoppingCartPage with pricing calculations
+  - [ ] Add sample app pages for product catalog and shopping cart
+  - [ ] Implement dynamic pricing calculations
+
+### Milestone 2.2: State Management and Calculations
+**Goal**: Implement state management needed for shopping cart functionality
+
+#### Story 2.2.1: Implement Cross-Page State Management
+- **Status**: 🔴 Not Started
+- **Priority**: High
+- **Estimated Time**: 2-3 weeks
+- **Dependencies**: Story 2.1.2
+- **File**: `example-2-shopping-cart/milestone-2.2-state-management/story-2.2.1-cross-page-state.md`
+- **Acceptance Criteria**:
+  - [ ] Implement cart state persistence across pages
+  - [ ] Add cart item counting functionality
+  - [ ] Implement pricing calculations (subtotal, tax, shipping)
+  - [ ] Create working example with cart state management
+
+#### Story 2.2.2: Complete Example 2 Implementation
+- **Status**: 🔴 Not Started
+- **Priority**: High
+- **Estimated Time**: 2-3 weeks
+- **Dependencies**: Story 2.2.1
+- **File**: `example-2-shopping-cart/milestone-2.2-state-management/story-2.2.2-complete-example-2.md`
+- **Acceptance Criteria**:
+  - [ ] Implement complete Example 2 scenario
+  - [ ] Add comprehensive tests for shopping cart flow
+  - [ ] Update documentation with Example 2
+  - [ ] All tests pass and demonstrate working framework
+
+## Example 3: Dashboard with Data Tables
+
+### Milestone 3.1: Data Tables
+**Goal**: Implement data table interactions needed for Example 3
+
+#### Story 3.1.1: Implement Data Table Interactions
+- **Status**: 🔴 Not Started
+- **Priority**: Medium
+- **Estimated Time**: 3-4 weeks
+- **Dependencies**: Story 2.2.2
+- **File**: `example-3-dashboard/milestone-3.1-data-tables/story-3.1.1-data-table-interactions.md`
+- **Acceptance Criteria**:
+  - [ ] Implement data table sorting functionality
+  - [ ] Implement data table filtering functionality
+  - [ ] Implement row selection and editing
+  - [ ] Create working example with data table interactions
+
+#### Story 3.1.2: Create Dashboard Pages
+- **Status**: 🔴 Not Started
+- **Priority**: Medium
+- **Estimated Time**: 2-3 weeks
+- **Dependencies**: Story 3.1.1
+- **File**: `example-3-dashboard/milestone-3.1-data-tables/story-3.1.2-dashboard-pages.md`
+- **Acceptance Criteria**:
+  - [ ] Create DashboardPage with data table functionality
+  - [ ] Create UserEditModal with form interactions
+  - [ ] Add sample app pages for dashboard and user management
+  - [ ] Implement data table with sorting, filtering, and pagination
+
+### Milestone 3.2: Advanced Interactions
+**Goal**: Implement advanced interactions needed for Example 3
+
+#### Story 3.2.1: Complete Example 3 Implementation
+- **Status**: 🔴 Not Started
+- **Priority**: Medium
+- **Estimated Time**: 2-3 weeks
+- **Dependencies**: Story 3.1.2
+- **File**: `example-3-dashboard/milestone-3.2-advanced-interactions/story-3.2.1-complete-example-3.md`
+- **Acceptance Criteria**:
+  - [ ] Implement complete Example 3 scenario
+  - [ ] Add comprehensive tests for dashboard functionality
+  - [ ] Update documentation with Example 3
+  - [ ] All tests pass and demonstrate working framework
+
+## Future Examples (4-10)
+
+### Example 4: Real-Time Data Dashboard
+- **Milestone 4.1**: Async data handling and auto-refresh
+- **Milestone 4.2**: Real-time metrics and monitoring
+
+### Example 5: File Upload with Progress Tracking
+- **Milestone 5.1**: File upload handling
+- **Milestone 5.2**: Progress tracking and status monitoring
+
+### Example 6: Search with Advanced Filters
+- **Milestone 6.1**: Search functionality and filters
+- **Milestone 6.2**: Pagination and result navigation
+
+### Example 7: Chat Application
+- **Milestone 7.1**: Real-time messaging
+- **Milestone 7.2**: Message history and conversation management
+
+### Example 8: Calendar Event Scheduling
+- **Milestone 8.1**: Date/time handling
+- **Milestone 8.2**: Conflict detection and resolution
+
+### Example 9: Payment Processing
+- **Milestone 9.1**: Complex form validation
+- **Milestone 9.2**: Payment method handling
+
+### Example 10: Performance Testing
+- **Milestone 10.1**: Network interception
+- **Milestone 10.2**: Performance monitoring and metrics
 
 ## Story Completion Tracking
 
-### Phase 1 Progress
-- **Total Stories**: 7
-- **Completed**: 4
-- **In Progress**: 0
-- **Not Started**: 3
-- **Completion**: 57%
-
-### Phase 2 Progress
+### Example 1 Progress
 - **Total Stories**: 6
 - **Completed**: 0
 - **In Progress**: 0
 - **Not Started**: 6
-- **Completion**: 0%
+- **Completion Rate**: 0%
 
-### Phase 3 Progress
-- **Total Stories**: 5
-- **Completed**: 0
-- **In Progress**: 0
-- **Not Started**: 5
-- **Completion**: 0%
-
-### Phase 4 Progress
+### Example 2 Progress
 - **Total Stories**: 4
 - **Completed**: 0
 - **In Progress**: 0
 - **Not Started**: 4
-- **Completion**: 0%
+- **Completion Rate**: 0%
+
+### Example 3 Progress
+- **Total Stories**: 3
+- **Completed**: 0
+- **In Progress**: 0
+- **Not Started**: 3
+- **Completion Rate**: 0%
+
+### Example 3 Progress
+- **Total Stories**: 4
+- **Completed**: 0
+- **In Progress**: 0
+- **Not Started**: 4
+- **Completion Rate**: 0%
 
 ### Overall Progress
-- **Total Stories**: 22
-- **Completed**: 4
+- **Total Stories**: 14 (Examples 1-3)
+- **Completed**: 0
 - **In Progress**: 0
-- **Not Started**: 18
-- **Completion**: 18%
-
-## Next Steps
-
-1. **Start with Phase 1**: Begin with Story 1.1.1 (Project Structure Setup)
-2. **Follow Dependencies**: Ensure all dependencies are completed before starting a story
-3. **Update Status**: Mark stories as "In Progress" when started and "Completed" when done
-4. **Track Progress**: Update completion percentages as stories are finished
-5. **Review Blocked Stories**: Address any blocked stories by resolving dependencies
-
-## Notes
-
-- All stories are designed to be independent and trackable
-- Each story has clear acceptance criteria and technical tasks
-- Stories can be worked on in parallel where dependencies allow
-- Progress should be updated regularly to maintain accurate tracking 
+- **Not Started**: 14
+- **Completion Rate**: 0% 
