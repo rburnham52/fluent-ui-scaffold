@@ -159,4 +159,47 @@ public class ElementCollection : IElementCollection
     {
         return GetEnumerator();
     }
+
+
+    public class HomePage : BasePageComponent<PlaywrightDriver, HomePage>
+    {
+        public HomePage(IServiceProvider serviceProvider)
+            : base(serviceProvider, new Uri("/"))
+        {
+        }
+
+
+    }
+
+    public class BasePageComponent<TDriver, TPage> : IPageComponent<TDriver, TPage>
+        where TDriver : class, IUIDriver
+        where TPage : class, IPageComponent<TDriver, TPage>
+    {
+        protected readonly IServiceProvider _serviceProvider;
+        protected readonly Uri _url;
+
+        public BasePageComponent(IServiceProvider serviceProvider, Uri url)
+        {
+            _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+            _url = url ?? throw new ArgumentNullException(nameof(url));
+        }
+
+        public virtual Uri Url => _url;
+
+        public virtual TDriver Driver => _serviceProvider.GetRequiredService<TDriver>();
+
+        public virtual TPage VerifyPageTile(string title)
+        {
+            if (string.IsNullOrEmpty(title))
+                throw new ArgumentException("Title cannot be null or empty.", nameof(title));
+
+            var pageTitle = Driver.GetPageTitle();
+            if (!pageTitle.Equals(title, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new ElementValidationException($"Expected page title '{title}', but got '{pageTitle}'.");
+            }
+
+            return (TPage)this;
+        }
+    }
 }
