@@ -14,69 +14,122 @@ The Page Object Pattern is a design pattern that creates an abstraction layer be
 
 ## Core Components
 
-### BasePageComponent<TApp>
+### BasePageComponent<TDriver, TPage>
 
-The base class for all page objects in FluentUIScaffold.
+The base class for all page objects in FluentUIScaffold with dual generic types for fluent API context.
 
 ```csharp
-public abstract class BasePageComponent<TApp> : IPageComponent<TApp>
+public abstract class BasePageComponent<TDriver, TPage> : IPageComponent<TDriver, TPage>
+    where TDriver : class, IUIDriver
+    where TPage : class, IPageComponent<TDriver, TPage>
 {
-    protected IUIDriver Driver { get; }
-    protected FluentUIScaffoldOptions Options { get; }
+    protected TDriver Driver { get; }
+    protected IServiceProvider ServiceProvider { get; }
     protected ILogger Logger { get; }
+    protected FluentUIScaffoldOptions Options { get; }
+    protected ElementFactory ElementFactory { get; }
     
-    public abstract string UrlPattern { get; }
-    public virtual bool ShouldValidateOnNavigation => true;
+    public Uri UrlPattern { get; }
+    public virtual bool ShouldValidateOnNavigation => false;
     
     protected abstract void ConfigureElements();
     
     // Framework-agnostic element interaction methods
-    protected virtual void Click(string selector);
-    protected virtual void Type(string selector, string text);
-    protected virtual void Select(string selector, string value);
-    protected virtual string GetText(string selector);
-    protected virtual bool IsVisible(string selector);
-    protected virtual void WaitForElement(string selector);
+    protected virtual void ClickElement(string selector) => Driver.Click(selector);
+    protected virtual void TypeText(string selector, string text) => Driver.Type(selector, text);
+    protected virtual void SelectOption(string selector, string value) => Driver.SelectOption(selector, value);
+    protected virtual string GetElementText(string selector) => Driver.GetText(selector);
+    protected virtual bool IsElementVisible(string selector) => Driver.IsVisible(selector);
+    protected virtual void WaitForElement(string selector) => Driver.WaitForElement(selector);
+    
+    // Fluent API element action methods
+    public virtual TPage Click(Func<TPage, IElement> elementSelector);
+    public virtual TPage Type(Func<TPage, IElement> elementSelector, string text);
+    public virtual TPage Select(Func<TPage, IElement> elementSelector, string value);
+    public virtual TPage Focus(Func<TPage, IElement> elementSelector);
+    public virtual TPage Hover(Func<TPage, IElement> elementSelector);
+    public virtual TPage Clear(Func<TPage, IElement> elementSelector);
+    
+    // Additional fluent element actions
+    public virtual TPage WaitForElement(Func<TPage, IElement> elementSelector);
+    public virtual TPage WaitForElementToBeVisible(Func<TPage, IElement> elementSelector);
+    public virtual TPage WaitForElementToBeHidden(Func<TPage, IElement> elementSelector);
+    
+    // Generic verification methods
+    public virtual TPage VerifyValue<TValue>(Func<TPage, IElement> elementSelector, TValue expectedValue, string description = null);
+    public virtual TPage VerifyText(Func<TPage, IElement> elementSelector, string expectedText, string description = null);
+    public virtual TPage VerifyProperty(Func<TPage, IElement> elementSelector, string expectedValue, string propertyName, string description = null);
     
     // Navigation methods
-    public virtual TTarget NavigateTo<TTarget>() where TTarget : BasePageComponent<TApp>;
-    
-    // Page validation
-    public virtual bool IsCurrentPage();
-    public virtual void ValidateCurrentPage();
+    public virtual TTarget NavigateTo<TTarget>() where TTarget : BasePageComponent<TDriver, TTarget>;
     
     // Framework-specific access
-    public TDriver Framework<TDriver>() where TDriver : class;
+    protected TDriver FrameworkDriver => Driver;
+    public TDriver TestDriver => Driver;
     
     // Verification access
-    public IVerificationContext<TApp> Verify { get; }
+    public IVerificationContext Verify { get; }
+    
+    // Helper methods
+    protected ElementBuilder Element(string selector);
+    protected virtual void NavigateToUrl(Uri url);
+    
+    // IPageComponent implementation
+    public virtual bool IsCurrentPage();
+    public virtual void ValidateCurrentPage();
 }
 ```
 
-### IPageComponent<TApp>
+### IPageComponent<TDriver, TPage>
 
-Interface that defines the contract for page components.
+Interface that defines the contract for page components with dual generic types.
 
 ```csharp
-public interface IPageComponent<TApp>
+public interface IPageComponent<TDriver, TPage>
+    where TDriver : class, IUIDriver
+    where TPage : class, IPageComponent<TDriver, TPage>
 {
-    string UrlPattern { get; }
+    Uri UrlPattern { get; }
     bool ShouldValidateOnNavigation { get; }
     bool IsCurrentPage();
     void ValidateCurrentPage();
-    TTarget NavigateTo<TTarget>() where TTarget : BasePageComponent<TApp>;
-    IVerificationContext<TApp> Verify { get; }
+    TTarget NavigateTo<TTarget>() where TTarget : BasePageComponent<TDriver, TTarget>;
+    IVerificationContext Verify { get; }
 }
 ```
 
 ## Creating Page Objects
 
+### Fluent API Methods
+
+The `BasePageComponent<TDriver, TPage>` provides fluent API methods for element interactions:
+
+```csharp
+// Element interaction methods
+page.Click(e => e.ElementName)
+page.Type(e => e.ElementName, "text")
+page.Select(e => e.ElementName, "value")
+page.Focus(e => e.ElementName)
+page.Hover(e => e.ElementName)
+page.Clear(e => e.ElementName)
+
+// Wait methods
+page.WaitForElement(e => e.ElementName)
+page.WaitForElementToBeVisible(e => e.ElementName)
+page.WaitForElementToBeHidden(e => e.ElementName)
+
+// Verification methods
+page.VerifyText(e => e.ElementName, "expected text")
+page.VerifyValue(e => e.ElementName, expectedValue)
+page.VerifyProperty(e => e.ElementName, "expected value", "propertyName")
+```
+
 ### Basic Page Object
 
 ```csharp
-public class LoginPage : BasePageComponent<WebApp>
+public class LoginPage : BasePageComponent<PlaywrightDriver, LoginPage>
 {
-    public override string UrlPattern => "/login";
+    public override Uri UrlPattern => new Uri("/login");
     
     private IElement _emailInput;
     private IElement _passwordInput;
@@ -105,27 +158,27 @@ public class LoginPage : BasePageComponent<WebApp>
     public LoginPage EnterEmail(string email)
     {
         Logger.LogInformation($"Entering email: {email}");
-        _emailInput.Type(email);
+        Type(e => e._emailInput, email);
         return this;
     }
     
     public LoginPage EnterPassword(string password)
     {
         Logger.LogInformation("Entering password");
-        _passwordInput.Type(password);
+        Type(e => e._passwordInput, password);
         return this;
     }
     
     public HomePage ClickLogin()
     {
         Logger.LogInformation("Clicking login button");
-        _loginButton.Click();
+        Click(e => e._loginButton);
         return NavigateTo<HomePage>();
     }
     
     public LoginPage VerifyErrorMessage(string expectedMessage)
     {
-        Verify.ElementContainsText(".error-message", expectedMessage);
+        VerifyText(e => e._errorMessage, expectedMessage);
         return this;
     }
 }
@@ -369,21 +422,28 @@ public UserManagementPage VerifyUserExists(string userName)
 ### Accessing Framework Drivers
 
 ```csharp
-public class AdvancedPage : BasePageComponent<WebApp>
+public class AdvancedPage : BasePageComponent<PlaywrightDriver, AdvancedPage>
 {
     public void TakeScreenshot()
     {
-        var playwrightDriver = Framework<PlaywrightDriver>();
-        playwrightDriver.TakeScreenshotAsync("screenshot.png");
+        // Direct access to the driver
+        TestDriver.TakeScreenshotAsync("screenshot.png");
     }
     
     public void InterceptNetworkRequests()
     {
-        var playwrightDriver = Framework<PlaywrightDriver>();
-        playwrightDriver.InterceptNetworkRequests("/api/*", response =>
+        // Direct access to the driver
+        TestDriver.InterceptNetworkRequests("/api/*", response =>
         {
             // Handle intercepted response
         });
+    }
+    
+    public void UseFrameworkSpecificFeatures()
+    {
+        // Access framework-specific features directly
+        var page = TestDriver.Page;
+        page.SetViewportSizeAsync(1920, 1080);
     }
 }
 ```
@@ -443,58 +503,66 @@ public class WellOrganizedPage : BasePageComponent<WebApp>
 ### 2. Method Chaining
 
 ```csharp
-public class ChainedPage : BasePageComponent<WebApp>
+public class ChainedPage : BasePageComponent<PlaywrightDriver, ChainedPage>
 {
     public ChainedPage EnterEmail(string email)
     {
-        _emailInput.Type(email);
+        Type(e => e._emailInput, email);
         return this;
     }
     
     public ChainedPage EnterPassword(string password)
     {
-        _passwordInput.Type(password);
+        Type(e => e._passwordInput, password);
         return this;
     }
     
     public ChainedPage ClickLogin()
     {
-        _loginButton.Click();
+        Click(e => e._loginButton);
         return this;
     }
     
     // Usage: page.EnterEmail("test@example.com").EnterPassword("password").ClickLogin();
+    
+    // Or use the fluent API directly:
+    public ChainedPage Login(string email, string password)
+    {
+        return Type(e => e._emailInput, email)
+               .Type(e => e._passwordInput, password)
+               .Click(e => e._loginButton);
+    }
 }
 ```
 
 ### 3. Error Handling
 
 ```csharp
-public class RobustPage : BasePageComponent<WebApp>
+public class RobustPage : BasePageComponent<PlaywrightDriver, RobustPage>
 {
     public RobustPage ClickButtonSafely()
     {
         try
         {
-            _button.Click();
+            Click(e => e._button);
         }
         catch (ElementTimeoutException ex)
         {
             Logger.LogWarning($"Button not found: {ex.Selector}");
-            // Fallback logic
-            Driver.ExecuteScript("document.querySelector('#button').click();");
+            // Fallback logic using direct driver access
+            TestDriver.ExecuteScript("document.querySelector('#button').click();");
         }
         
         return this;
     }
     
-    public RobustPage WaitForElementWithRetry(string selector, int maxRetries = 3)
+    public RobustPage WaitForElementWithRetry(Func<RobustPage, IElement> elementSelector, int maxRetries = 3)
     {
         for (int i = 0; i < maxRetries; i++)
         {
             try
             {
-                WaitForElement(selector);
+                WaitForElement(elementSelector);
                 return this;
             }
             catch (ElementTimeoutException)
@@ -512,16 +580,16 @@ public class RobustPage : BasePageComponent<WebApp>
 ### 4. Page State Management
 
 ```csharp
-public class StatefulPage : BasePageComponent<WebApp>
+public class StatefulPage : BasePageComponent<PlaywrightDriver, StatefulPage>
 {
     private bool _isLoggedIn = false;
     private string _currentUser = null;
     
     public StatefulPage Login(string email, string password)
     {
-        EnterEmail(email);
-        EnterPassword(password);
-        ClickLogin();
+        Type(e => e._emailInput, email);
+        Type(e => e._passwordInput, password);
+        Click(e => e._loginButton);
         
         _isLoggedIn = true;
         _currentUser = email;
@@ -536,7 +604,7 @@ public class StatefulPage : BasePageComponent<WebApp>
             throw new InvalidOperationException("Not logged in");
         }
         
-        _logoutLink.Click();
+        Click(e => e._logoutLink);
         _isLoggedIn = false;
         _currentUser = null;
         

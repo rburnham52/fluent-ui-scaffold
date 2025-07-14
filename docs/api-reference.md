@@ -288,34 +288,69 @@ public class ElementCollection : IElementCollection
 
 ## Page Object Pattern
 
-### BasePageComponent<TApp>
+### BasePageComponent<TDriver, TPage>
 
-Base class for all page objects.
+Base class for all page objects with dual generic types for fluent API context.
 
 ```csharp
-public abstract class BasePageComponent<TApp> : IPageComponent<TApp>
+public abstract class BasePageComponent<TDriver, TPage> : IPageComponent<TDriver, TPage>
+    where TDriver : class, IUIDriver
+    where TPage : class, IPageComponent<TDriver, TPage>
 {
-    protected IUIDriver Driver { get; }
-    protected FluentUIScaffoldOptions Options { get; }
+    protected TDriver Driver { get; }
+    protected IServiceProvider ServiceProvider { get; }
     protected ILogger Logger { get; }
+    protected FluentUIScaffoldOptions Options { get; }
+    protected ElementFactory ElementFactory { get; }
     
-    public abstract string UrlPattern { get; }
-    public virtual bool ShouldValidateOnNavigation => true;
+    public Uri UrlPattern { get; }
+    public virtual bool ShouldValidateOnNavigation => false;
     
     protected abstract void ConfigureElements();
     
-    protected virtual void Click(string selector);
-    protected virtual void Type(string selector, string text);
-    protected virtual void Select(string selector, string value);
-    protected virtual string GetText(string selector);
-    protected virtual bool IsVisible(string selector);
-    protected virtual void WaitForElement(string selector);
+    // Framework-agnostic element interaction methods
+    protected virtual void ClickElement(string selector) => Driver.Click(selector);
+    protected virtual void TypeText(string selector, string text) => Driver.Type(selector, text);
+    protected virtual void SelectOption(string selector, string value) => Driver.SelectOption(selector, value);
+    protected virtual string GetElementText(string selector) => Driver.GetText(selector);
+    protected virtual bool IsElementVisible(string selector) => Driver.IsVisible(selector);
+    protected virtual void WaitForElement(string selector) => Driver.WaitForElement(selector);
     
-    public virtual TTarget NavigateTo<TTarget>() where TTarget : BasePageComponent<TApp>;
+    // Fluent API element action methods
+    public virtual TPage Click(Func<TPage, IElement> elementSelector);
+    public virtual TPage Type(Func<TPage, IElement> elementSelector, string text);
+    public virtual TPage Select(Func<TPage, IElement> elementSelector, string value);
+    public virtual TPage Focus(Func<TPage, IElement> elementSelector);
+    public virtual TPage Hover(Func<TPage, IElement> elementSelector);
+    public virtual TPage Clear(Func<TPage, IElement> elementSelector);
+    
+    // Additional fluent element actions
+    public virtual TPage WaitForElement(Func<TPage, IElement> elementSelector);
+    public virtual TPage WaitForElementToBeVisible(Func<TPage, IElement> elementSelector);
+    public virtual TPage WaitForElementToBeHidden(Func<TPage, IElement> elementSelector);
+    
+    // Generic verification methods
+    public virtual TPage VerifyValue<TValue>(Func<TPage, IElement> elementSelector, TValue expectedValue, string description = null);
+    public virtual TPage VerifyText(Func<TPage, IElement> elementSelector, string expectedText, string description = null);
+    public virtual TPage VerifyProperty(Func<TPage, IElement> elementSelector, string expectedValue, string propertyName, string description = null);
+    
+    // Navigation methods
+    public virtual TTarget NavigateTo<TTarget>() where TTarget : BasePageComponent<TDriver, TTarget>;
+    
+    // Framework-specific access
+    protected TDriver FrameworkDriver => Driver;
+    public TDriver TestDriver => Driver;
+    
+    // Verification access
+    public IVerificationContext Verify { get; }
+    
+    // Helper methods
+    protected ElementBuilder Element(string selector);
+    protected virtual void NavigateToUrl(Uri url);
+    
+    // IPageComponent implementation
     public virtual bool IsCurrentPage();
     public virtual void ValidateCurrentPage();
-    public TDriver Framework<TDriver>() where TDriver : class;
-    public IVerificationContext<TApp> Verify { get; }
 }
 ```
 
@@ -323,35 +358,40 @@ public abstract class BasePageComponent<TApp> : IPageComponent<TApp>
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `Driver` | `IUIDriver` | The UI driver instance |
-| `Options` | `FluentUIScaffoldOptions` | Framework options |
+| `Driver` | `TDriver` | The UI driver instance |
+| `ServiceProvider` | `IServiceProvider` | Dependency injection container |
 | `Logger` | `ILogger` | Logger instance |
-| `UrlPattern` | `string` | URL pattern for page validation |
+| `Options` | `FluentUIScaffoldOptions` | Framework options |
+| `ElementFactory` | `ElementFactory` | Factory for creating elements |
+| `UrlPattern` | `Uri` | URL pattern for page validation |
 | `ShouldValidateOnNavigation` | `bool` | Whether to validate on navigation |
-| `Verify` | `IVerificationContext<TApp>` | Verification context |
+| `TestDriver` | `TDriver` | Public access to driver for testing |
+| `Verify` | `IVerificationContext` | Verification context |
 
 #### Methods
 
 | Method | Description | Parameters | Returns |
 |--------|-------------|------------|---------|
 | `ConfigureElements` | Configures page elements | None | `void` |
-| `Click` | Clicks an element | `string selector` | `void` |
-| `Type` | Types text into an element | `string selector`, `string text` | `void` |
-| `Select` | Selects a value from an element | `string selector`, `string value` | `void` |
-| `GetText` | Gets text from an element | `string selector` | `string` |
-| `IsVisible` | Checks if an element is visible | `string selector` | `bool` |
-| `WaitForElement` | Waits for an element | `string selector` | `void` |
+| `Click` | Clicks an element using fluent API | `Func<TPage, IElement> elementSelector` | `TPage` |
+| `Type` | Types text into an element using fluent API | `Func<TPage, IElement> elementSelector`, `string text` | `TPage` |
+| `Select` | Selects a value from an element using fluent API | `Func<TPage, IElement> elementSelector`, `string value` | `TPage` |
+| `Focus` | Focuses on an element using fluent API | `Func<TPage, IElement> elementSelector` | `TPage` |
+| `Hover` | Hovers over an element using fluent API | `Func<TPage, IElement> elementSelector` | `TPage` |
+| `Clear` | Clears an element using fluent API | `Func<TPage, IElement> elementSelector` | `TPage` |
+| `WaitForElement` | Waits for an element using fluent API | `Func<TPage, IElement> elementSelector` | `TPage` |
+| `VerifyText` | Verifies element text using fluent API | `Func<TPage, IElement> elementSelector`, `string expectedText` | `TPage` |
+| `VerifyValue` | Verifies element value using fluent API | `Func<TPage, IElement> elementSelector`, `TValue expectedValue` | `TPage` |
 | `NavigateTo<TTarget>` | Navigates to another page | `TTarget` type parameter | `TTarget` |
 | `IsCurrentPage` | Checks if currently on this page | None | `bool` |
 | `ValidateCurrentPage` | Validates current page | None | `void` |
-| `Framework<TDriver>` | Gets framework-specific driver | `TDriver` type parameter | `TDriver` |
 
 #### Usage
 
 ```csharp
-public class HomePage : BasePageComponent<WebApp>
+public class HomePage : BasePageComponent<PlaywrightDriver, HomePage>
 {
-    public override string UrlPattern => "/home";
+    public override Uri UrlPattern => new Uri("/home");
     
     private IElement _button;
     private IElement _input;
@@ -369,32 +409,91 @@ public class HomePage : BasePageComponent<WebApp>
     
     public HomePage ClickSubmit()
     {
-        _button.Click();
+        Click(e => e._button);
         return this;
     }
     
     public HomePage EnterSearchText(string text)
     {
-        _input.Type(text);
+        Type(e => e._input, text);
+        return this;
+    }
+    
+    public HomePage VerifyWelcomeMessage(string expectedText)
+    {
+        VerifyText(e => e._welcomeMessage, expectedText);
         return this;
     }
 }
 ```
 
-### IPageComponent<TApp>
+### IPageComponent<TDriver, TPage>
 
-Interface for page components.
+Interface for page components with dual generic types.
 
 ```csharp
-public interface IPageComponent<TApp>
+public interface IPageComponent<TDriver, TPage>
+    where TDriver : class, IUIDriver
+    where TPage : class, IPageComponent<TDriver, TPage>
 {
-    string UrlPattern { get; }
+    Uri UrlPattern { get; }
     bool ShouldValidateOnNavigation { get; }
     bool IsCurrentPage();
     void ValidateCurrentPage();
-    TTarget NavigateTo<TTarget>() where TTarget : BasePageComponent<TApp>;
-    IVerificationContext<TApp> Verify { get; }
+    TTarget NavigateTo<TTarget>() where TTarget : BasePageComponent<TDriver, TTarget>;
+    IVerificationContext Verify { get; }
 }
+```
+
+## Verification Context
+
+### IVerificationContext
+
+Interface for verification operations.
+
+```csharp
+public interface IVerificationContext
+{
+    void ElementContainsText(string selector, string expectedText);
+    void ElementIsVisible(string selector);
+    void ElementIsHidden(string selector);
+    void ElementIsEnabled(string selector);
+    void ElementIsDisabled(string selector);
+    void ElementHasValue(string selector, string expectedValue);
+    void ElementHasAttribute(string selector, string attributeName, string expectedValue);
+    void That<TValue>(Func<TValue> actualValueProvider, Func<TValue, bool> condition, string message = null);
+}
+```
+
+### VerificationContext
+
+Implementation of the verification context.
+
+```csharp
+public class VerificationContext : IVerificationContext
+{
+    public void ElementContainsText(string selector, string expectedText);
+    public void ElementIsVisible(string selector);
+    public void ElementIsHidden(string selector);
+    public void ElementIsEnabled(string selector);
+    public void ElementIsDisabled(string selector);
+    public void ElementHasValue(string selector, string expectedValue);
+    public void ElementHasAttribute(string selector, string attributeName, string expectedValue);
+    public void That<TValue>(Func<TValue> actualValueProvider, Func<TValue, bool> condition, string message = null);
+}
+```
+
+#### Usage
+
+```csharp
+// Using the verification context
+page.Verify.ElementContainsText("#welcome-message", "Welcome!");
+page.Verify.ElementIsVisible("#submit-button");
+page.Verify.ElementHasValue("#email-input", "test@example.com");
+
+// Using fluent verification methods
+page.VerifyText(e => e._welcomeMessage, "Welcome!");
+page.VerifyValue(e => e._emailInput, "test@example.com");
 ```
 
 ## Playwright Integration

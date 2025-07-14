@@ -4,6 +4,8 @@
 
 This guide will help you get started with FluentUIScaffold, a framework-agnostic E2E testing library that provides a fluent API for building maintainable and reusable UI test automation.
 
+**Status**: The framework is actively developed with Example 1 (User Registration and Login Flow) fully implemented and tested. See the [roadmap](roadmap/README.md) for current development status.
+
 ## Prerequisites
 
 Before you begin, ensure you have the following installed:
@@ -129,6 +131,59 @@ dotnet test
 
 # Run specific test
 dotnet test --filter "Can_Navigate_To_Home_Page"
+```
+
+## Sample Application
+
+The project includes a comprehensive sample application that demonstrates the framework's capabilities:
+
+### Running the Sample
+
+```bash
+# Navigate to sample app
+cd samples/SampleApp
+
+# Install frontend dependencies
+cd ClientApp && npm install && cd ..
+
+# Run the application
+dotnet run
+
+# Run tests (in another terminal)
+cd ../SampleApp.Tests
+dotnet test
+```
+
+### Sample Features
+
+The sample application includes:
+
+- **Modern Web Application**: ASP.NET Core backend with Svelte frontend
+- **User Registration and Login**: Complete form interactions and validation
+- **Comprehensive Testing**: 43 passing tests covering all scenarios
+- **Framework Features**: Navigation, form interactions, verification, error handling
+
+### Example Test
+
+```csharp
+[TestMethod]
+public async Task Can_Register_New_User_With_Valid_Data()
+{
+    // Arrange
+    var registrationPage = _fluentUI!.NavigateTo<RegistrationPage>();
+    registrationPage.TestDriver.Click("[data-testid='nav-register']");
+
+    // Act
+    registrationPage
+        .Type(e => e.EmailInput, "test@example.com")
+        .Type(e => e.PasswordInput, "SecurePass123!")
+        .Type(e => e.FirstNameInput, "Test")
+        .Type(e => e.LastNameInput, "User")
+        .Click(e => e.RegisterButton);
+
+    // Assert
+    registrationPage.Verify.ElementContainsText("#success-message", "Registration successful!");
+}
 ```
 
 ## Configuration
