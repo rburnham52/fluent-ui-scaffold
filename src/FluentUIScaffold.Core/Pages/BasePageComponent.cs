@@ -51,6 +51,77 @@ namespace FluentUIScaffold.Core.Pages
         protected virtual bool IsElementVisible(string selector) => Driver.IsVisible(selector);
         protected virtual void WaitForElement(string selector) => Driver.WaitForElement(selector);
 
+        // Fluent API element action methods
+        public virtual TPage Click(Func<TPage, IElement> elementSelector)
+        {
+            var element = GetElementFromSelector(elementSelector);
+            element.Click();
+            return (TPage)(object)this;
+        }
+
+        public virtual TPage Type(Func<TPage, IElement> elementSelector, string text)
+        {
+            var element = GetElementFromSelector(elementSelector);
+            element.Type(text);
+            return (TPage)(object)this;
+        }
+
+        public virtual TPage Select(Func<TPage, IElement> elementSelector, string value)
+        {
+            var element = GetElementFromSelector(elementSelector);
+            element.SelectOption(value);
+            return (TPage)(object)this;
+        }
+
+        public virtual TPage Focus(Func<TPage, IElement> elementSelector)
+        {
+            var element = GetElementFromSelector(elementSelector);
+            Driver.Focus(element.Selector);
+            return (TPage)(object)this;
+        }
+
+        public virtual TPage Hover(Func<TPage, IElement> elementSelector)
+        {
+            var element = GetElementFromSelector(elementSelector);
+            Driver.Hover(element.Selector);
+            return (TPage)(object)this;
+        }
+
+        public virtual TPage Clear(Func<TPage, IElement> elementSelector)
+        {
+            var element = GetElementFromSelector(elementSelector);
+            Driver.Clear(element.Selector);
+            return (TPage)(object)this;
+        }
+
+        // Additional fluent element actions
+        public virtual TPage WaitForElement(Func<TPage, IElement> elementSelector)
+        {
+            var element = GetElementFromSelector(elementSelector);
+            element.WaitFor();
+            return (TPage)(object)this;
+        }
+
+        public virtual TPage WaitForElementToBeVisible(Func<TPage, IElement> elementSelector)
+        {
+            var element = GetElementFromSelector(elementSelector);
+            element.WaitForVisible();
+            return (TPage)(object)this;
+        }
+
+        public virtual TPage WaitForElementToBeHidden(Func<TPage, IElement> elementSelector)
+        {
+            var element = GetElementFromSelector(elementSelector);
+            element.WaitForHidden();
+            return (TPage)(object)this;
+        }
+
+        // Helper method to get element from selector
+        protected virtual IElement GetElementFromSelector(Func<TPage, IElement> elementSelector)
+        {
+            return elementSelector((TPage)(object)this);
+        }
+
         // Navigation methods
         public virtual TTarget NavigateTo<TTarget>() where TTarget : BasePageComponent<TDriver, TTarget>
         {
@@ -60,6 +131,9 @@ namespace FluentUIScaffold.Core.Pages
 
         // Framework-specific access - direct driver access
         protected TDriver FrameworkDriver => Driver;
+
+        // Public access to driver for test purposes
+        public TDriver TestDriver => Driver;
 
         // Verification access
         public IVerificationContext Verify => new VerificationContext(Driver, Options, Logger);

@@ -19,6 +19,10 @@ namespace SampleApp.Tests.Pages
     /// </summary>
     public class HomePage : BasePageComponent<PlaywrightDriver, HomePage>
     {
+        public IElement CounterButton { get; private set; }
+        public IElement CounterValue { get; private set; }
+        public IElement PageTitle { get; private set; }
+
         public HomePage(IServiceProvider serviceProvider, Uri urlPattern)
             : base(serviceProvider, urlPattern)
         {
@@ -26,28 +30,39 @@ namespace SampleApp.Tests.Pages
 
         protected override void ConfigureElements()
         {
-            // Configure elements for the home page
+            // Configure elements for the home page using ElementFactory
+            CounterButton = Element("button")
+                .WithDescription("Counter Button")
+                .WithWaitStrategy(WaitStrategy.Clickable)
+                .Build();
+
+            CounterValue = Element("button")
+                .WithDescription("Counter Value")
+                .WithWaitStrategy(WaitStrategy.Visible)
+                .Build();
+
+            PageTitle = Element("title")
+                .WithDescription("Page Title")
+                .WithWaitStrategy(WaitStrategy.Visible)
+                .Build();
         }
 
         /// <summary>
-        /// Clicks the counter button and returns the updated count.
+        /// Clicks the counter button using the fluent API.
         /// </summary>
         /// <returns>The current page instance for method chaining</returns>
         public HomePage ClickCounter()
         {
-            // The counter button is just a button with text "count is X"
-            Driver.Click("button");
-            return this;
+            return Click(e => e.CounterButton);
         }
 
         /// <summary>
-        /// Gets the current counter value.
+        /// Gets the current counter value using the fluent API.
         /// </summary>
         /// <returns>The current counter value as a string</returns>
         public string GetCounterValue()
         {
-            // Get the text from the button which contains "count is X"
-            var buttonText = Driver.GetText("button");
+            var buttonText = CounterValue.GetText();
             // Extract the number from "count is X"
             if (buttonText.Contains("count is "))
             {

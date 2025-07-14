@@ -1,5 +1,7 @@
 using System;
 
+using FluentUIScaffold.Core.Configuration;
+using FluentUIScaffold.Core.Interfaces;
 using FluentUIScaffold.Core.Pages;
 using FluentUIScaffold.Playwright;
 
@@ -11,6 +13,14 @@ namespace SampleApp.Tests.Pages
     /// </summary>
     public class LoginPage : BasePageComponent<PlaywrightDriver, LoginPage>
     {
+        public IElement EmailInput { get; private set; }
+        public IElement PasswordInput { get; private set; }
+        public IElement LoginButton { get; private set; }
+        public IElement WelcomeMessage { get; private set; }
+        public IElement ErrorMessage { get; private set; }
+        public IElement Form { get; private set; }
+        public IElement SuccessMessage { get; private set; }
+
         public LoginPage(IServiceProvider serviceProvider, Uri urlPattern)
             : base(serviceProvider, urlPattern)
         {
@@ -18,35 +28,111 @@ namespace SampleApp.Tests.Pages
 
         protected override void ConfigureElements()
         {
-            // Configure elements for the login page
+            // Configure elements for the login page using ElementFactory
+            EmailInput = Element("#email-input")
+                .WithDescription("Email Input")
+                .WithWaitStrategy(WaitStrategy.Visible)
+                .Build();
+
+            PasswordInput = Element("#password-input")
+                .WithDescription("Password Input")
+                .WithWaitStrategy(WaitStrategy.Visible)
+                .Build();
+
+            LoginButton = Element("#login-button")
+                .WithDescription("Login Button")
+                .WithWaitStrategy(WaitStrategy.Clickable)
+                .Build();
+
+            ErrorMessage = Element("#error-message")
+                .WithDescription("Error Message")
+                .WithWaitStrategy(WaitStrategy.Visible)
+                .Build();
+
+            SuccessMessage = Element("#success-message")
+                .WithDescription("Success Message")
+                .WithWaitStrategy(WaitStrategy.Visible)
+                .Build();
+
+            WelcomeMessage = Element("#success-message")
+                .WithDescription("Welcome Message")
+                .WithWaitStrategy(WaitStrategy.Visible)
+                .Build();
+
+            Form = Element("#loginForm")
+                .WithDescription("Login Form")
+                .WithWaitStrategy(WaitStrategy.Visible)
+                .Build();
         }
 
+        // Fluent API methods using the new element actions
         public LoginPage EnterEmail(string email)
         {
-            Driver.Type("#email-input", email);
-            return this;
+            return Type(e => e.EmailInput, email);
         }
 
         public LoginPage EnterPassword(string password)
         {
-            Driver.Type("#password-input", password);
-            return this;
+            return Type(e => e.PasswordInput, password);
         }
 
         public LoginPage ClickLogin()
         {
-            Driver.Click("#login-button");
-            return this;
+            return Click(e => e.LoginButton);
         }
 
         public string GetErrorMessage()
         {
-            return Driver.GetText("#error-message");
+            return ErrorMessage.GetText();
         }
 
         public bool IsErrorMessageVisible()
         {
-            return Driver.IsVisible("#error-message");
+            return ErrorMessage.IsVisible();
+        }
+
+        public string GetSuccessMessage()
+        {
+            return SuccessMessage.GetText();
+        }
+
+        public bool IsSuccessMessageVisible()
+        {
+            return SuccessMessage.IsVisible();
+        }
+
+        // Convenience method for complete login flow
+        public LoginPage CompleteLogin(string email, string password)
+        {
+            return EnterEmail(email)
+                .EnterPassword(password)
+                .ClickLogin();
+        }
+
+        // Custom methods for login flow as specified in the story
+        public LoginPage FillLoginForm(string email, string password)
+        {
+            return this
+                .Type(e => e.EmailInput, email)
+                .Type(e => e.PasswordInput, password);
+        }
+
+        public LoginPage SubmitLogin()
+        {
+            return this.Click(e => e.LoginButton);
+        }
+
+        // Verification methods as specified in the story
+        public LoginPage VerifyLoginSuccess(string expectedWelcomeMessage)
+        {
+            Verify.ElementContainsText("#success-message", expectedWelcomeMessage);
+            return this;
+        }
+
+        public LoginPage VerifyLoginError(string expectedError)
+        {
+            Verify.ElementContainsText("#error-message", expectedError);
+            return this;
         }
     }
 }

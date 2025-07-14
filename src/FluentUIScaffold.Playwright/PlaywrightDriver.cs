@@ -293,8 +293,31 @@ public class PlaywrightDriver : IUIDriver, IDisposable
         }
     }
 
-    public void Focus(string selector) { throw new NotImplementedException("Focus is not implemented for PlaywrightDriver yet."); }
-    public void Hover(string selector) { throw new NotImplementedException("Hover is not implemented for PlaywrightDriver yet."); }
-    public void Clear(string selector) { throw new NotImplementedException("Clear is not implemented for PlaywrightDriver yet."); }
+    public void Focus(string selector) 
+    { 
+        if (string.IsNullOrEmpty(selector))
+            throw new ArgumentException("Selector cannot be null or empty.", nameof(selector));
+
+        _logger?.LogDebug("Focusing element with selector: {Selector}", selector);
+        _page?.FocusAsync(selector).Wait();
+    }
+
+    public void Hover(string selector) 
+    { 
+        if (string.IsNullOrEmpty(selector))
+            throw new ArgumentException("Selector cannot be null or empty.", nameof(selector));
+
+        _logger?.LogDebug("Hovering over element with selector: {Selector}", selector);
+        _page?.HoverAsync(selector).Wait();
+    }
+
+    public void Clear(string selector) 
+    { 
+        if (string.IsNullOrEmpty(selector))
+            throw new ArgumentException("Selector cannot be null or empty.", nameof(selector));
+
+        _logger?.LogDebug("Clearing element with selector: {Selector}", selector);
+        _page?.FillAsync(selector, "").Wait();
+    }
     public string GetPageTitle() => _page?.TitleAsync().Result ?? "No title available";
 }

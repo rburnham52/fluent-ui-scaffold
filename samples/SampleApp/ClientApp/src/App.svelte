@@ -4,6 +4,8 @@
   import Counter from './lib/Counter.svelte'
   import TodoList from './lib/TodoList.svelte'
   import UserProfile from './lib/UserProfile.svelte'
+  import RegistrationForm from './lib/RegistrationForm.svelte'
+  import LoginForm from './lib/LoginForm.svelte'
   import {onMount} from "svelte";
   
   let weatherResults:any = []
@@ -60,6 +62,22 @@
     >
       Profile
     </button>
+    <button 
+      class="nav-button" 
+      class:active={currentTab === 'register'}
+      on:click={() => setTab('register')}
+      data-testid="nav-register"
+    >
+      Register
+    </button>
+    <button 
+      class="nav-button" 
+      class:active={currentTab === 'login'}
+      on:click={() => setTab('login')}
+      data-testid="nav-login"
+    >
+      Login
+    </button>
   </nav>
 
   <div class="app-content">
@@ -91,6 +109,14 @@
     {:else if currentTab === 'profile'}
       <section class="profile-section">
         <UserProfile />
+      </section>
+    {:else if currentTab === 'register'}
+      <section class="register-section">
+        <RegistrationForm />
+      </section>
+    {:else if currentTab === 'login'}
+      <section class="login-section">
+        <LoginForm />
       </section>
     {/if}
   </div>
@@ -193,7 +219,7 @@
     max-width: 900px;
     margin: 0 auto;
   }
-  .home-section, .todos-section, .profile-section {
+  .home-section, .todos-section, .profile-section, .register-section, .login-section {
     max-width: 700px;
     margin: 0 auto;
   }
@@ -292,7 +318,7 @@
     .app-content {
       padding: 1rem 0.5rem;
     }
-    .home-section, .todos-section, .profile-section {
+    .home-section, .todos-section, .profile-section, .register-section, .login-section {
       padding: 0 0.5rem;
     }
     .card, .weather-card {
