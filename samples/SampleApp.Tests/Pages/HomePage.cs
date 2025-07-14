@@ -22,6 +22,7 @@ namespace SampleApp.Tests.Pages
         public IElement CounterButton { get; private set; }
         public IElement CounterValue { get; private set; }
         public IElement PageTitle { get; private set; }
+        public IElement HomeSectionTitle { get; private set; }
 
         public HomePage(IServiceProvider serviceProvider, Uri urlPattern)
             : base(serviceProvider, urlPattern)
@@ -31,18 +32,23 @@ namespace SampleApp.Tests.Pages
         protected override void ConfigureElements()
         {
             // Configure elements for the home page using ElementFactory
-            CounterButton = Element("button")
+            CounterButton = Element(".card button")
                 .WithDescription("Counter Button")
                 .WithWaitStrategy(WaitStrategy.Clickable)
                 .Build();
 
-            CounterValue = Element("button")
+            CounterValue = Element(".card button")
                 .WithDescription("Counter Value")
                 .WithWaitStrategy(WaitStrategy.Visible)
                 .Build();
 
-            PageTitle = Element("title")
-                .WithDescription("Page Title")
+            PageTitle = Element("h1")
+                .WithDescription("Header Title")
+                .WithWaitStrategy(WaitStrategy.Visible)
+                .Build();
+
+            HomeSectionTitle = Element(".home-section h2")
+                .WithDescription("Home Section Title")
                 .WithWaitStrategy(WaitStrategy.Visible)
                 .Build();
         }

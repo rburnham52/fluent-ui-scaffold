@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 using FluentUIScaffold.Core.Configuration;
 using FluentUIScaffold.Core.Drivers;
@@ -116,6 +117,74 @@ namespace FluentUIScaffold.Core.Pages
             return (TPage)(object)this;
         }
 
+        // Generic verification methods
+        public virtual TPage VerifyValue<TValue>(Func<TPage, IElement> elementSelector, TValue expectedValue, string description = null)
+        {
+            var element = GetElementFromSelector(elementSelector);
+            var actualValue = GetElementValue<TValue>(element);
+            
+            if (!EqualityComparer<TValue>.Default.Equals(actualValue, expectedValue))
+            {
+                var message = description ?? $"Expected '{expectedValue}', but got '{actualValue}'";
+                throw new ElementValidationException(message);
+            }
+            
+            return (TPage)(object)this;
+        }
+        
+        // Verify with default inner text comparison
+        public virtual TPage VerifyText(Func<TPage, IElement> elementSelector, string expectedText, string description = null)
+        {
+            return VerifyValue(elementSelector, expectedText, description);
+        }
+        
+        // Verify with specific property comparison
+        public virtual TPage VerifyProperty(Func<TPage, IElement> elementSelector, string expectedValue, string propertyName, string description = null)
+        {
+            var element = GetElementFromSelector(elementSelector);
+            var actualValue = GetElementPropertyValue(element, propertyName);
+            
+            if (actualValue != expectedValue)
+            {
+                var message = description ?? $"Expected property '{propertyName}' to be '{expectedValue}', but got '{actualValue}'";
+                throw new ElementValidationException(message);
+            }
+            
+            return (TPage)(object)this;
+        }
+        
+        // Helper methods for element value retrieval
+        protected virtual TValue GetElementValue<TValue>(IElement element)
+        {
+            if (typeof(TValue) == typeof(string))
+            {
+                return (TValue)(object)Driver.GetText(element.Selector);
+            }
+            
+            throw new NotSupportedException($"Type {typeof(TValue)} is not supported for element value retrieval");
+        }
+        
+        protected virtual string GetElementPropertyValue(IElement element, string propertyName)
+        {
+            switch (propertyName.ToLower())
+            {
+                case "innertext":
+                case "text":
+                    return Driver.GetText(element.Selector);
+                case "classname":
+                case "class":
+                    return element.GetAttribute("class");
+                case "value":
+                    return element.GetAttribute("value");
+                case "enabled":
+                    return Driver.IsEnabled(element.Selector).ToString().ToLower();
+                case "visible":
+                    return Driver.IsVisible(element.Selector).ToString().ToLower();
+                default:
+                    return element.GetAttribute(propertyName);
+            }
+        }
+
         // Helper method to get element from selector
         protected virtual IElement GetElementFromSelector(Func<TPage, IElement> elementSelector)
         {
@@ -135,18 +204,13 @@ namespace FluentUIScaffold.Core.Pages
         // Public access to driver for test purposes
         public TDriver TestDriver => Driver;
 
-        // Verification access
+        // Verification access - using the fluent verification context
         public IVerificationContext Verify => new VerificationContext(Driver, Options, Logger);
 
         // Helper methods
         protected ElementBuilder Element(string selector)
         {
             return new ElementBuilder(selector, Driver, Options);
-        }
-
-        private string GetElementPropertyValue(IElement element, string propertyName)
-        {
-            return element.GetAttribute(propertyName);
         }
 
         protected virtual void NavigateToUrl(Uri url)
