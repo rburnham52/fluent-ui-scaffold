@@ -148,6 +148,7 @@ namespace FluentUIScaffold.Core.Tests
         {
             // Arrange
             var pluginManager = new PluginManager();
+            pluginManager.RegisterPlugin<MockPlugin>();
             var options = new FluentUIScaffoldOptions();
 
             // Act
@@ -155,7 +156,7 @@ namespace FluentUIScaffold.Core.Tests
 
             // Assert
             Assert.That(driver, Is.Not.Null);
-            Assert.That(driver, Is.InstanceOf<DefaultUIDriver>());
+            Assert.That(driver, Is.InstanceOf<MockUIDriver>());
         }
 
         [Test]
@@ -168,26 +169,38 @@ namespace FluentUIScaffold.Core.Tests
             Assert.Throws<ArgumentNullException>(() => pluginManager.CreateDriver(null));
         }
 
+        [Test]
+        public void CreateDriver_WithNoPlugins_ThrowsFluentUIScaffoldPluginException()
+        {
+            // Arrange
+            var pluginManager = new PluginManager();
+            var options = new FluentUIScaffoldOptions();
+
+            // Act & Assert
+            var exception = Assert.Throws<FluentUIScaffoldPluginException>(() => pluginManager.CreateDriver(options));
+            Assert.That(exception.Message, Does.Contain("No UI testing framework plugins are configured"));
+        }
+
         // Test plugin implementations
         private class TestPlugin : IUITestingFrameworkPlugin
         {
             public string Name => "TestPlugin";
             public string Version => "1.0.0";
-            public IReadOnlyList<Type> SupportedDriverTypes => new List<Type> { typeof(DefaultUIDriver) };
+            public IReadOnlyList<Type> SupportedDriverTypes => new List<Type> { typeof(MockUIDriver) };
 
             public bool CanHandle(Type driverType)
             {
-                return driverType == typeof(DefaultUIDriver);
+                return driverType == typeof(MockUIDriver);
             }
 
             public IUIDriver CreateDriver(FluentUIScaffoldOptions options)
             {
-                return new DefaultUIDriver();
+                return new MockUIDriver();
             }
 
             public void ConfigureServices(IServiceCollection services)
             {
-                // Valid plugin - no configuration needed
+                services.AddTransient<IUIDriver, MockUIDriver>();
             }
         }
 
@@ -195,21 +208,21 @@ namespace FluentUIScaffold.Core.Tests
         {
             public string Name => "AnotherTestPlugin";
             public string Version => "1.0.0";
-            public IReadOnlyList<Type> SupportedDriverTypes => new List<Type> { typeof(DefaultUIDriver) };
+            public IReadOnlyList<Type> SupportedDriverTypes => new List<Type> { typeof(MockUIDriver) };
 
             public bool CanHandle(Type driverType)
             {
-                return driverType == typeof(DefaultUIDriver);
+                return driverType == typeof(MockUIDriver);
             }
 
             public IUIDriver CreateDriver(FluentUIScaffoldOptions options)
             {
-                return new DefaultUIDriver();
+                return new MockUIDriver();
             }
 
             public void ConfigureServices(IServiceCollection services)
             {
-                // Valid plugin - no configuration needed
+                services.AddTransient<IUIDriver, MockUIDriver>();
             }
         }
 

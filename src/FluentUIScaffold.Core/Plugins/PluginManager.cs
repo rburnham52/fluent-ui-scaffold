@@ -140,48 +140,46 @@ namespace FluentUIScaffold.Core.Plugins
         /// </summary>
         /// <param name="options">The configuration options</param>
         /// <returns>The created driver instance</returns>
+        /// <exception cref="FluentUIScaffoldPluginException">Thrown when no plugins are available or all plugins fail to create a driver</exception>
 #pragma warning disable CA1031 // Do not catch general exception types
         public IUIDriver CreateDriver(FluentUIScaffoldOptions options)
         {
             ArgumentNullException.ThrowIfNull(options);
 
-            try
+            if (_plugins.Count == 0)
             {
-                foreach (var plugin in _plugins)
+                var message = "No UI testing framework plugins are configured. Please register a plugin (e.g., PlaywrightPlugin, SeleniumPlugin) before creating a driver.";
+                _logger.LogError(message);
+                throw new FluentUIScaffoldPluginException(message);
+            }
+
+            var failedPlugins = new List<string>();
+
+            foreach (var plugin in _plugins)
+            {
+                try
                 {
-                    try
+                    var driver = plugin.CreateDriver(options);
+                    if (driver != null)
                     {
-                        var driver = plugin.CreateDriver(options);
-                        if (driver != null)
-                        {
-                            _logger.LogInformation("Driver created successfully using plugin {PluginName}", plugin.GetType().Name);
-                            return driver;
-                        }
+                        _logger.LogInformation("Driver created successfully using plugin {PluginName}", plugin.GetType().Name);
+                        return driver;
                     }
-                    catch (Exception ex)
+                    else
                     {
-                        _logger.LogWarning(ex, "Plugin {PluginName} failed to create driver", plugin.GetType().Name);
+                        failedPlugins.Add($"{plugin.GetType().Name} (returned null)");
                     }
                 }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Plugin {PluginName} failed to create driver", plugin.GetType().Name);
+                    failedPlugins.Add($"{plugin.GetType().Name} ({ex.GetType().Name}: {ex.Message})");
+                }
+            }
 
-                _logger.LogInformation("No plugins could create a driver, using default driver");
-                return new DefaultUIDriver();
-            }
-            catch (InvalidOperationException ex)
-            {
-                LogDriverCreationWarning(_logger, ex);
-                return new DefaultUIDriver();
-            }
-            catch (ArgumentException ex)
-            {
-                LogDriverCreationWarning(_logger, ex);
-                return new DefaultUIDriver();
-            }
-            catch (NotSupportedException ex)
-            {
-                LogDriverCreationWarning(_logger, ex);
-                return new DefaultUIDriver();
-            }
+            var errorMessage = $"All {_plugins.Count} registered plugins failed to create a driver. Failed plugins: {string.Join(", ", failedPlugins)}. Please ensure a valid UI testing framework plugin is configured.";
+            _logger.LogError(errorMessage);
+            throw new FluentUIScaffoldPluginException(errorMessage);
         }
 #pragma warning restore CA1031
 

@@ -1,18 +1,23 @@
 // Copyright (c) FluentUIScaffold. All rights reserved.
 using System;
 
+using FluentUIScaffold.Core.Pages;
+
 namespace FluentUIScaffold.Core.Interfaces;
 
 /// <summary>
 /// Interface for page components that represent web pages in the application.
 /// </summary>
-/// <typeparam name="TApp">The type representing the application context.</typeparam>
-public interface IPageComponent<TApp>
+/// <typeparam name="TDriver">The type of the UI driver (PlaywrightDriver, SeleniumDriver, etc.)</typeparam>
+/// <typeparam name="TPage">The type of the page component itself for fluent API context</typeparam>
+public interface IPageComponent<TDriver, TPage>
+    where TDriver : class, IUIDriver
+    where TPage : class, IPageComponent<TDriver, TPage>
 {
     /// <summary>
     /// Gets the URL pattern that identifies this page.
     /// </summary>
-    Uri? UrlPattern { get; }
+    Uri UrlPattern { get; }
 
     /// <summary>
     /// Gets a value indicating whether the page should be validated during navigation.
@@ -36,10 +41,10 @@ public interface IPageComponent<TApp>
     /// </summary>
     /// <typeparam name="TTarget">The type of the target page component.</typeparam>
     /// <returns>The target page component instance.</returns>
-    TTarget NavigateTo<TTarget>() where TTarget : class;
+    TTarget NavigateTo<TTarget>() where TTarget : BasePageComponent<TDriver, TTarget>;
 
     /// <summary>
     /// Gets the verification context for this page component.
     /// </summary>
-    IVerificationContext<TApp> Verify { get; }
+    IVerificationContext Verify { get; }
 }

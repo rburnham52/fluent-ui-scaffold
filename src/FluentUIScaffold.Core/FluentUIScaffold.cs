@@ -29,13 +29,29 @@ namespace FluentUIScaffold.Core
         private readonly PluginManager _pluginManager;
         private bool _disposed = false;
 
-        internal FluentUIScaffoldApp(FluentUIScaffoldOptions options, IUIDriver driver, ILogger logger, IServiceProvider serviceProvider)
+        internal FluentUIScaffoldApp(IServiceProvider serviceProvider, IUIDriver driver, ILogger logger)
         {
-            _options = options ?? throw new ArgumentNullException(nameof(options));
+            _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
             _driver = driver ?? throw new ArgumentNullException(nameof(driver));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _options = serviceProvider.GetRequiredService<FluentUIScaffoldOptions>();
+            _pluginManager = serviceProvider.GetRequiredService<PluginManager>();
+        }
+
+        /// <summary>
+        /// Creates a new FluentUIScaffoldApp instance with proper driver initialization.
+        /// </summary>
+        /// <param name="serviceProvider">The service provider</param>
+        /// <param name="logger">The logger</param>
+        internal FluentUIScaffoldApp(IServiceProvider serviceProvider, ILogger logger)
+        {
             _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
-            _pluginManager = new PluginManager(logger);
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _options = serviceProvider.GetRequiredService<FluentUIScaffoldOptions>();
+            _pluginManager = serviceProvider.GetRequiredService<PluginManager>();
+
+            // Create driver using PluginManager
+            _driver = _pluginManager.CreateDriver(_options);
         }
 
         /// <summary>
@@ -75,6 +91,16 @@ namespace FluentUIScaffold.Core
         }
 
         /// <summary>
+        /// Navigates to a page component of the specified type.
+        /// </summary>
+        /// <typeparam name="TPage">The type of the page component.</typeparam>
+        /// <returns>The page component instance.</returns>
+        public TPage NavigateTo<TPage>() where TPage : class
+        {
+            return _serviceProvider.GetRequiredService<TPage>();
+        }
+
+        /// <summary>
         /// Disposes the FluentUIScaffoldApp and its resources.
         /// </summary>
         public void Dispose()
@@ -109,86 +135,106 @@ namespace FluentUIScaffold.Core
 
     public static class FluentUIScaffoldBuilder
     {
-        public static FluentUIScaffoldApp<WebApp> Web(Action<FluentUIScaffoldOptions>? configureOptions = null)
+        public static FluentUIScaffoldApp<TApp> Web<TApp>(
+            Action<FluentUIScaffoldOptions> configureOptions,
+            Action<FrameworkOptions>? configureFramework = null)
+            where TApp : class
         {
             var options = new FluentUIScaffoldOptions();
             configureOptions?.Invoke(options);
 
             var services = new ServiceCollection();
-            ConfigureServices(services, options);
+            ConfigureServices(services, options, configureFramework);
             var serviceProvider = services.BuildServiceProvider();
 
-            var driver = serviceProvider.GetRequiredService<IUIDriver>();
             var loggerFactory = serviceProvider.GetRequiredService<ILoggerFactory>();
             var logger = loggerFactory.CreateLogger("FluentUIScaffold");
 
-            return new FluentUIScaffoldApp<WebApp>(options, driver, logger, serviceProvider);
+            return new FluentUIScaffoldApp<TApp>(serviceProvider, logger);
         }
 
-        public static FluentUIScaffoldApp<MobileApp> Mobile(Action<FluentUIScaffoldOptions>? configureOptions = null)
+        private static void ConfigureServices(IServiceCollection services, FluentUIScaffoldOptions options, Action<FrameworkOptions>? configureFramework = null)
         {
-            var options = new FluentUIScaffoldOptions();
-            configureOptions?.Invoke(options);
-
-            var services = new ServiceCollection();
-            ConfigureServices(services, options);
-            var serviceProvider = services.BuildServiceProvider();
-
-            var driver = serviceProvider.GetRequiredService<IUIDriver>();
-            var loggerFactory = serviceProvider.GetRequiredService<ILoggerFactory>();
-            var logger = loggerFactory.CreateLogger("FluentUIScaffold");
-
-            return new FluentUIScaffoldApp<MobileApp>(options, driver, logger, serviceProvider);
-        }
-
-        private static void ConfigureServices(IServiceCollection services, FluentUIScaffoldOptions options)
-        {
+            // Register core services
             services.AddSingleton(options);
-
-            // Register Playwright plugin if available
-            try
-            {
-                var playwrightPluginType = Type.GetType("FluentUIScaffold.Playwright.PlaywrightPlugin, FluentUIScaffold.Playwright");
-                if (playwrightPluginType != null)
-                {
-                    var playwrightDriverType = Type.GetType("FluentUIScaffold.Playwright.PlaywrightDriver, FluentUIScaffold.Playwright");
-                    if (playwrightDriverType != null)
-                    {
-                        services.AddSingleton(typeof(IUIDriver), playwrightDriverType);
-                    }
-                    else
-                    {
-                        services.AddSingleton<IUIDriver, DefaultUIDriver>();
-                    }
-                }
-                else
-                {
-                    services.AddSingleton<IUIDriver, DefaultUIDriver>();
-                }
-            }
-            catch
-            {
-                services.AddSingleton<IUIDriver, DefaultUIDriver>();
-            }
-
             services.AddLogging(builder =>
             {
                 builder.SetMinimumLevel(options.LogLevel);
                 builder.AddConsole();
             });
-            // Register ILogger (non-generic) for DI
-            services.AddSingleton<ILogger>(provider => provider.GetRequiredService<ILoggerFactory>().CreateLogger("FluentUIScaffold"));
-            // Register page objects for DI if available
+
+            // Register ILogger (non-generic) for DI - must be registered before pages are instantiated
+            services.AddSingleton<ILogger>(provider =>
+            {
+                var loggerFactory = provider.GetRequiredService<ILoggerFactory>();
+                return loggerFactory.CreateLogger("FluentUIScaffold");
+            });
+
+            // Configure framework options if provided
+            if (configureFramework != null)
+            {
+                // User must provide a concrete FrameworkOptions instance
+                // (e.g., PlaywrightOptions, SeleniumOptions) via DI in their own code
+                // So we do not instantiate FrameworkOptions here
+                // Optionally, you could throw or log if configureFramework is not null but not supported
+            }
+
+            // Register PluginManager
+            services.AddSingleton<PluginManager>();
+
+            // Note: IUIDriver registration is now handled by plugins
+            // The framework will throw an exception if no plugins are configured
+            // This ensures explicit plugin configuration is required
+
+            // Register pages with their URL patterns
+            RegisterPages(services, options);
+        }
+
+        private static void RegisterPages(IServiceCollection services, FluentUIScaffoldOptions options)
+        {
+            // Register pages with their URL patterns
             var sampleAppPagesAssembly = AppDomain.CurrentDomain.GetAssemblies()
                 .FirstOrDefault(a => a.GetName().Name == "SampleApp.Tests");
             if (sampleAppPagesAssembly != null)
             {
+                // Register existing pages with URL patterns
                 var homePageType = sampleAppPagesAssembly.GetType("SampleApp.Tests.Pages.HomePage");
                 var todosPageType = sampleAppPagesAssembly.GetType("SampleApp.Tests.Pages.TodosPage");
                 var profilePageType = sampleAppPagesAssembly.GetType("SampleApp.Tests.Pages.ProfilePage");
-                if (homePageType != null) services.AddTransient(homePageType);
-                if (todosPageType != null) services.AddTransient(todosPageType);
-                if (profilePageType != null) services.AddTransient(profilePageType);
+
+                if (homePageType != null)
+                {
+                    services.AddTransient(homePageType, provider =>
+                        Activator.CreateInstance(homePageType, provider, options.BaseUrl ?? new Uri("http://localhost")));
+                }
+
+                if (todosPageType != null)
+                {
+                    services.AddTransient(todosPageType, provider =>
+                        Activator.CreateInstance(todosPageType, provider, options.BaseUrl ?? new Uri("http://localhost")));
+                }
+
+                if (profilePageType != null)
+                {
+                    services.AddTransient(profilePageType, provider =>
+                        Activator.CreateInstance(profilePageType, provider, options.BaseUrl ?? new Uri("http://localhost")));
+                }
+
+                // Register new pages with URL patterns
+                var registrationPageType = sampleAppPagesAssembly.GetType("SampleApp.Tests.Pages.RegistrationPage");
+                var loginPageType = sampleAppPagesAssembly.GetType("SampleApp.Tests.Pages.LoginPage");
+
+                if (registrationPageType != null)
+                {
+                    services.AddTransient(registrationPageType, provider =>
+                        Activator.CreateInstance(registrationPageType, provider, new Uri(options.BaseUrl ?? new Uri("http://localhost"), "/register")));
+                }
+
+                if (loginPageType != null)
+                {
+                    services.AddTransient(loginPageType, provider =>
+                        Activator.CreateInstance(loginPageType, provider, new Uri(options.BaseUrl ?? new Uri("http://localhost"), "/login")));
+                }
             }
         }
     }

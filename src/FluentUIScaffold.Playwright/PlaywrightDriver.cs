@@ -292,4 +292,9 @@ public class PlaywrightDriver : IUIDriver, IDisposable
             _disposed = true;
         }
     }
+
+    public void Focus(string selector) { throw new NotImplementedException("Focus is not implemented for PlaywrightDriver yet."); }
+    public void Hover(string selector) { throw new NotImplementedException("Hover is not implemented for PlaywrightDriver yet."); }
+    public void Clear(string selector) { throw new NotImplementedException("Clear is not implemented for PlaywrightDriver yet."); }
+    public string GetPageTitle() => _page?.TitleAsync().Result ?? "No title available";
 }

@@ -2,72 +2,96 @@ using System;
 
 using FluentUIScaffold.Core.Configuration;
 using FluentUIScaffold.Core.Drivers;
+using FluentUIScaffold.Core.Exceptions;
 using FluentUIScaffold.Core.Interfaces;
 
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace FluentUIScaffold.Core.Pages
 {
     /// <summary>
     /// Base class for all page components in the FluentUIScaffold framework.
+    /// Implements the V2.0 specification with dual generic types for fluent API context.
     /// </summary>
-    /// <typeparam name="TApp">The application type (WebApp, MobileApp, etc.)</typeparam>
-    public abstract class BasePageComponent<TApp> : IPageComponent<TApp>
-        where TApp : class
+    /// <typeparam name="TDriver">The type of the UI driver (PlaywrightDriver, SeleniumDriver, etc.)</typeparam>
+    /// <typeparam name="TPage">The type of the page component itself for fluent API context</typeparam>
+    public abstract class BasePageComponent<TDriver, TPage> : IPageComponent<TDriver, TPage>
+        where TDriver : class, IUIDriver
+        where TPage : class, IPageComponent<TDriver, TPage>
     {
-        protected IUIDriver Driver { get; private set; } = default!;
-        protected FluentUIScaffoldOptions Options { get; private set; } = default!;
-        protected ILogger Logger { get; private set; } = default!;
-        protected ElementFactory ElementFactory { get; private set; } = default!;
+        protected TDriver Driver { get; }
+        protected IServiceProvider ServiceProvider { get; }
+        protected ILogger Logger { get; }
+        protected FluentUIScaffoldOptions Options { get; }
+        protected ElementFactory ElementFactory { get; }
 
-        protected BasePageComponent()
+        protected BasePageComponent(IServiceProvider serviceProvider, Uri urlPattern)
         {
-            // Properties are initialized with default! to suppress nullability warnings
+            ServiceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+            Driver = serviceProvider.GetRequiredService<TDriver>();
+            Logger = serviceProvider.GetRequiredService<ILogger<BasePageComponent<TDriver, TPage>>>();
+            Options = serviceProvider.GetRequiredService<FluentUIScaffoldOptions>();
+            ElementFactory = new ElementFactory(Driver, Options);
+
+            UrlPattern = urlPattern;
+            NavigateToUrl(urlPattern);
+            ConfigureElements();
         }
 
-        protected BasePageComponent(IUIDriver driver, FluentUIScaffoldOptions options, ILogger logger)
-        {
-            Driver = driver;
-            Options = options;
-            Logger = logger;
-            ElementFactory = new ElementFactory(driver, options);
-            // Do not call overridable methods in constructor
-        }
-        // If needed, call Initialize() after construction
+        public Uri UrlPattern { get; }
 
-        /// <summary>
-        /// Initializes the page component with the required dependencies.
-        /// </summary>
-        public virtual void Initialize(IUIDriver driver, FluentUIScaffoldOptions options, ILogger logger)
+        protected abstract void ConfigureElements();
+
+        // Framework-agnostic element interaction methods
+        protected virtual void ClickElement(string selector) => Driver.Click(selector);
+        protected virtual void TypeText(string selector, string text) => Driver.Type(selector, text);
+        protected virtual void SelectOption(string selector, string value) => Driver.SelectOption(selector, value);
+        protected virtual string GetElementText(string selector) => Driver.GetText(selector);
+        protected virtual bool IsElementVisible(string selector) => Driver.IsVisible(selector);
+        protected virtual void WaitForElement(string selector) => Driver.WaitForElement(selector);
+
+        // Navigation methods
+        public virtual TTarget NavigateTo<TTarget>() where TTarget : BasePageComponent<TDriver, TTarget>
         {
-            Driver = driver ?? throw new ArgumentNullException(nameof(driver));
-            Options = options ?? throw new ArgumentNullException(nameof(options));
-            Logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            ElementFactory = new ElementFactory(driver, options);
+            var targetPage = ServiceProvider.GetRequiredService<TTarget>();
+            return targetPage;
         }
 
-        /// <summary>
-        /// Creates an element with the specified selector.
-        /// </summary>
-        /// <param name="selector">The CSS selector for the element</param>
-        /// <returns>An ElementBuilder instance for fluent configuration</returns>
+        // Framework-specific access - direct driver access
+        protected TDriver FrameworkDriver => Driver;
+
+        // Verification access
+        public IVerificationContext Verify => new VerificationContext(Driver, Options, Logger);
+
+        // Helper methods
         protected ElementBuilder Element(string selector)
         {
             return new ElementBuilder(selector, Driver, Options);
         }
 
-        /// <summary>
-        /// Called to configure page elements. Override in derived classes.
-        /// </summary>
-        protected virtual void ConfigureElements() { }
+        private string GetElementPropertyValue(IElement element, string propertyName)
+        {
+            return element.GetAttribute(propertyName);
+        }
 
-        public virtual Uri UrlPattern => new Uri("about:blank");
+        protected virtual void NavigateToUrl(Uri url)
+        {
+            Driver.NavigateToUrl(url);
+        }
+
+        // IPageComponent implementation
         public virtual bool ShouldValidateOnNavigation => false;
-        public virtual bool IsCurrentPage() => true;
-        public virtual void ValidateCurrentPage() { }
-        public virtual TTarget NavigateTo<TTarget>() where TTarget : class => default!;
-        public virtual IVerificationContext<TApp> Verify => default!;
 
-        // Add other common page component logic as needed
+        public virtual bool IsCurrentPage()
+        {
+            // Default implementation - can be overridden by derived classes
+            return true;
+        }
+
+        public virtual void ValidateCurrentPage()
+        {
+            // Default implementation - can be overridden by derived classes
+        }
     }
 }

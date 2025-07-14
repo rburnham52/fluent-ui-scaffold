@@ -73,6 +73,30 @@ public interface IUIDriver : IDisposable
     void WaitForElementToBeHidden(string selector);
 
     /// <summary>
+    /// Focuses on an element identified by the specified selector.
+    /// </summary>
+    /// <param name="selector">The CSS selector or other identifier for the element.</param>
+    void Focus(string selector);
+
+    /// <summary>
+    /// Hovers over an element identified by the specified selector.
+    /// </summary>
+    /// <param name="selector">The CSS selector or other identifier for the element.</param>
+    void Hover(string selector);
+
+    /// <summary>
+    /// Clears the content of an element identified by the specified selector.
+    /// </summary>
+    /// <param name="selector">The CSS selector or other identifier for the element.</param>
+    void Clear(string selector);
+
+    /// <summary>
+    /// Gets the page title.
+    /// </summary>
+    /// <returns>The page title.</returns>
+    string GetPageTitle();
+
+    /// <summary>
     /// Navigates to the specified URL.
     /// </summary>
     /// <param name="url">The URL to navigate to.</param>
