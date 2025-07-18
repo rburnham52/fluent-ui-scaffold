@@ -72,7 +72,7 @@ namespace FluentUIScaffold.Core.Tests
             var pluginManager = new PluginManager();
 
             // Act & Assert
-            Assert.Throws<ArgumentNullException>(() => pluginManager.RegisterPlugin((IUITestingFrameworkPlugin)null));
+            Assert.Throws<ArgumentNullException>(() => pluginManager.RegisterPlugin((IUITestingFrameworkPlugin)null!));
         }
 
         [Test]
@@ -166,7 +166,7 @@ namespace FluentUIScaffold.Core.Tests
             var pluginManager = new PluginManager();
 
             // Act & Assert
-            Assert.Throws<ArgumentNullException>(() => pluginManager.CreateDriver(null));
+            Assert.Throws<ArgumentNullException>(() => pluginManager.CreateDriver(null!));
         }
 
         [Test]

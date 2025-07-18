@@ -15,7 +15,9 @@ public class FluentUIScaffoldException : Exception
     public FluentUIScaffoldException() { }
     public FluentUIScaffoldException(string message) : base(message) { }
     public FluentUIScaffoldException(string message, Exception inner) : base(message, inner) { }
+#pragma warning disable SYSLIB0051 // Type or member is obsolete
     protected FluentUIScaffoldException(SerializationInfo info, StreamingContext context) : base(info, context) { }
+#pragma warning restore SYSLIB0051
 }
 
 public class InvalidPageException : FluentUIScaffoldException

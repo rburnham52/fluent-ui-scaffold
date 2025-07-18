@@ -1,0 +1,19 @@
+name: release-approval
+on:
+  workflow_run:
+    workflows: ["CI/CD Pipeline"]
+    types:
+      - completed
+    branches:
+      - main
+
+jobs:
+  manual-approval:
+    runs-on: ubuntu-latest
+    environment:
+      name: release-approval
+    steps:
+      - name: Manual Approval Required
+        run: |
+          echo "Manual approval required before publishing to NuGet"
+          echo "Please review the build artifacts and approve the release" 

@@ -87,7 +87,7 @@ namespace FluentUIScaffold.Core
         /// <returns>The driver instance</returns>
         public TDriver Framework<TDriver>() where TDriver : class
         {
-            return _serviceProvider.GetRequiredService<TDriver>();
+            return _serviceProvider.GetRequiredService<TDriver>() ?? throw new InvalidOperationException($"Service of type {typeof(TDriver).Name} is not registered.");
         }
 
         /// <summary>
@@ -97,7 +97,7 @@ namespace FluentUIScaffold.Core
         /// <returns>The page component instance.</returns>
         public TPage NavigateTo<TPage>() where TPage : class
         {
-            return _serviceProvider.GetRequiredService<TPage>();
+            return _serviceProvider.GetRequiredService<TPage>() ?? throw new InvalidOperationException($"Service of type {typeof(TPage).Name} is not registered.");
         }
 
         /// <summary>
@@ -205,19 +205,19 @@ namespace FluentUIScaffold.Core
                 if (homePageType != null)
                 {
                     services.AddTransient(homePageType, provider =>
-                        Activator.CreateInstance(homePageType, provider, options.BaseUrl ?? new Uri("http://localhost")));
+                        Activator.CreateInstance(homePageType, provider, options.BaseUrl ?? new Uri("http://localhost")) ?? throw new InvalidOperationException($"Failed to create instance of {homePageType.Name}"));
                 }
 
                 if (todosPageType != null)
                 {
                     services.AddTransient(todosPageType, provider =>
-                        Activator.CreateInstance(todosPageType, provider, options.BaseUrl ?? new Uri("http://localhost")));
+                        Activator.CreateInstance(todosPageType, provider, options.BaseUrl ?? new Uri("http://localhost")) ?? throw new InvalidOperationException($"Failed to create instance of {todosPageType.Name}"));
                 }
 
                 if (profilePageType != null)
                 {
                     services.AddTransient(profilePageType, provider =>
-                        Activator.CreateInstance(profilePageType, provider, options.BaseUrl ?? new Uri("http://localhost")));
+                        Activator.CreateInstance(profilePageType, provider, options.BaseUrl ?? new Uri("http://localhost")) ?? throw new InvalidOperationException($"Failed to create instance of {profilePageType.Name}"));
                 }
 
                 // Register new pages with URL patterns
@@ -227,13 +227,13 @@ namespace FluentUIScaffold.Core
                 if (registrationPageType != null)
                 {
                     services.AddTransient(registrationPageType, provider =>
-                        Activator.CreateInstance(registrationPageType, provider, new Uri(options.BaseUrl ?? new Uri("http://localhost"), "/register")));
+                        Activator.CreateInstance(registrationPageType, provider, new Uri(options.BaseUrl ?? new Uri("http://localhost"), "/register")) ?? throw new InvalidOperationException($"Failed to create instance of {registrationPageType.Name}"));
                 }
 
                 if (loginPageType != null)
                 {
                     services.AddTransient(loginPageType, provider =>
-                        Activator.CreateInstance(loginPageType, provider, new Uri(options.BaseUrl ?? new Uri("http://localhost"), "/login")));
+                        Activator.CreateInstance(loginPageType, provider, new Uri(options.BaseUrl ?? new Uri("http://localhost"), "/login")) ?? throw new InvalidOperationException($"Failed to create instance of {loginPageType.Name}"));
                 }
             }
         }

@@ -122,7 +122,7 @@ public class ElementBuilderTests
         var builder = new ElementBuilder("#test", _mockDriver.Object, _options);
 
         // Act
-        var result = builder.WithDescription(null);
+        var result = builder.WithDescription(null!);
 
         // Assert
         Assert.That(result, Is.SameAs(builder));
@@ -217,7 +217,7 @@ public class ElementBuilderTests
         var builder = new ElementBuilder("#test", _mockDriver.Object, _options);
 
         // Act
-        var result = builder.WithAttribute("data-testid", null);
+        var result = builder.WithAttribute("data-testid", null!);
 
         // Assert
         Assert.That(result, Is.SameAs(builder));

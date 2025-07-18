@@ -187,4 +187,4 @@ namespace SampleApp.Tests.Examples
             return Task.CompletedTask;
         }
     }
-} 
+}

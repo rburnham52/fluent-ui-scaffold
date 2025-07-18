@@ -404,7 +404,7 @@ public class PlaywrightAdvancedFeaturesTests
         // Setup PdfAsync
         mock.Setup(p => p.PdfAsync(It.IsAny<PagePdfOptions>())).ReturnsAsync(new byte[1]);
         // Setup EvaluateAsync for object and JsonElement return types
-        mock.Setup(p => p.EvaluateAsync<object>(It.IsAny<string>(), It.IsAny<object>())).ReturnsAsync((object?)1);
+        mock.Setup(p => p.EvaluateAsync<object?>(It.IsAny<string>(), It.IsAny<object>())).ReturnsAsync((object?)1);
         mock.Setup(p => p.EvaluateAsync(It.IsAny<string>(), It.IsAny<object>())).ReturnsAsync(System.Text.Json.JsonDocument.Parse("null").RootElement);
         // Setup AddInitScriptAsync
         mock.Setup(p => p.AddInitScriptAsync(It.IsAny<string>(), null)).Returns(Task.CompletedTask);

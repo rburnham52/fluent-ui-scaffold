@@ -19,10 +19,10 @@ namespace SampleApp.Tests.Pages
     /// </summary>
     public class HomePage : BasePageComponent<PlaywrightDriver, HomePage>
     {
-        public IElement CounterButton { get; private set; }
-        public IElement CounterValue { get; private set; }
-        public IElement PageTitle { get; private set; }
-        public IElement HomeSectionTitle { get; private set; }
+        public IElement CounterButton { get; set; } = null!;
+        public IElement CounterValue { get; set; } = null!;
+        public IElement PageTitle { get; set; } = null!;
+        public IElement HomeSectionTitle { get; set; } = null!;
 
         public HomePage(IServiceProvider serviceProvider, Uri urlPattern)
             : base(serviceProvider, urlPattern)

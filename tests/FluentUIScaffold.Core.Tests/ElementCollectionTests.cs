@@ -55,7 +55,7 @@ public class ElementCollectionTests
     public void Constructor_WithNullElements_ShouldInitializeEmptyCollection()
     {
         // Act
-        var collection = new ElementCollection(null);
+        var collection = new ElementCollection(null!);
 
         // Assert
         Assert.That(collection.Count, Is.EqualTo(0));

@@ -107,7 +107,7 @@ namespace SampleApp.Tests.Examples
         }
 
         [TestMethod]
-        public async Task Can_Complete_Full_Registration_And_Login_Flow()
+        public Task Can_Complete_Full_Registration_And_Login_Flow()
         {
             // Arrange
             var testEmail = $"test_{Guid.NewGuid():N}@example.com";
@@ -144,10 +144,11 @@ namespace SampleApp.Tests.Examples
 
             // Assert - Login successful
             Assert.IsTrue(loginPage.IsSuccessMessageVisible(), "Login should be successful");
+            return Task.CompletedTask;
         }
 
         [TestMethod]
-        public async Task Can_Navigate_Between_Registration_And_Login_Pages()
+        public Task Can_Navigate_Between_Registration_And_Login_Pages()
         {
             // Arrange
             var registrationPage = _fluentUI!.NavigateTo<RegistrationPage>();
@@ -174,10 +175,11 @@ namespace SampleApp.Tests.Examples
             // Assert - Verify we're back on the registration page by checking for registration form elements
             Assert.IsTrue(backToRegistration.EmailInput.IsVisible(), "Registration page should be visible");
             Assert.IsTrue(backToRegistration.FirstNameInput.IsVisible(), "Registration page should be visible");
+            return Task.CompletedTask;
         }
 
         [TestMethod]
-        public async Task Can_Use_Story_Specified_Methods_For_Complete_Flow()
+        public Task Can_Use_Story_Specified_Methods_For_Complete_Flow()
         {
             // Arrange & Act - Complete registration and login flow as specified in the story
             var registrationPage = _fluentUI!.NavigateTo<RegistrationPage>();
@@ -202,10 +204,11 @@ namespace SampleApp.Tests.Examples
                 .FillLoginForm("john.doe@example.com", "SecurePass123!")
                 .SubmitLogin()
                 .VerifyLoginSuccess("Welcome, John!");
+            return Task.CompletedTask;
         }
 
         [TestMethod]
-        public async Task Can_Handle_Registration_Then_Login_With_Same_Credentials()
+        public Task Can_Handle_Registration_Then_Login_With_Same_Credentials()
         {
             // Arrange
             var uniqueEmail = $"integration_{Guid.NewGuid():N}@example.com";
@@ -242,10 +245,11 @@ namespace SampleApp.Tests.Examples
 
             // Assert - Login successful
             Assert.IsTrue(loginPage.IsSuccessMessageVisible(), "Login should be successful with test credentials");
+            return Task.CompletedTask;
         }
 
         [TestMethod]
-        public async Task Can_Handle_Error_Scenarios_In_Integration_Flow()
+        public Task Can_Handle_Error_Scenarios_In_Integration_Flow()
         {
             // Arrange
             var registrationPage = _fluentUI!.NavigateTo<RegistrationPage>();
@@ -279,6 +283,7 @@ namespace SampleApp.Tests.Examples
 
             // Assert - Login should fail
             Assert.IsTrue(loginPage.IsErrorMessageVisible(), "Login should fail with invalid credentials");
+            return Task.CompletedTask;
         }
     }
-} 
+}

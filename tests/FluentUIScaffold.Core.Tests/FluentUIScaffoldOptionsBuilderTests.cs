@@ -42,7 +42,7 @@ namespace FluentUIScaffold.Core.Tests
         public void Constructor_WithNullOptions_ThrowsArgumentNullException()
         {
             // Act & Assert
-            Assert.Throws<ArgumentNullException>(() => new FluentUIScaffoldOptionsBuilder(null));
+            Assert.Throws<ArgumentNullException>(() => new FluentUIScaffoldOptionsBuilder(null!));
         }
 
         [Test]
@@ -65,7 +65,7 @@ namespace FluentUIScaffold.Core.Tests
             var builder = new FluentUIScaffoldOptionsBuilder();
 
             // Act & Assert
-            Assert.Throws<FluentUIScaffoldValidationException>(() => builder.WithBaseUrl(null));
+            Assert.Throws<FluentUIScaffoldValidationException>(() => builder.WithBaseUrl(null!));
         }
 
         [Test]

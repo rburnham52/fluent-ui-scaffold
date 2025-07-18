@@ -293,8 +293,8 @@ public class PlaywrightDriver : IUIDriver, IDisposable
         }
     }
 
-    public void Focus(string selector) 
-    { 
+    public void Focus(string selector)
+    {
         if (string.IsNullOrEmpty(selector))
             throw new ArgumentException("Selector cannot be null or empty.", nameof(selector));
 
@@ -302,8 +302,8 @@ public class PlaywrightDriver : IUIDriver, IDisposable
         _page?.FocusAsync(selector).Wait();
     }
 
-    public void Hover(string selector) 
-    { 
+    public void Hover(string selector)
+    {
         if (string.IsNullOrEmpty(selector))
             throw new ArgumentException("Selector cannot be null or empty.", nameof(selector));
 
@@ -311,8 +311,8 @@ public class PlaywrightDriver : IUIDriver, IDisposable
         _page?.HoverAsync(selector).Wait();
     }
 
-    public void Clear(string selector) 
-    { 
+    public void Clear(string selector)
+    {
         if (string.IsNullOrEmpty(selector))
             throw new ArgumentException("Selector cannot be null or empty.", nameof(selector));
 

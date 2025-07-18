@@ -99,7 +99,7 @@ namespace SampleApp.Tests.Examples
         }
 
         [TestMethod]
-        public async Task Can_Register_New_User_With_Valid_Data()
+        public Task Can_Register_New_User_With_Valid_Data()
         {
             // Arrange
             var registrationPage = _fluentUI!.NavigateTo<RegistrationPage>();
@@ -117,10 +117,11 @@ namespace SampleApp.Tests.Examples
 
             // Assert
             registrationPage.Verify.ElementContainsText("#success-message", "Registration successful!");
+            return Task.CompletedTask;
         }
 
         [TestMethod]
-        public async Task Can_Handle_Registration_Validation_Errors()
+        public Task Can_Handle_Registration_Validation_Errors()
         {
             // Arrange
             var registrationPage = _fluentUI!.NavigateTo<RegistrationPage>();
@@ -139,10 +140,11 @@ namespace SampleApp.Tests.Examples
 
             // Assert
             Assert.IsTrue(registrationPage.IsErrorMessageVisible(), "Error message should be visible for short password");
+            return Task.CompletedTask;
         }
 
         [TestMethod]
-        public async Task Can_Handle_Password_Validation()
+        public Task Can_Handle_Password_Validation()
         {
             // Arrange
             var registrationPage = _fluentUI!.NavigateTo<RegistrationPage>();
@@ -161,10 +163,11 @@ namespace SampleApp.Tests.Examples
 
             // Assert
             Assert.IsTrue(registrationPage.IsErrorMessageVisible(), "Error message should be visible for weak password");
+            return Task.CompletedTask;
         }
 
         [TestMethod]
-        public async Task Can_Use_Convenience_Methods_For_Registration()
+        public Task Can_Use_Convenience_Methods_For_Registration()
         {
             // Arrange
             var registrationPage = _fluentUI!.NavigateTo<RegistrationPage>();
@@ -177,10 +180,11 @@ namespace SampleApp.Tests.Examples
 
             // Assert
             Assert.IsTrue(registrationPage.IsSuccessMessageVisible(), "Success message should be visible after registration");
+            return Task.CompletedTask;
         }
 
         [TestMethod]
-        public async Task Can_Test_Registration_Form_State()
+        public Task Can_Test_Registration_Form_State()
         {
             // Arrange
             var registrationPage = _fluentUI!.NavigateTo<RegistrationPage>();
@@ -194,10 +198,11 @@ namespace SampleApp.Tests.Examples
             Assert.IsTrue(registrationPage.FirstNameInput.IsVisible(), "First name input should be visible");
             Assert.IsTrue(registrationPage.LastNameInput.IsVisible(), "Last name input should be visible");
             Assert.IsTrue(registrationPage.RegisterButton.IsVisible(), "Register button should be visible");
+            return Task.CompletedTask;
         }
 
         [TestMethod]
-        public async Task Can_Handle_Email_Validation()
+        public Task Can_Handle_Email_Validation()
         {
             // Arrange
             var registrationPage = _fluentUI!.NavigateTo<RegistrationPage>();
@@ -213,6 +218,7 @@ namespace SampleApp.Tests.Examples
                 .Type(e => e.LastNameInput, "User")
                 .Click(e => e.RegisterButton);
             System.Threading.Thread.Sleep(1000);
+            return Task.CompletedTask;
 
             // Assert
             // The Svelte app only checks for '@', so browser validation will always catch truly invalid emails first.
@@ -220,4 +226,4 @@ namespace SampleApp.Tests.Examples
             // Assert.IsTrue(registrationPage.IsErrorMessageVisible(), "Error message should be visible for invalid email");
         }
     }
-} 
+}

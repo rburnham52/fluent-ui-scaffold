@@ -9,14 +9,14 @@ namespace SampleApp.Tests.Pages
 {
     public class RegistrationPage : BasePageComponent<PlaywrightDriver, RegistrationPage>
     {
-        public IElement EmailInput { get; private set; }
-        public IElement PasswordInput { get; private set; }
-        public IElement FirstNameInput { get; private set; }
-        public IElement LastNameInput { get; private set; }
-        public IElement RegisterButton { get; private set; }
-        public IElement SuccessMessage { get; private set; }
-        public IElement ErrorMessage { get; private set; }
-        public IElement Form { get; private set; }
+        public IElement EmailInput { get; set; } = null!;
+        public IElement PasswordInput { get; set; } = null!;
+        public IElement FirstNameInput { get; set; } = null!;
+        public IElement LastNameInput { get; set; } = null!;
+        public IElement RegisterButton { get; set; } = null!;
+        public IElement SuccessMessage { get; set; } = null!;
+        public IElement ErrorMessage { get; set; } = null!;
+        public IElement Form { get; set; } = null!;
 
         public RegistrationPage(IServiceProvider serviceProvider, Uri urlPattern)
             : base(serviceProvider, urlPattern)

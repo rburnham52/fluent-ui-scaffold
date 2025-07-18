@@ -10,11 +10,14 @@
     <Company>FluentUIScaffold</Company>
     <Product>FluentUIScaffold E2E Testing Framework</Product>
     <Copyright>Copyright © $([System.DateTime]::Now.Year) FluentUIScaffold</Copyright>
-    <AssemblyVersion>1.0.0.0</AssemblyVersion>
-    <FileVersion>1.0.0.0</FileVersion>
+    <AssemblyVersion Condition="'$(Version)' == ''">0.3.0.0</AssemblyVersion>
+    <AssemblyVersion Condition="'$(Version)' != ''">$(Version)</AssemblyVersion>
+    <FileVersion Condition="'$(Version)' == ''">0.3.0.0</FileVersion>
+    <FileVersion Condition="'$(Version)' != ''">$(Version)</FileVersion>
     
     <!-- Package metadata -->
-    <PackageVersion>1.0.0</PackageVersion>
+    <PackageVersion Condition="'$(Version)' == ''">0.3.0-beta</PackageVersion>
+    <PackageVersion Condition="'$(Version)' != ''">$(Version)</PackageVersion>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageTags>testing e2e ui automation playwright selenium fluent</PackageTags>

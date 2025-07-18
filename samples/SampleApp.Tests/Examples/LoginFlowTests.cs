@@ -99,7 +99,7 @@ namespace SampleApp.Tests.Examples
         }
 
         [TestMethod]
-        public async Task Can_Login_With_Valid_Credentials()
+        public Task Can_Login_With_Valid_Credentials()
         {
             // Arrange
             var loginPage = _fluentUI!.NavigateTo<LoginPage>();
@@ -115,10 +115,11 @@ namespace SampleApp.Tests.Examples
 
             // Assert
             loginPage.Verify.ElementContainsText("#success-message", "Welcome, John!");
+            return Task.CompletedTask;
         }
 
         [TestMethod]
-        public async Task Can_Handle_Invalid_Credentials()
+        public Task Can_Handle_Invalid_Credentials()
         {
             // Arrange
             var loginPage = _fluentUI!.NavigateTo<LoginPage>();
@@ -134,10 +135,11 @@ namespace SampleApp.Tests.Examples
 
             // Assert
             loginPage.Verify.ElementContainsText("#error-message", "Invalid email or password");
+            return Task.CompletedTask;
         }
 
         [TestMethod]
-        public async Task Can_Handle_Empty_Credentials()
+        public Task Can_Handle_Empty_Credentials()
         {
             // Arrange
             var loginPage = _fluentUI!.NavigateTo<LoginPage>();
@@ -154,10 +156,11 @@ namespace SampleApp.Tests.Examples
 
             // Assert
             Assert.IsTrue(loginPage.IsErrorMessageVisible(), "Error message should be visible for invalid credentials");
+            return Task.CompletedTask;
         }
 
         [TestMethod]
-        public async Task Can_Use_Convenience_Methods_For_Login()
+        public Task Can_Use_Convenience_Methods_For_Login()
         {
             // Arrange
             var loginPage = _fluentUI!.NavigateTo<LoginPage>();
@@ -170,10 +173,11 @@ namespace SampleApp.Tests.Examples
 
             // Assert
             Assert.IsTrue(loginPage.IsSuccessMessageVisible(), "Success message should be visible after login");
+            return Task.CompletedTask;
         }
 
         [TestMethod]
-        public async Task Can_Test_Login_Form_State()
+        public Task Can_Test_Login_Form_State()
         {
             // Arrange
             var loginPage = _fluentUI!.NavigateTo<LoginPage>();
@@ -185,10 +189,11 @@ namespace SampleApp.Tests.Examples
             Assert.IsTrue(loginPage.EmailInput.IsVisible(), "Email input should be visible");
             Assert.IsTrue(loginPage.PasswordInput.IsVisible(), "Password input should be visible");
             Assert.IsTrue(loginPage.LoginButton.IsVisible(), "Login button should be visible");
+            return Task.CompletedTask;
         }
 
         [TestMethod]
-        public async Task Can_Handle_Email_Validation_In_Login()
+        public Task Can_Handle_Email_Validation_In_Login()
         {
             // Arrange
             var loginPage = _fluentUI!.NavigateTo<LoginPage>();
@@ -202,6 +207,7 @@ namespace SampleApp.Tests.Examples
                 .Type(e => e.PasswordInput, "SecurePass123!")
                 .Click(e => e.LoginButton);
             System.Threading.Thread.Sleep(1000);
+            return Task.CompletedTask;
 
             // Assert
             // The Svelte app only checks for '@', so browser validation will always catch truly invalid emails first.
@@ -209,4 +215,4 @@ namespace SampleApp.Tests.Examples
             // Assert.IsTrue(loginPage.IsErrorMessageVisible(), "Error message should be visible for invalid email format");
         }
     }
-} 
+}

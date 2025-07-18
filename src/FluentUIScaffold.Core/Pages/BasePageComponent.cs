@@ -118,41 +118,41 @@ namespace FluentUIScaffold.Core.Pages
         }
 
         // Generic verification methods
-        public virtual TPage VerifyValue<TValue>(Func<TPage, IElement> elementSelector, TValue expectedValue, string description = null)
+        public virtual TPage VerifyValue<TValue>(Func<TPage, IElement> elementSelector, TValue expectedValue, string? description = null)
         {
             var element = GetElementFromSelector(elementSelector);
             var actualValue = GetElementValue<TValue>(element);
-            
+
             if (!EqualityComparer<TValue>.Default.Equals(actualValue, expectedValue))
             {
                 var message = description ?? $"Expected '{expectedValue}', but got '{actualValue}'";
                 throw new ElementValidationException(message);
             }
-            
+
             return (TPage)(object)this;
         }
-        
+
         // Verify with default inner text comparison
-        public virtual TPage VerifyText(Func<TPage, IElement> elementSelector, string expectedText, string description = null)
+        public virtual TPage VerifyText(Func<TPage, IElement> elementSelector, string expectedText, string? description = null)
         {
             return VerifyValue(elementSelector, expectedText, description);
         }
-        
+
         // Verify with specific property comparison
-        public virtual TPage VerifyProperty(Func<TPage, IElement> elementSelector, string expectedValue, string propertyName, string description = null)
+        public virtual TPage VerifyProperty(Func<TPage, IElement> elementSelector, string expectedValue, string propertyName, string? description = null)
         {
             var element = GetElementFromSelector(elementSelector);
             var actualValue = GetElementPropertyValue(element, propertyName);
-            
+
             if (actualValue != expectedValue)
             {
                 var message = description ?? $"Expected property '{propertyName}' to be '{expectedValue}', but got '{actualValue}'";
                 throw new ElementValidationException(message);
             }
-            
+
             return (TPage)(object)this;
         }
-        
+
         // Helper methods for element value retrieval
         protected virtual TValue GetElementValue<TValue>(IElement element)
         {
@@ -160,10 +160,10 @@ namespace FluentUIScaffold.Core.Pages
             {
                 return (TValue)(object)Driver.GetText(element.Selector);
             }
-            
+
             throw new NotSupportedException($"Type {typeof(TValue)} is not supported for element value retrieval");
         }
-        
+
         protected virtual string GetElementPropertyValue(IElement element, string propertyName)
         {
             switch (propertyName.ToLower())

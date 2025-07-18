@@ -7,6 +7,17 @@ on:
     branches: [ main, develop ]
   release:
     types: [ published ]
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: 'Release type'
+        required: true
+        default: 'beta'
+        type: choice
+        options:
+        - beta
+        - preview
+        - alpha
 
 env:
   DOTNET_VERSION: '9.0.x'
@@ -60,7 +71,7 @@ jobs:
     name: Create NuGet Package
     runs-on: ubuntu-latest
     needs: build-and-test
-    if: github.event_name == 'release' || (github.ref == 'refs/heads/main' && github.event_name == 'push')
+    if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
 
     steps:
     - name: Checkout code
@@ -74,8 +85,25 @@ jobs:
     - name: Restore dependencies
       run: dotnet restore
 
-    - name: Pack
-      run: dotnet pack src/FluentUIScaffold.Core/FluentUIScaffold.Core.csproj --configuration Release --output ./packages/
+    - name: Extract version from tag
+      id: version
+      run: |
+        if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+          VERSION=${GITHUB_REF#refs/tags/}
+          # Remove 'v' prefix if present
+          VERSION=${VERSION#v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Extracted version: $VERSION"
+        else
+          echo "version=0.3.0-beta" >> $GITHUB_OUTPUT
+          echo "Using default version: 0.3.0-beta"
+        fi
+
+    - name: Pack Core Package
+      run: dotnet pack src/FluentUIScaffold.Core/FluentUIScaffold.Core.csproj --configuration Release --output ./packages/ -p:Version=${{ steps.version.outputs.version }}
+
+    - name: Pack Playwright Package
+      run: dotnet pack src/FluentUIScaffold.Playwright/FluentUIScaffold.Playwright.csproj --configuration Release --output ./packages/ -p:Version=${{ steps.version.outputs.version }}
 
     - name: Upload package artifacts
       uses: actions/upload-artifact@v4
@@ -83,10 +111,26 @@ jobs:
         name: nuget-packages
         path: ./packages/
 
+  manual-approval:
+    name: Manual Approval for Release
+    runs-on: ubuntu-latest
+    needs: package
+    if: github.event_name == 'release'
+    environment:
+      name: release-approval
+
+    steps:
+    - name: Wait for manual approval
+      run: |
+        echo "Manual approval required before publishing to NuGet"
+        echo "Release: ${{ github.event.release.name }}"
+        echo "Tag: ${{ github.event.release.tag_name }}"
+        echo "Please review the build artifacts and approve the release"
+
   publish-nuget:
     name: Publish to NuGet
     runs-on: ubuntu-latest
-    needs: package
+    needs: [package, manual-approval]
     if: github.event_name == 'release'
 
     steps:

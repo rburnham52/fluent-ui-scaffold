@@ -293,7 +293,7 @@ namespace SampleApp.Tests.Examples
         {
             // Arrange & Act - Test element state checking
             var registrationPage = _fluentUI!.NavigateTo<RegistrationPage>();
-            
+
             // Click the Register navigation button to access the registration page
             registrationPage.TestDriver.Click("[data-testid='nav-register']");
 
@@ -311,7 +311,7 @@ namespace SampleApp.Tests.Examples
         {
             // Arrange & Act - Complete registration and login flow as specified in the story
             var registrationPage = _fluentUI!.NavigateTo<RegistrationPage>();
-            
+
             // Click the Register navigation button to access the registration page
             registrationPage.TestDriver.Click("[data-testid='nav-register']");
 
@@ -323,7 +323,7 @@ namespace SampleApp.Tests.Examples
 
             // Act - Login
             var loginPage = _fluentUI!.NavigateTo<LoginPage>();
-            
+
             // Click the Login navigation button to access the login page
             loginPage.TestDriver.Click("[data-testid='nav-login']");
 

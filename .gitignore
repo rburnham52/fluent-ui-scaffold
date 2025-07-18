@@ -198,6 +198,9 @@ PublishScripts/
 *.nuget.props
 *.nuget.targets
 
+# Cursor IDE
+.cursor/
+
 # Microsoft Azure Build Output
 csx/
 *.build.csdef
