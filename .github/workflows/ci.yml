@@ -58,7 +58,10 @@ jobs:
       run: dotnet build --no-restore --configuration Release --framework ${{ matrix.target-framework }}
 
     - name: Install Playwright browsers
-      run: pwsh tests/FluentUIScaffold.Playwright.Tests/bin/Release/${{ matrix.target-framework }}/playwright.ps1 install
+      run: |
+        cd tests/FluentUIScaffold.Playwright.Tests
+        dotnet build --configuration Release --framework ${{ matrix.target-framework }}
+        pwsh bin/Release/${{ matrix.target-framework }}/playwright.ps1 install
       shell: pwsh
 
     - name: Test
@@ -182,4 +185,4 @@ jobs:
       run: dotnet build --configuration Release --verbosity minimal
 
     - name: Run style analysis
-      run: dotnet format --verify-no-changes     
+      run: dotnet format --verify-no-changes          
