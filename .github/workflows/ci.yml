@@ -59,10 +59,8 @@ jobs:
 
     - name: Install Playwright browsers
       run: |
-        cd tests/FluentUIScaffold.Playwright.Tests
-        dotnet build --configuration Release --framework ${{ matrix.target-framework }}
-        pwsh bin/Release/${{ matrix.target-framework }}/playwright.ps1 install
-      shell: pwsh
+        dotnet tool install --global Microsoft.Playwright.CLI
+        playwright install
 
     - name: Test
       run: dotnet test --no-build --verbosity normal --configuration Release --framework ${{ matrix.target-framework }} --collect:"XPlat Code Coverage" --results-directory ./coverage/
@@ -185,4 +183,4 @@ jobs:
       run: dotnet build --configuration Release --verbosity minimal
 
     - name: Run style analysis
-      run: dotnet format --verify-no-changes          
+      run: dotnet format --verify-no-changes                              
