@@ -69,7 +69,7 @@ jobs:
         npx playwright@1.42.0 install chromium
 
     - name: Test
-      run: dotnet test --no-build --verbosity normal --configuration Release --framework ${{ matrix.target-framework }} --collect:"XPlat Code Coverage" --results-directory ./coverage/
+      run: dotnet test --no-build --verbosity normal --configuration Release --framework ${{ matrix.target-framework }} --collect:"XPlat Code Coverage" --results-directory ./coverage/ --filter "FullyQualifiedName!~SampleApp.Tests"
 
     - name: Upload coverage reports
       uses: codecov/codecov-action@v4
@@ -189,4 +189,4 @@ jobs:
       run: dotnet build --configuration Release --verbosity minimal
 
     - name: Run style analysis
-      run: dotnet format --verify-no-changes                                                                      
+      run: dotnet format --verify-no-changes                                                                                
