@@ -54,15 +54,19 @@ jobs:
     - name: Restore dependencies
       run: dotnet restore
 
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+
     - name: Build
       run: dotnet build --no-restore --configuration Release --framework ${{ matrix.target-framework }}
 
     - name: Install Playwright browsers
       run: |
-        dotnet build --configuration Release --framework ${{ matrix.target-framework }}
         cd tests/FluentUIScaffold.Playwright.Tests
-        dotnet test --configuration Release --framework ${{ matrix.target-framework }} --logger "console;verbosity=minimal" --filter "FullyQualifiedName~DoesNotExist" || true
-        dotnet run --project . --configuration Release --framework ${{ matrix.target-framework }} --no-build -- install || echo "Browser installation completed"
+        dotnet build --configuration Release --framework ${{ matrix.target-framework }}
+        npx playwright@1.42.0 install chromium
 
     - name: Test
       run: dotnet test --no-build --verbosity normal --configuration Release --framework ${{ matrix.target-framework }} --collect:"XPlat Code Coverage" --results-directory ./coverage/
@@ -185,4 +189,4 @@ jobs:
       run: dotnet build --configuration Release --verbosity minimal
 
     - name: Run style analysis
-      run: dotnet format --verify-no-changes                                                            
+      run: dotnet format --verify-no-changes                                                                      
