@@ -22,7 +22,7 @@ public class PlaywrightException : FluentUIScaffoldException
     /// <param name="selector">The selector that was being used.</param>
     /// <param name="innerException">The inner exception.</param>
     public PlaywrightException(string message, string? selector = null, Exception? innerException = null)
-        : base(message, innerException)
+        : base(message, innerException!)
     {
         Selector = selector;
     }

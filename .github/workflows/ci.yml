@@ -20,7 +20,7 @@ on:
         - alpha
 
 env:
-  DOTNET_VERSION: '9.0.x'
+  DOTNET_VERSION: '8.0.x'
   NUGET_PACKAGE_NAME: 'FluentUIScaffold'
 
 jobs:
@@ -57,6 +57,10 @@ jobs:
     - name: Build
       run: dotnet build --no-restore --configuration Release --framework ${{ matrix.target-framework }}
 
+    - name: Install Playwright browsers
+      run: pwsh tests/FluentUIScaffold.Playwright.Tests/bin/Release/${{ matrix.target-framework }}/playwright.ps1 install
+      shell: pwsh
+
     - name: Test
       run: dotnet test --no-build --verbosity normal --configuration Release --framework ${{ matrix.target-framework }} --collect:"XPlat Code Coverage" --results-directory ./coverage/
 
@@ -80,7 +84,7 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: '9.0.x'
+        dotnet-version: '8.0.x'
 
     - name: Restore dependencies
       run: dotnet restore
@@ -153,7 +157,7 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: '9.0.x'
+        dotnet-version: '8.0.x'
 
     - name: Restore dependencies
       run: dotnet restore
@@ -172,10 +176,10 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: '9.0.x'
+        dotnet-version: '8.0.x'
 
     - name: Run code analysis
       run: dotnet build --configuration Release --verbosity minimal
 
     - name: Run style analysis
-      run: dotnet format --verify-no-changes 
+      run: dotnet format --verify-no-changes     
