@@ -57,7 +57,7 @@ public class PlaywrightDriver : IUIDriver, IDisposable
         var browserType = GetBrowserType();
         var browserOptions = new BrowserTypeLaunchOptions
         {
-            Headless = _options.HeadlessMode,
+            Headless = _options.HeadlessMode || !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("CI")),
             SlowMo = _options.FrameworkOptions.TryGetValue("SlowMo", out var slowMo) ? (int)slowMo : 0
         };
 

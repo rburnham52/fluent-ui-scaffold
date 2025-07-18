@@ -60,7 +60,7 @@ namespace SampleApp.Tests
                 var startInfo = new ProcessStartInfo
                 {
                     FileName = "dotnet",
-                    Arguments = $"run --project \"{projectPath}\" --configuration Release",
+                    Arguments = $"run --project \"{projectPath}\" --configuration Release --framework net8.0",
                     WorkingDirectory = Environment.CurrentDirectory,
                     UseShellExecute = false,
                     RedirectStandardOutput = true,
