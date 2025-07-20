@@ -1,46 +1,32 @@
-<Project>
+<?xml version="1.0" encoding="utf-8"?>
+
+<Project ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
-    <!-- Common build settings -->
-    <LangVersion>latest</LangVersion>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-    
-    <!-- Assembly info -->
-    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
-    <Company>FluentUIScaffold</Company>
-    <Product>FluentUIScaffold E2E Testing Framework</Product>
-    <Copyright>Copyright © $([System.DateTime]::Now.Year) FluentUIScaffold</Copyright>
-    <AssemblyVersion Condition="'$(Version)' == ''">0.3.0.0</AssemblyVersion>
-    <AssemblyVersion Condition="'$(Version)' != ''">$(Version)</AssemblyVersion>
-    <FileVersion Condition="'$(Version)' == ''">0.3.0.0</FileVersion>
-    <FileVersion Condition="'$(Version)' != ''">$(Version)</FileVersion>
-    
-    <!-- Package metadata -->
-    <PackageVersion Condition="'$(Version)' == ''">0.3.0-beta</PackageVersion>
-    <PackageVersion Condition="'$(Version)' != ''">$(Version)</PackageVersion>
-    <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageTags>testing e2e ui automation playwright selenium fluent</PackageTags>
-    <PackageDescription>Framework-agnostic E2E testing library with fluent API for building maintainable UI test automation</PackageDescription>
-    <PackageProjectUrl>https://github.com/fluent-ui-scaffold</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/fluent-ui-scaffold</RepositoryUrl>
+    <Authors>Ryan Burnham</Authors>
     <RepositoryType>git</RepositoryType>
-    
-    <!-- Code analysis -->
-    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
-    <AnalysisMode>Default</AnalysisMode>
-    
-    <!-- Conditional compilation symbols -->
-    <DefineConstants Condition="'$(TargetFramework)' == 'net6.0'">$(DefineConstants);NET6_0</DefineConstants>
-    <DefineConstants Condition="'$(TargetFramework)' == 'net7.0'">$(DefineConstants);NET7_0</DefineConstants>
-    <DefineConstants Condition="'$(TargetFramework)' == 'net8.0'">$(DefineConstants);NET8_0</DefineConstants>
+    <RepositoryUrl>https://github.com/rburnham52/fluent-ui-scaffold</RepositoryUrl>
+    <TargetFrameworks>net6.0;net7.0;net8.0</TargetFrameworks>
+    <LangVersion>latest</LangVersion>
+    <!-- Version Management -->
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <EmbedAllSources>true</EmbedAllSources>
+    <DebugType>Embedded</DebugType>
+    <!-- Package Metadata -->
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <!-- Assembly Version Management -->
+    <AssemblyVersion>$(Version)</AssemblyVersion>
+    <FileVersion>$(Version)</FileVersion>
+    <InformationalVersion>$(Version)</InformationalVersion>
+    <PackageVersion>$(Version)</PackageVersion>
+    <!-- Default version - will be overridden by CI -->
+    <Version Condition="'$(Version)' == ''">1.0.0</Version>
   </PropertyGroup>
-  
-  <!-- Common package references -->
+  <!-- Include README in packages -->
   <ItemGroup>
-    <PackageReference Include="Microsoft.CodeAnalysis.NetAnalyzers" Version="9.0.0">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
+    <None Include="$(MSBuildProjectDirectory)/README.md" Pack="true" PackagePath="README.md" Condition="Exists('$(MSBuildProjectDirectory)/README.md')" />
   </ItemGroup>
-</Project> 
+</Project>

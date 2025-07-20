@@ -5,6 +5,9 @@
     <RootNamespace>FluentUIScaffold.Core</RootNamespace>
     <AssemblyName>FluentUIScaffold.Core</AssemblyName>
     <PackageId>FluentUIScaffold.Core</PackageId>
+    <PackageDescription>FluentUIScaffold Core</PackageDescription>
+    <RepositoryUrl>https://github.com/rburnham52/fluent-ui-scaffold</RepositoryUrl>
+    <DebugType>portable</DebugType>
   </PropertyGroup>
 
   <ItemGroup>
