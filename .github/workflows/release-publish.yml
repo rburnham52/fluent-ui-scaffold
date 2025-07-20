@@ -105,14 +105,14 @@ jobs:
         # Build projects first to ensure DLLs exist before packing
         # Use separate properties to override Directory.Build.props defaults
         dotnet build src/FluentUIScaffold.Core --configuration Release --no-restore -p:PackageVersion=${{ needs.extract-version.outputs.version }} -p:AssemblyVersion=${{ needs.extract-version.outputs.assembly-version }} -p:FileVersion=${{ needs.extract-version.outputs.assembly-version }} -p:InformationalVersion=${{ needs.extract-version.outputs.version }}
-        dotnet build src/FluentUIScaffold.Playwrite --configuration Release --no-restore -p:PackageVersion=${{ needs.extract-version.outputs.version }} -p:AssemblyVersion=${{ needs.extract-version.outputs.assembly-version }} -p:FileVersion=${{ needs.extract-version.outputs.assembly-version }} -p:InformationalVersion=${{ needs.extract-version.outputs.version }}
+        dotnet build src/FluentUIScaffold.Playwright --configuration Release --no-restore -p:PackageVersion=${{ needs.extract-version.outputs.version }} -p:AssemblyVersion=${{ needs.extract-version.outputs.assembly-version }} -p:FileVersion=${{ needs.extract-version.outputs.assembly-version }} -p:InformationalVersion=${{ needs.extract-version.outputs.version }}
 
     - name: Pack Projects
       run: |
         # Pack projects using the pre-built assemblies
         # Use separate properties to override Directory.Build.props defaults
         dotnet pack src/FluentUIScaffold.Core --configuration Release --no-build --output ./artifacts -p:PackageVersion=${{ needs.extract-version.outputs.version }} -p:AssemblyVersion=${{ needs.extract-version.outputs.assembly-version }} -p:FileVersion=${{ needs.extract-version.outputs.assembly-version }} -p:InformationalVersion=${{ needs.extract-version.outputs.version }}
-        dotnet pack src/FluentUIScaffold.Playwrite --configuration Release --no-build --output ./artifacts -p:PackageVersion=${{ needs.extract-version.outputs.version }} -p:AssemblyVersion=${{ needs.extract-version.outputs.assembly-version }} -p:FileVersion=${{ needs.extract-version.outputs.assembly-version }} -p:InformationalVersion=${{ needs.extract-version.outputs.version }}
+        dotnet pack src/FluentUIScaffold.Playwright --configuration Release --no-build --output ./artifacts -p:PackageVersion=${{ needs.extract-version.outputs.version }} -p:AssemblyVersion=${{ needs.extract-version.outputs.assembly-version }} -p:FileVersion=${{ needs.extract-version.outputs.assembly-version }} -p:InformationalVersion=${{ needs.extract-version.outputs.version }}
 
     - name: Validate Package Versions
       run: |
@@ -199,7 +199,7 @@ jobs:
                 
                 ### Packages Published:
                 - FluentUIScaffold.Core
-                - FluentUIScaffold.Playwrite
+                - FluentUIScaffold.Playwright
                 
                 ### Installation:
                 \`\`\`bash
