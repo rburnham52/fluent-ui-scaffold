@@ -170,8 +170,8 @@ The sample application includes:
 public async Task Can_Register_New_User_With_Valid_Data()
 {
     // Arrange
-    var registrationPage = _fluentUI!.NavigateTo<RegistrationPage>();
-    registrationPage.TestDriver.Click("[data-testid='nav-register']");
+    var registrationPage = _fluentUI! .NavigateTo<RegistrationPage>()
+        .Click("[data-testid='nav-register']");
 
     // Act
     registrationPage

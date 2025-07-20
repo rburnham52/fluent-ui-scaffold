@@ -106,7 +106,6 @@ namespace FluentUIScaffold.Core
         public void Dispose()
         {
             Dispose(true);
-            GC.SuppressFinalize(this);
         }
 
         /// <summary>

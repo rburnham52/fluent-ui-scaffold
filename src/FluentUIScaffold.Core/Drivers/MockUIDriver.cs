@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 using FluentUIScaffold.Core.Configuration;
 using FluentUIScaffold.Core.Interfaces;
@@ -50,7 +51,6 @@ namespace FluentUIScaffold.Core.Drivers
         public void Dispose()
         {
             // No resources to dispose
-            GC.SuppressFinalize(this);
         }
     }
 

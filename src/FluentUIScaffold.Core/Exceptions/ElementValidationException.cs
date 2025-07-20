@@ -1,5 +1,6 @@
 // Copyright (c) FluentUIScaffold. All rights reserved.
 
+using System;
 using System.Runtime.Serialization;
 
 namespace FluentUIScaffold.Core.Exceptions;
