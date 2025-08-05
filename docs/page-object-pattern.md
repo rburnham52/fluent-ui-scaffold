@@ -616,6 +616,175 @@ public class StatefulPage : BasePageComponent<PlaywrightDriver, StatefulPage>
 }
 ```
 
+## Navigation Patterns
+
+### 1. Basic URL Pattern Navigation
+
+The simplest way to navigate to a specific path is by overriding the `UrlPattern` property:
+
+```csharp
+public class LoginPage : BasePageComponent<WebApp>
+{
+    public override string UrlPattern => "/login";
+    
+    // ... rest of page implementation
+}
+```
+
+When you call `NavigateTo<LoginPage>()`, the framework automatically navigates to `/login`.
+
+### 2. Custom Navigation Methods
+
+For more complex navigation logic, you can override the `Navigate()` method:
+
+```csharp
+public class DashboardPage : BasePageComponent<WebApp>
+{
+    public override string UrlPattern => "/dashboard";
+    
+    public override void Navigate()
+    {
+        // Add custom logic before navigation
+        if (!IsAuthenticated())
+        {
+            Driver.NavigateToUrl(new Uri(Driver.BaseUrl, "/login"));
+            return;
+        }
+        
+        // Navigate to dashboard
+        Driver.NavigateToUrl(new Uri(Driver.BaseUrl, "/dashboard"));
+    }
+    
+    private bool IsAuthenticated()
+    {
+        // Your authentication logic here
+        return true;
+    }
+}
+```
+
+### 3. Parameterized Navigation
+
+For pages that need dynamic paths, create custom navigation methods:
+
+```csharp
+public class UserProfilePage : BasePageComponent<WebApp>
+{
+    public override string UrlPattern => "/profile";
+    
+    public UserProfilePage NavigateToUserProfile(int userId)
+    {
+        Driver.NavigateToUrl(new Uri(Driver.BaseUrl, $"/profile/{userId}"));
+        return this;
+    }
+    
+    public UserProfilePage NavigateToUserProfile(string username)
+    {
+        Driver.NavigateToUrl(new Uri(Driver.BaseUrl, $"/profile/user/{username}"));
+        return this;
+    }
+}
+```
+
+### 4. Advanced Navigation Patterns
+
+#### Navigation with Query Parameters
+
+```csharp
+public class SearchPage : BasePageComponent<WebApp>
+{
+    public override string UrlPattern => "/search";
+    
+    public SearchPage NavigateWithQuery(string query, string category = "all")
+    {
+        var queryString = $"q={Uri.EscapeDataString(query)}&category={Uri.EscapeDataString(category)}";
+        Driver.NavigateToUrl(new Uri(Driver.BaseUrl, $"/search?{queryString}"));
+        return this;
+    }
+    
+    public SearchPage NavigateWithFilters(Dictionary<string, string> filters)
+    {
+        var queryParams = string.Join("&", filters.Select(kvp => 
+            $"{Uri.EscapeDataString(kvp.Key)}={Uri.EscapeDataString(kvp.Value)}"));
+        Driver.NavigateToUrl(new Uri(Driver.BaseUrl, $"/search?{queryParams}"));
+        return this;
+    }
+}
+```
+
+#### Conditional Navigation
+
+```csharp
+public class AdminPage : BasePageComponent<WebApp>
+{
+    public override string UrlPattern => "/admin";
+    
+    public AdminPage NavigateBasedOnRole(string userRole)
+    {
+        var path = userRole.ToLower() switch
+        {
+            "admin" => "/admin/dashboard",
+            "moderator" => "/admin/moderator",
+            "viewer" => "/admin/readonly",
+            _ => "/admin/unauthorized"
+        };
+        
+        Driver.NavigateToUrl(new Uri(Driver.BaseUrl, path));
+        return this;
+    }
+}
+```
+
+#### Navigation with State Management
+
+```csharp
+public class ShoppingCartPage : BasePageComponent<WebApp>
+{
+    public override string UrlPattern => "/cart";
+    
+    private string _currentCartId;
+    
+    public ShoppingCartPage NavigateToCart(string cartId)
+    {
+        _currentCartId = cartId;
+        Driver.NavigateToUrl(new Uri(Driver.BaseUrl, $"/cart/{cartId}"));
+        return this;
+    }
+    
+    public ShoppingCartPage NavigateToCartWithItems(string cartId, List<string> itemIds)
+    {
+        _currentCartId = cartId;
+        var itemsParam = string.Join(",", itemIds);
+        Driver.NavigateToUrl(new Uri(Driver.BaseUrl, $"/cart/{cartId}?items={itemsParam}"));
+        return this;
+    }
+    
+    public string GetCurrentCartId() => _currentCartId;
+}
+```
+
+### 5. Direct URL Navigation
+
+You can also navigate directly using the main app instance:
+
+```csharp
+// Navigate to a specific URL
+_fluentUI.NavigateToUrl(new Uri("https://your-app.com/specific-path"));
+
+// Then get the page object
+var page = _fluentUI.GetPage<YourPage>();
+```
+
+### 6. Navigation Best Practices
+
+1. **Use `UrlPattern` for simple, static paths**
+2. **Use custom `Navigate()` methods for complex logic**
+3. **Use parameterized methods for dynamic paths**
+4. **Keep navigation logic in the page object**
+5. **Use descriptive method names for custom navigation**
+6. **Handle authentication and authorization in navigation methods**
+7. **Validate navigation parameters before use**
+
 ## Common Patterns
 
 ### 1. Modal Dialogs

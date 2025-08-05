@@ -44,23 +44,22 @@ dotnet build
 using FluentUIScaffold.Core;
 using FluentUIScaffold.Core.Configuration;
 
-// Configure FluentUIScaffold with Playwright
-var fluentUI = FluentUIScaffoldBuilder.Web(options =>
+// Configure FluentUIScaffold with auto-discovery
+var options = new FluentUIScaffoldOptions
 {
-    options.BaseUrl = new Uri("https://your-app.com");
-    options.DefaultTimeout = TimeSpan.FromSeconds(30);
-    options.LogLevel = LogLevel.Information;
-});
+    BaseUrl = new Uri("https://your-app.com"),
+    DefaultWaitTimeout = TimeSpan.FromSeconds(30),
+    LogLevel = LogLevel.Information,
+    HeadlessMode = true
+};
+
+var fluentUI = new FluentUIScaffoldApp<WebApp>(options);
 
 // Navigate and interact
-var homePage = fluentUI
-    .NavigateToUrl(new Uri("https://your-app.com"))
-    .Framework<HomePage>();
-
-homePage
-    .ClickButton()
-    .VerifyElementIsVisible()
-    .NavigateTo<OtherPage>();
+fluentUI.NavigateTo<HomePage>()
+    .WaitFor(e => e.CounterButton)
+    .ClickCounter()
+    .VerifyText(e => e.CounterValue, "1");
 ```
 
 ## 📚 Documentation

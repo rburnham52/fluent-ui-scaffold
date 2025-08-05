@@ -90,7 +90,7 @@ namespace SampleApp.Tests
                 }
 
                 // Wait for the server to be ready
-                var maxWaitTime = TimeSpan.FromSeconds(60); // Reduced timeout to 60 seconds
+                var maxWaitTime = TimeSpan.FromSeconds(30); // Reduced timeout to 60 seconds
                 var startTime = DateTime.UtcNow;
                 var serverReady = false;
                 var attempts = 0;

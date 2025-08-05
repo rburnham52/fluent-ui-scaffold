@@ -23,6 +23,10 @@ namespace SampleApp.Tests.Pages
         public IElement CounterValue { get; set; } = null!;
         public IElement PageTitle { get; set; } = null!;
         public IElement HomeSectionTitle { get; set; } = null!;
+        public IElement LoginNavButton { get; set; } = null!;
+        public IElement RegisterNavButton { get; set; } = null!;
+        public IElement ProfileNavButton { get; set; } = null!;
+        public IElement TodosNavButton { get; set; } = null!;
 
         public HomePage(IServiceProvider serviceProvider, Uri urlPattern)
             : base(serviceProvider, urlPattern)
@@ -50,6 +54,26 @@ namespace SampleApp.Tests.Pages
             HomeSectionTitle = Element(".home-section h2")
                 .WithDescription("Home Section Title")
                 .WithWaitStrategy(WaitStrategy.Visible)
+                .Build();
+
+            LoginNavButton = Element("[data-testid=\"nav-login\"]")
+                .WithDescription("Login Navigation Button")
+                .WithWaitStrategy(WaitStrategy.Clickable)
+                .Build();
+
+            RegisterNavButton = Element("[data-testid=\"nav-register\"]")
+                .WithDescription("Register Navigation Button")
+                .WithWaitStrategy(WaitStrategy.Clickable)
+                .Build();
+
+            ProfileNavButton = Element("[data-testid=\"nav-profile\"]")
+                .WithDescription("Profile Navigation Button")
+                .WithWaitStrategy(WaitStrategy.Clickable)
+                .Build();
+
+            TodosNavButton = Element("[data-testid=\"nav-todos\"]")
+                .WithDescription("Todos Navigation Button")
+                .WithWaitStrategy(WaitStrategy.Clickable)
                 .Build();
         }
 
@@ -90,6 +114,42 @@ namespace SampleApp.Tests.Pages
                 throw new InvalidOperationException("Page title is null or empty");
             }
             return this;
+        }
+
+        /// <summary>
+        /// Navigates to the login section by clicking the login navigation button.
+        /// </summary>
+        /// <returns>The current page instance for method chaining</returns>
+        public HomePage NavigateToLoginSection()
+        {
+            return Click(e => e.LoginNavButton);
+        }
+
+        /// <summary>
+        /// Navigates to the register section by clicking the register navigation button.
+        /// </summary>
+        /// <returns>The current page instance for method chaining</returns>
+        public HomePage NavigateToRegisterSection()
+        {
+            return Click(e => e.RegisterNavButton);
+        }
+
+        /// <summary>
+        /// Navigates to the profile section by clicking the profile navigation button.
+        /// </summary>
+        /// <returns>The current page instance for method chaining</returns>
+        public HomePage NavigateToProfileSection()
+        {
+            return Click(e => e.ProfileNavButton);
+        }
+
+        /// <summary>
+        /// Navigates to the todos section by clicking the todos navigation button.
+        /// </summary>
+        /// <returns>The current page instance for method chaining</returns>
+        public HomePage NavigateToTodosSection()
+        {
+            return Click(e => e.TodosNavButton);
         }
     }
 }

@@ -55,26 +55,28 @@ public class MyFirstTest
     private FluentUIScaffoldApp<WebApp> _fluentUI;
 
     [TestInitialize]
-    public void Setup()
+    public async Task Setup()
     {
-        _fluentUI = FluentUIScaffoldBuilder.Web(options =>
+        var options = new FluentUIScaffoldOptions
         {
-            options.BaseUrl = new Uri("https://your-app.com");
-            options.DefaultTimeout = TimeSpan.FromSeconds(30);
-            options.LogLevel = LogLevel.Information;
-        });
+            BaseUrl = new Uri("https://your-app.com"),
+            DefaultWaitTimeout = TimeSpan.FromSeconds(30),
+            LogLevel = LogLevel.Information,
+            HeadlessMode = true // Run in headless mode for CI/CD
+        };
+
+        _fluentUI = new FluentUIScaffoldApp<WebApp>(options);
+        await _fluentUI.InitializeAsync(options);
     }
 
     [TestMethod]
     public async Task Can_Navigate_To_Home_Page()
     {
         // Arrange
-        var homePage = _fluentUI
-            .NavigateToUrl(new Uri("https://your-app.com"))
-            .Framework<HomePage>();
+        var homePage = _fluentUI.NavigateTo<HomePage>();
 
         // Act & Assert
-        homePage.VerifyElementIsVisible("#welcome-message");
+        homePage.Verify.ElementIsVisible("#welcome-message");
     }
 
     [TestCleanup]
@@ -85,7 +87,80 @@ public class MyFirstTest
 }
 ```
 
-### 2. Create Your First Page Object
+### 2. Web Server Launching (Optional)
+
+For applications that need to be launched before testing, you can configure automatic web server launching:
+
+```csharp
+[TestInitialize]
+public async Task Setup()
+{
+    var options = new FluentUIScaffoldOptions
+    {
+        BaseUrl = new Uri("https://your-app.com"),
+        DefaultWaitTimeout = TimeSpan.FromSeconds(30),
+        LogLevel = LogLevel.Information,
+        HeadlessMode = true,
+        // Web server launching configuration
+        EnableWebServerLaunch = true,
+        WebServerProjectPath = "path/to/your/web/app",
+        ReuseExistingServer = false // Set to true to reuse an already running server
+    };
+
+    _fluentUI = new FluentUIScaffoldApp<WebApp>(options);
+    await _fluentUI.InitializeAsync(options); // This will launch the web server if enabled
+}
+```
+
+The framework will automatically:
+- Launch the web server using `dotnet run` in the specified project path
+- Wait for the server to be accessible at the configured base URL
+- Clean up the server process when tests complete
+
+### 4. Debug Mode
+
+For easier debugging during development, debug mode automatically:
+- Disables headless mode to show the browser window
+- Sets SlowMo to 1000ms to slow down interactions for better visibility
+- Provides detailed logging of browser actions
+- **Automatically enables when a debugger is attached** (no configuration needed!)
+
+```csharp
+[TestInitialize]
+public async Task Setup()
+{
+    var options = new FluentUIScaffoldOptions
+    {
+        BaseUrl = new Uri("https://your-app.com"),
+        DefaultWaitTimeout = TimeSpan.FromSeconds(30),
+        LogLevel = LogLevel.Information,
+        // DebugMode automatically enables when debugger is attached
+        // You can also explicitly set it: DebugMode = true
+        // When DebugMode is true, HeadlessMode is automatically set to false
+        // and SlowMo is set to 1000ms
+    };
+
+    _fluentUI = new FluentUIScaffoldApp<WebApp>(options);
+    await _fluentUI.InitializeAsync();
+}
+```
+
+**Debug Mode vs Normal Mode:**
+
+| Setting | Normal Mode | Debug Mode |
+|---------|-------------|------------|
+| Headless | `HeadlessMode` property (default: true) | Always `false` |
+| SlowMo | `FrameworkOptions["SlowMo"]` or `0` | Always `1000ms` |
+| Browser Window | Hidden (if headless) | Visible |
+| Interaction Speed | Normal | Slowed down for visibility |
+
+**Best Practices:**
+- Debug mode automatically activates when you run tests in debug mode (F5 in Visual Studio, or when a debugger is attached)
+- For CI/CD environments where no debugger is attached, it remains disabled by default
+- You can explicitly set `DebugMode = true` for manual control
+- You can also set `HeadlessMode = false` and `FrameworkOptions["SlowMo"] = 1000` manually for more control
+
+### 3. Create Your First Page Object
 
 ```csharp
 using FluentUIScaffold.Core;
@@ -170,11 +245,11 @@ The sample application includes:
 public async Task Can_Register_New_User_With_Valid_Data()
 {
     // Arrange
-    var registrationPage = _fluentUI! .NavigateTo<RegistrationPage>()
-        .Click("[data-testid='nav-register']");
+    var homePage = _fluentUI!.NavigateTo<HomePage>();
+    homePage.NavigateToRegisterSection();
 
     // Act
-    registrationPage
+    homePage
         .Type(e => e.EmailInput, "test@example.com")
         .Type(e => e.PasswordInput, "SecurePass123!")
         .Type(e => e.FirstNameInput, "Test")
@@ -182,7 +257,7 @@ public async Task Can_Register_New_User_With_Valid_Data()
         .Click(e => e.RegisterButton);
 
     // Assert
-    registrationPage.Verify.ElementContainsText("#success-message", "Registration successful!");
+    homePage.Verify.ElementContainsText("#success-message", "Registration successful!");
 }
 ```
 
@@ -353,6 +428,25 @@ if (homePage.IsCurrentPage())
 homePage.ValidateCurrentPage();
 ```
 
+### Advanced Navigation
+
+For more complex navigation scenarios, you can use custom navigation methods:
+
+```csharp
+// Navigate to specific user profile
+var profilePage = fluentUI.NavigateTo<UserProfilePage>();
+profilePage.NavigateToUserProfile(123);
+
+// Navigate with query parameters
+var searchPage = fluentUI.NavigateTo<SearchPage>();
+searchPage.NavigateWithQuery("test query", "category");
+
+// Direct URL navigation
+fluentUI.NavigateToUrl(new Uri("https://your-app.com/specific-path"));
+```
+
+For detailed navigation patterns, see the [Page Object Pattern](page-object-pattern.md) documentation.
+
 ## Verification
 
 ### Element Verification
@@ -446,14 +540,22 @@ public class UserManagementTests
     private FluentUIScaffoldApp<WebApp> _fluentUI;
 
     [TestInitialize]
-    public void Setup()
+    public async Task Setup()
     {
-        _fluentUI = FluentUIScaffoldBuilder.Web(options =>
+        var options = new FluentUIScaffoldOptions
         {
-            options.BaseUrl = new Uri("https://your-app.com");
-            options.DefaultTimeout = TimeSpan.FromSeconds(30);
-            options.CaptureScreenshotsOnFailure = true;
-        });
+            BaseUrl = new Uri("https://your-app.com"),
+            DefaultWaitTimeout = TimeSpan.FromSeconds(30),
+            LogLevel = LogLevel.Information,
+            HeadlessMode = true,
+            CaptureScreenshotsOnFailure = true,
+            // Optional: Enable web server launching
+            EnableWebServerLaunch = true,
+            WebServerProjectPath = "path/to/your/web/app"
+        };
+
+        _fluentUI = new FluentUIScaffoldApp<WebApp>(options);
+        await _fluentUI.InitializeAsync(options);
     }
 
     [TestMethod]
