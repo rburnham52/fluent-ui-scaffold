@@ -352,3 +352,5 @@ healthchecksdb
 MigrationBackup/
 
 .idea/
+
+samples/SampleApp/wwwroot/
