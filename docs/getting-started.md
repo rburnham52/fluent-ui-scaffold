@@ -159,6 +159,47 @@ public async Task Setup()
 - You can explicitly set `DebugMode = true` for manual control
 - You can also set `HeadlessMode = false` and `FrameworkOptions["SlowMo"] = 1000` manually for more control
 
+For easier debugging during development, debug mode automatically:
+- Disables headless mode to show the browser window
+- Sets SlowMo to 1000ms to slow down interactions for better visibility
+- Provides detailed logging of browser actions
+- **Automatically enables when a debugger is attached** (no configuration needed!)
+
+```csharp
+[TestInitialize]
+public async Task Setup()
+{
+    var options = new FluentUIScaffoldOptions
+    {
+        BaseUrl = new Uri("https://your-app.com"),
+        DefaultWaitTimeout = TimeSpan.FromSeconds(30),
+        LogLevel = LogLevel.Information,
+        // DebugMode automatically enables when debugger is attached
+        // You can also explicitly set it: DebugMode = true
+        // When DebugMode is true, HeadlessMode is automatically set to false
+        // and SlowMo is set to 1000ms
+    };
+
+    _fluentUI = new FluentUIScaffoldApp<WebApp>(options);
+    await _fluentUI.InitializeAsync();
+}
+```
+
+**Debug Mode vs Normal Mode:**
+
+| Setting | Normal Mode | Debug Mode |
+|---------|-------------|------------|
+| Headless | `HeadlessMode` property (default: true) | Always `false` |
+| SlowMo | `FrameworkOptions["SlowMo"]` or `0` | Always `1000ms` |
+| Browser Window | Hidden (if headless) | Visible |
+| Interaction Speed | Normal | Slowed down for visibility |
+
+**Best Practices:**
+- Debug mode automatically activates when you run tests in debug mode (F5 in Visual Studio, or when a debugger is attached)
+- For CI/CD environments where no debugger is attached, it remains disabled by default
+- You can explicitly set `DebugMode = true` for manual control
+- You can also set `HeadlessMode = false` and `FrameworkOptions["SlowMo"] = 1000` manually for more control
+
 ### 5. Create Your First Page Object
 using FluentUIScaffold.Core;
 using FluentUIScaffold.Core.Pages;

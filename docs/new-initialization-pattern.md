@@ -78,7 +78,7 @@ var options = new FluentUIScaffoldOptions
     // You can also explicitly set it: DebugMode = true
     // When DebugMode is true:
     // - HeadlessMode is automatically set to false
-    // - SlowMo is automatically set to 1000ms
+    // - SlowMo is automatically automatically set to 1000ms
 };
 ```
 
