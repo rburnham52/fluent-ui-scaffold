@@ -20,6 +20,7 @@ var options = new FluentUIScaffoldOptions
     DefaultWaitTimeout = TimeSpan.FromSeconds(10),
     LogLevel = LogLevel.Information,
     HeadlessMode = true, // Run in headless mode for CI/CD
+    DebugMode = false, // Set to true for debugging (disables headless, sets SlowMo = 1000)
     // Optional: Enable web server launching
     EnableWebServerLaunch = true,
     WebServerProjectPath = "path/to/your/web/app",
@@ -59,6 +60,33 @@ var options = new FluentUIScaffoldOptions
     ReuseExistingServer = false
 };
 ```
+
+### Debug Mode
+
+The framework supports a debug mode that makes testing easier during development:
+
+- **Non-Headless Mode**: Automatically disables headless mode to show the browser window
+- **SlowMo**: Sets SlowMo to 1000ms to slow down interactions for better visibility
+- **Detailed Logging**: Provides enhanced logging of browser actions
+- **Automatic Detection**: Automatically enables when a debugger is attached (no configuration needed!)
+
+```csharp
+var options = new FluentUIScaffoldOptions
+{
+    BaseUrl = new Uri("https://localhost:5001"),
+    // DebugMode automatically enables when debugger is attached
+    // You can also explicitly set it: DebugMode = true
+    // When DebugMode is true:
+    // - HeadlessMode is automatically set to false
+    // - SlowMo is automatically set to 1000ms
+};
+```
+
+**Debug Mode Behavior:**
+- **Development**: Automatically activates when you run tests in debug mode (F5 in Visual Studio, or when a debugger is attached)
+- **CI/CD**: Remains disabled in CI/CD environments where no debugger is attached
+- **Manual Control**: You can explicitly set `DebugMode = true` for manual control
+- **Fallback**: You can still set `HeadlessMode` and `FrameworkOptions["SlowMo"]` manually for more control
 
 ### Page Auto-Discovery
 

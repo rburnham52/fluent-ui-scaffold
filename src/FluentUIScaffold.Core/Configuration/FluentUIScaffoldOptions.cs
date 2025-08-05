@@ -26,7 +26,7 @@ namespace FluentUIScaffold.Core.Configuration
         public Type? FrameworkType { get; set; }
         public PageValidationStrategy PageValidationStrategy { get; set; } = PageValidationStrategy.Configurable;
         public bool AutomaticScreenshots { get; set; }
-        public bool HeadlessMode { get; set; }
+        public bool HeadlessMode { get; set; } = true;
         public int WindowWidth { get; set; } = 1920;
         public int WindowHeight { get; set; } = 1080;
         public bool ImplicitWaits { get; set; }
@@ -48,5 +48,18 @@ namespace FluentUIScaffold.Core.Configuration
         public bool EnableWebServerLaunch { get; set; } = false;
         public string? WebServerProjectPath { get; set; }
         public bool ReuseExistingServer { get; set; } = false;
+
+        /// <summary>
+        /// Gets or sets whether to run in debug mode.
+        /// When enabled, this overrides HeadlessMode to false and sets SlowMo to 1000ms.
+        /// Automatically enables when a debugger is attached unless explicitly set to false.
+        /// </summary>
+        public bool DebugMode
+        {
+            get => _debugMode ?? System.Diagnostics.Debugger.IsAttached;
+            set => _debugMode = value;
+        }
+
+        private bool? _debugMode;
     }
 }

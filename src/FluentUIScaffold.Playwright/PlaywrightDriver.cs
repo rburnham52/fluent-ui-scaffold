@@ -97,10 +97,29 @@ public class PlaywrightDriver : IUIDriver, IDisposable
     private void InitializeBrowser()
     {
         var browserType = GetBrowserType();
+
+        // Determine headless mode and SlowMo based on debug mode
+        bool isHeadless;
+        int slowMo;
+
+        if (_options.DebugMode)
+        {
+            // Debug mode: non-headless with SlowMo for easier debugging
+            isHeadless = false;
+            slowMo = 1000; // Default SlowMo for debugging
+            _logger?.LogInformation("Debug mode enabled: running in non-headless mode with SlowMo = {SlowMo}ms", slowMo);
+        }
+        else
+        {
+            // Normal mode: use configured headless mode and SlowMo
+            isHeadless = _options.HeadlessMode || !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("CI"));
+            slowMo = _options.FrameworkOptions.TryGetValue("SlowMo", out var slowMoValue) ? (int)slowMoValue : 0;
+        }
+
         var browserOptions = new BrowserTypeLaunchOptions
         {
-            Headless = _options.HeadlessMode || !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("CI")),
-            SlowMo = _options.FrameworkOptions.TryGetValue("SlowMo", out var slowMo) ? (int)slowMo : 0
+            Headless = isHeadless,
+            SlowMo = slowMo
         };
 
         _browser = browserType.LaunchAsync(browserOptions).Result;

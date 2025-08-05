@@ -466,18 +466,25 @@ public async Task Can_Handle_Playwright_Errors()
 
 ### Debug Mode
 
+The framework provides a convenient debug mode that automatically configures Playwright for easier debugging:
+
 ```csharp
 [TestMethod]
 public async Task Can_Use_Debug_Mode()
 {
     // Arrange
-    var fluentUI = FluentUIScaffoldBuilder.Web(options =>
+    var options = new FluentUIScaffoldOptions
     {
-        // Enable debug mode
-        options.FrameworkSpecificOptions["Headless"] = false;
-        options.FrameworkSpecificOptions["SlowMo"] = 2000;
-        options.FrameworkSpecificOptions["Devtools"] = true;
-    });
+        BaseUrl = new Uri("https://your-app.com"),
+        // DebugMode automatically enables when debugger is attached
+        // You can also explicitly set it: DebugMode = true
+        // When DebugMode is true:
+        // - HeadlessMode is automatically set to false
+        // - SlowMo is automatically set to 1000ms
+    };
+
+    var fluentUI = new FluentUIScaffoldApp<WebApp>(options);
+    await fluentUI.InitializeAsync();
     
     // Act
     var page = fluentUI.NavigateTo<DebugPage>();
@@ -485,6 +492,28 @@ public async Task Can_Use_Debug_Mode()
     // Assert
     page.Verify.ElementIsVisible("#debug-info");
 }
+```
+
+**Debug Mode Features:**
+- **Visible Browser**: Automatically disables headless mode to show the browser window
+- **SlowMo**: Sets SlowMo to 1000ms to slow down interactions for better visibility
+- **Enhanced Logging**: Provides detailed logging of browser actions
+- **Automatic Detection**: Automatically enables when a debugger is attached (no configuration needed!)
+- **CI/CD Safe**: Remains disabled in CI/CD environments where no debugger is attached
+- **Development Friendly**: Perfect for debugging test failures and understanding test flow
+
+**Manual Configuration Alternative:**
+```csharp
+var options = new FluentUIScaffoldOptions
+{
+    BaseUrl = new Uri("https://your-app.com"),
+    HeadlessMode = false, // Manual control
+    FrameworkOptions = 
+    {
+        ["SlowMo"] = 1000, // Manual SlowMo setting
+        ["Devtools"] = true // Additional debug features
+    }
+};
 ```
 
 ### Tracing
