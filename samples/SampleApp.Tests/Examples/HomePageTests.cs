@@ -1,13 +1,11 @@
 using System;
+using System.IO;
 using System.Threading.Tasks;
 
 using FluentUIScaffold.Core;
 using FluentUIScaffold.Core.Configuration;
 using FluentUIScaffold.Core.Interfaces;
-using FluentUIScaffold.Core.Plugins;
-using FluentUIScaffold.Playwright;
 
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -26,102 +24,22 @@ namespace SampleApp.Tests.Examples
         private FluentUIScaffoldApp<WebApp>? _fluentUI;
 
         [TestInitialize]
-        public void TestInitialize()
+        public async Task TestInitialize()
         {
-            // Create services manually to register PlaywrightPlugin
-            var services = new ServiceCollection();
-
-            // Register core services
+            // Configure FluentUIScaffold with auto-discovery and Playwright-style web server launch
             var options = new FluentUIScaffoldOptions
             {
                 BaseUrl = TestConfiguration.BaseUri,
                 DefaultWaitTimeout = TimeSpan.FromSeconds(10),
                 LogLevel = LogLevel.Information,
-                HeadlessMode = true // Run in headless mode for CI/CD
+                HeadlessMode = true, // Run in headless mode for CI/CD
+                EnableWebServerLaunch = true,
+                WebServerProjectPath = Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "..", "SampleApp"),
+                ReuseExistingServer = false
             };
-            services.AddSingleton(options);
 
-            // Register logging
-            services.AddLogging(builder =>
-            {
-                builder.SetMinimumLevel(options.LogLevel);
-                builder.AddConsole();
-            });
-
-            // Register ILogger (non-generic) for DI
-            services.AddSingleton<ILogger>(provider =>
-            {
-                var loggerFactory = provider.GetRequiredService<ILoggerFactory>();
-                return loggerFactory.CreateLogger("FluentUIScaffold");
-            });
-
-            // Register ILogger<T> for specific types
-            services.AddSingleton<ILogger<HomePage>>(provider =>
-            {
-                var loggerFactory = provider.GetRequiredService<ILoggerFactory>();
-                return loggerFactory.CreateLogger<HomePage>();
-            });
-
-            services.AddSingleton<ILogger<ProfilePage>>(provider =>
-            {
-                var loggerFactory = provider.GetRequiredService<ILoggerFactory>();
-                return loggerFactory.CreateLogger<ProfilePage>();
-            });
-
-            services.AddSingleton<ILogger<TodosPage>>(provider =>
-            {
-                var loggerFactory = provider.GetRequiredService<ILoggerFactory>();
-                return loggerFactory.CreateLogger<TodosPage>();
-            });
-
-            services.AddSingleton<ILogger<LoginPage>>(provider =>
-            {
-                var loggerFactory = provider.GetRequiredService<ILoggerFactory>();
-                return loggerFactory.CreateLogger<LoginPage>();
-            });
-
-            services.AddSingleton<ILogger<RegistrationPage>>(provider =>
-            {
-                var loggerFactory = provider.GetRequiredService<ILoggerFactory>();
-                return loggerFactory.CreateLogger<RegistrationPage>();
-            });
-
-            // Register PluginManager
-            services.AddSingleton<PluginManager>();
-
-            // Register PlaywrightPlugin
-            var playwrightPlugin = new PlaywrightPlugin();
-            playwrightPlugin.ConfigureServices(services);
-
-            // Register pages with their URL patterns
-            services.AddTransient<HomePage>(provider =>
-                new HomePage(provider, options.BaseUrl ?? new Uri("http://localhost")));
-            services.AddTransient<ProfilePage>(provider =>
-                new ProfilePage(provider, new Uri(options.BaseUrl ?? new Uri("http://localhost"), "/profile")));
-            services.AddTransient<TodosPage>(provider =>
-                new TodosPage(provider, new Uri(options.BaseUrl ?? new Uri("http://localhost"), "/todos")));
-            services.AddTransient<LoginPage>(provider =>
-                new LoginPage(provider, new Uri(options.BaseUrl ?? new Uri("http://localhost"), "/login")));
-            services.AddTransient<RegistrationPage>(provider =>
-                new RegistrationPage(provider, new Uri(options.BaseUrl ?? new Uri("http://localhost"), "/register")));
-
-            var serviceProvider = services.BuildServiceProvider();
-
-            // Register the plugin with PluginManager
-            var pluginManager = serviceProvider.GetRequiredService<PluginManager>();
-            pluginManager.RegisterPlugin<PlaywrightPlugin>();
-
-            // Create FluentUIScaffoldApp using reflection to access internal constructor
-            var loggerFactory = serviceProvider.GetRequiredService<ILoggerFactory>();
-            var logger = loggerFactory.CreateLogger("FluentUIScaffold");
-
-            var constructor = typeof(FluentUIScaffoldApp<WebApp>).GetConstructor(
-                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance,
-                null,
-                new[] { typeof(IServiceProvider), typeof(ILogger) },
-                null);
-
-            _fluentUI = (FluentUIScaffoldApp<WebApp>)constructor!.Invoke(new object[] { serviceProvider, logger });
+            _fluentUI = new FluentUIScaffoldApp<WebApp>(options);
+            await _fluentUI.InitializeAsync();
         }
 
         [TestCleanup]
@@ -144,10 +62,10 @@ namespace SampleApp.Tests.Examples
         [TestMethod]
         public Task Can_Verify_Page_Title()
         {
-            // Arrange & Act
+            // Arrange
             var homePage = _fluentUI!.NavigateTo<HomePage>();
 
-            // Assert
+            // Act & Assert
             homePage.VerifyPageTitle();
             return Task.CompletedTask;
         }
@@ -158,11 +76,73 @@ namespace SampleApp.Tests.Examples
             // Arrange
             var homePage = _fluentUI!.NavigateTo<HomePage>();
 
-            // Act
-            homePage.ClickCounter();
+            // Act - Click the counter multiple times
+            homePage
+                .ClickCounter()
+                .ClickCounter()
+                .ClickCounter();
 
-            // Assert
+            // Assert - Verify the counter shows the expected value
             var counterValue = homePage.GetCounterValue();
+            Assert.IsNotNull(counterValue);
+            return Task.CompletedTask;
+        }
+
+        [TestMethod]
+        public Task Can_Verify_Counter_Button_Is_Visible()
+        {
+            // Arrange
+            var homePage = _fluentUI!.NavigateTo<HomePage>();
+
+            // Act & Assert
+            homePage.Verify.ElementIsVisible(".card button");
+            return Task.CompletedTask;
+        }
+
+        [TestMethod]
+        public Task Can_Verify_Counter_Value_Is_Visible()
+        {
+            // Arrange
+            var homePage = _fluentUI!.NavigateTo<HomePage>();
+
+            // Act & Assert
+            homePage.Verify.ElementIsVisible(".card button");
+            return Task.CompletedTask;
+        }
+
+        [TestMethod]
+        public Task Can_Verify_Page_Title_Is_Visible()
+        {
+            // Arrange
+            var homePage = _fluentUI!.NavigateTo<HomePage>();
+
+            // Act & Assert
+            homePage.Verify.ElementIsVisible("h1");
+            return Task.CompletedTask;
+        }
+
+        [TestMethod]
+        public Task Can_Verify_Home_Section_Title_Is_Visible()
+        {
+            // Arrange
+            var homePage = _fluentUI!.NavigateTo<HomePage>();
+
+            // Act & Assert
+            homePage.Verify.ElementIsVisible(".home-section h2");
+            return Task.CompletedTask;
+        }
+
+        [TestMethod]
+        public Task Can_Perform_Basic_Counter_Interaction()
+        {
+            // Arrange
+            var homePage = _fluentUI!.NavigateTo<HomePage>();
+
+            // Act - Click the counter and verify the value changes
+            homePage.ClickCounter();
+            var counterValue = homePage.GetCounterValue();
+
+            // Assert - Verify the counter value is not null
             Assert.IsNotNull(counterValue);
             return Task.CompletedTask;
         }

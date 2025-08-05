@@ -43,5 +43,10 @@ namespace FluentUIScaffold.Core.Configuration
         public TimeSpan DefaultTimeout { get; set; } = TimeSpan.FromSeconds(30);
         public TimeSpan DefaultRetryInterval { get; set; } = TimeSpan.FromMilliseconds(500);
         public bool CaptureScreenshotsOnFailure { get; set; } = true;
+
+        // Web server configuration
+        public bool EnableWebServerLaunch { get; set; } = false;
+        public string? WebServerProjectPath { get; set; }
+        public bool ReuseExistingServer { get; set; } = false;
     }
 }

@@ -21,6 +21,7 @@ public class PlaywrightDriver : IUIDriver, IDisposable
     private IBrowserContext? _context;
     private IPage? _page;
     private readonly ILogger<PlaywrightDriver>? _logger;
+    private WebServerLauncher? _webServerLauncher;
     private bool _disposed;
 
     /// <summary>
@@ -50,6 +51,47 @@ public class PlaywrightDriver : IUIDriver, IDisposable
         _logger = logger;
         _playwright = Microsoft.Playwright.Playwright.CreateAsync().Result;
         InitializeBrowser();
+    }
+
+    /// <summary>
+    /// Launches a web server for testing if specified in the options.
+    /// </summary>
+    /// <param name="projectPath">The path to the ASP.NET Core project to launch.</param>
+    /// <returns>A task that completes when the web server is ready.</returns>
+    public async Task LaunchWebServerAsync(string projectPath)
+    {
+        if (string.IsNullOrEmpty(projectPath))
+            throw new ArgumentException("Project path cannot be null or empty.", nameof(projectPath));
+
+        if (_options.BaseUrl == null)
+            throw new InvalidOperationException("BaseUrl must be configured to launch a web server.");
+
+        // Use Playwright's built-in web server launching capabilities
+        await LaunchWebServerWithPlaywrightAsync(projectPath);
+    }
+
+    /// <summary>
+    /// Launches a web server using Playwright-style configuration.
+    /// </summary>
+    /// <param name="projectPath">The path to the ASP.NET Core project to launch.</param>
+    /// <returns>A task that completes when the web server is ready.</returns>
+    private async Task LaunchWebServerWithPlaywrightAsync(string projectPath)
+    {
+        try
+        {
+            _logger?.LogInformation("Launching web server using Playwright-style configuration");
+
+            // Use our WebServerLauncher with Playwright-style configuration
+            _webServerLauncher = new WebServerLauncher(_logger);
+            await _webServerLauncher.LaunchWebServerAsync(projectPath, _options.BaseUrl, _options.DefaultWaitTimeout);
+
+            _logger?.LogInformation("Web server launched successfully using Playwright-style configuration");
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Failed to launch web server using Playwright-style configuration");
+            throw;
+        }
     }
 
     private void InitializeBrowser()
@@ -288,6 +330,7 @@ public class PlaywrightDriver : IUIDriver, IDisposable
             _context?.CloseAsync();
             _browser?.CloseAsync();
             _playwright?.Dispose();
+            _webServerLauncher?.Dispose();
             _disposed = true;
         }
     }

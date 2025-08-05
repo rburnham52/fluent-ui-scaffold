@@ -36,7 +36,7 @@ namespace FluentUIScaffold.Core.Pages
             ElementFactory = new ElementFactory(Driver, Options);
 
             UrlPattern = urlPattern;
-            NavigateToUrl(urlPattern);
+            // Don't automatically navigate - let the user decide when to navigate
             ConfigureElements();
         }
 
@@ -216,6 +216,16 @@ namespace FluentUIScaffold.Core.Pages
         protected virtual void NavigateToUrl(Uri url)
         {
             Driver.NavigateToUrl(url);
+        }
+
+        /// <summary>
+        /// Navigates to the page's URL pattern.
+        /// </summary>
+        /// <returns>The current page instance for method chaining</returns>
+        public virtual TPage Navigate()
+        {
+            NavigateToUrl(UrlPattern);
+            return (TPage)(object)this;
         }
 
         // IPageComponent implementation

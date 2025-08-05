@@ -105,15 +105,18 @@ samples/
 ### Basic Setup
 
 ```csharp
-// Configure FluentUIScaffold with Playwright
-var fluentUI = FluentUIScaffoldBuilder.Web(options =>
+// Configure FluentUIScaffold with auto-discovery
+var options = new FluentUIScaffoldOptions
 {
-    options.BaseUrl = new Uri("http://localhost:5000");
-    options.DefaultTimeout = TimeSpan.FromSeconds(30);
-    options.DefaultRetryInterval = TimeSpan.FromMilliseconds(500);
-    options.LogLevel = LogLevel.Information;
-    options.CaptureScreenshotsOnFailure = true;
-});
+    BaseUrl = new Uri("http://localhost:5000"),
+    DefaultWaitTimeout = TimeSpan.FromSeconds(30),
+    DefaultRetryInterval = TimeSpan.FromMilliseconds(500),
+    LogLevel = LogLevel.Information,
+    CaptureScreenshotsOnFailure = true,
+    HeadlessMode = true
+};
+
+var fluentUI = new FluentUIScaffoldApp<WebApp>(options);
 ```
 
 ### Page Object Pattern
@@ -156,12 +159,11 @@ public class HomePage : BasePageComponent<WebApp>
 public async Task Can_Interact_With_Counter_Component()
 {
     // Arrange
-    var homePage = _fluentUI
-        .NavigateToUrl(new Uri("http://localhost:5000"))
-        .Framework<HomePage>();
+    var homePage = _fluentUI.NavigateTo<HomePage>();
 
     // Act - Click the counter multiple times
     homePage
+        .WaitFor(e => e.CounterButton)
         .ClickCounter()
         .ClickCounter()
         .ClickCounter();
@@ -178,12 +180,11 @@ public async Task Can_Interact_With_Counter_Component()
 public async Task Can_Perform_Complex_User_Workflow()
 {
     // Arrange
-    var homePage = _fluentUI
-        .NavigateToUrl(new Uri("http://localhost:5000"))
-        .Framework<HomePage>();
+    var homePage = _fluentUI.NavigateTo<HomePage>();
 
     // Act - Perform a complex workflow
     homePage
+        .WaitFor(e => e.CounterButton)
         .ClickCounter() // Click counter once
         .VerifyCounterValue("1") // Verify counter updated
         .ClickCounterMultipleTimes(3) // Click 3 more times
