@@ -110,7 +110,6 @@ public async Task Setup()
     _fluentUI = new FluentUIScaffoldApp<WebApp>(options);
     await _fluentUI.InitializeAsync(options); // This will launch the web server if enabled
 }
-```
 
 The framework will automatically:
 - Launch the web server using `dotnet run` in the specified project path
@@ -160,9 +159,7 @@ public async Task Setup()
 - You can explicitly set `DebugMode = true` for manual control
 - You can also set `HeadlessMode = false` and `FrameworkOptions["SlowMo"] = 1000` manually for more control
 
-### 3. Create Your First Page Object
-
-```csharp
+### 5. Create Your First Page Object
 using FluentUIScaffold.Core;
 using FluentUIScaffold.Core.Pages;
 
