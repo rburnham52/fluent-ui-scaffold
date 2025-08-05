@@ -19,10 +19,15 @@ var options = new FluentUIScaffoldOptions
     BaseUrl = TestConfiguration.BaseUri,
     DefaultWaitTimeout = TimeSpan.FromSeconds(10),
     LogLevel = LogLevel.Information,
-    HeadlessMode = true // Run in headless mode for CI/CD
+    HeadlessMode = true, // Run in headless mode for CI/CD
+    // Optional: Enable web server launching
+    EnableWebServerLaunch = true,
+    WebServerProjectPath = "path/to/your/web/app",
+    ReuseExistingServer = false
 };
 
 var fluentUIApp = new FluentUIScaffoldApp<WebApp>(options);
+await fluentUIApp.InitializeAsync(options); // Initialize with web server launch if enabled
 ```
 
 ## Auto-Discovery Features
@@ -35,6 +40,25 @@ The framework automatically discovers and registers plugins from all loaded asse
 - **Skips plugins with "Test" or "Mock" in their names** to avoid test plugins
 - **Falls back to MockPlugin** if no valid plugins are found
 - **Handles exceptions gracefully** and continues with other plugins
+
+### Web Server Launching
+
+The framework supports automatic web server launching for applications that need to be started before testing:
+
+- **Automatic Launch**: Uses `dotnet run` to launch the web application
+- **Wait for Readiness**: Waits for the server to be accessible at the configured base URL
+- **Process Management**: Automatically cleans up the server process when tests complete
+- **Reuse Option**: Can reuse an already running server to avoid conflicts
+
+```csharp
+var options = new FluentUIScaffoldOptions
+{
+    BaseUrl = new Uri("https://localhost:5001"),
+    EnableWebServerLaunch = true,
+    WebServerProjectPath = "path/to/your/web/app",
+    ReuseExistingServer = false
+};
+```
 
 ### Page Auto-Discovery
 
@@ -95,7 +119,7 @@ fluentUIApp.WaitFor<Dashboard>();
 
 ```csharp
 [Test]
-public void BasicTest()
+public async Task BasicTest()
 {
     var options = new FluentUIScaffoldOptions
     {
@@ -106,6 +130,7 @@ public void BasicTest()
     };
 
     using var fluentUIApp = new FluentUIScaffoldApp<WebApp>(options);
+    await fluentUIApp.InitializeAsync(options);
     
     // Use fluent API...
     fluentUIApp.NavigateTo<HomePage>()
@@ -114,21 +139,26 @@ public void BasicTest()
 }
 ```
 
-### Advanced Usage
+### Advanced Usage with Web Server Launching
 
 ```csharp
 [Test]
-public void AdvancedTest()
+public async Task AdvancedTest()
 {
     var options = new FluentUIScaffoldOptions
     {
         BaseUrl = TestConfiguration.BaseUri,
         DefaultWaitTimeout = TimeSpan.FromSeconds(10),
         LogLevel = LogLevel.Information,
-        HeadlessMode = true
+        HeadlessMode = true,
+        // Enable web server launching
+        EnableWebServerLaunch = true,
+        WebServerProjectPath = "path/to/your/web/app",
+        ReuseExistingServer = false
     };
 
     using var fluentUIApp = new FluentUIScaffoldApp<WebApp>(options);
+    await fluentUIApp.InitializeAsync(options); // This will launch the web server
     
     // Navigate and perform actions
     fluentUIApp.NavigateTo<HomePage>()
