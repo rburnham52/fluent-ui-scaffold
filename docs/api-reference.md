@@ -88,15 +88,11 @@ Configuration options for the FluentUIScaffold framework.
 public class FluentUIScaffoldOptions
 {
     public Uri? BaseUrl { get; set; }
-    public TimeSpan DefaultTimeout { get; set; } = TimeSpan.FromSeconds(30);
-    public TimeSpan DefaultRetryInterval { get; set; } = TimeSpan.FromMilliseconds(500);
-    public WaitStrategy DefaultWaitStrategy { get; set; } = WaitStrategy.Smart;
-    public PageValidationStrategy PageValidationStrategy { get; set; } = PageValidationStrategy.Configurable;
+    public TimeSpan DefaultWaitTimeout { get; set; } = TimeSpan.FromSeconds(60);
     public LogLevel LogLevel { get; set; } = LogLevel.Information;
-    public bool CaptureScreenshotsOnFailure { get; set; } = true;
-    public bool CaptureDOMStateOnFailure { get; set; } = true;
-    public string ScreenshotPath { get; set; } = "./screenshots";
-    public Dictionary<string, object> FrameworkSpecificOptions { get; set; } = new();
+    public bool HeadlessMode { get; set; } = true;
+    public string? WebServerProjectPath { get; set; }
+    public bool DebugMode { get; set; } = false;
 }
 ```
 
@@ -105,15 +101,11 @@ public class FluentUIScaffoldOptions
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
 | `BaseUrl` | `Uri?` | `null` | Base URL for the application |
-| `DefaultTimeout` | `TimeSpan` | `30 seconds` | Default timeout for operations |
-| `DefaultRetryInterval` | `TimeSpan` | `500ms` | Default retry interval |
-| `DefaultWaitStrategy` | `WaitStrategy` | `Smart` | Default wait strategy |
-| `PageValidationStrategy` | `PageValidationStrategy` | `Configurable` | Page validation strategy |
-| `LogLevel` | `LogLevel` | `Information` | Logging level |
-| `CaptureScreenshotsOnFailure` | `bool` | `true` | Capture screenshots on failure |
-| `CaptureDOMStateOnFailure` | `bool` | `true` | Capture DOM state on failure |
-| `ScreenshotPath` | `string` | `"./screenshots"` | Path for screenshot storage |
-| `FrameworkSpecificOptions` | `Dictionary<string, object>` | `new()` | Framework-specific options |
+| `DefaultWaitTimeout` | `TimeSpan` | `60 seconds` | Default timeout for wait operations |
+| `LogLevel` | `LogLevel` | `Information` | Logging level for the framework |
+| `HeadlessMode` | `bool` | `true` | Whether to run the browser in headless mode |
+| `WebServerProjectPath` | `string?` | `null` | Path to the ASP.NET Core project for web server launching |
+| `DebugMode` | `bool` | `false` | Whether to run in debug mode (overrides HeadlessMode and sets SlowMo) |
 
 ### WaitStrategy
 

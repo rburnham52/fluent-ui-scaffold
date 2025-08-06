@@ -9,9 +9,6 @@ using NUnit.Framework;
 
 namespace FluentUIScaffold.Core.Tests
 {
-    /// <summary>
-    /// Unit tests for the FluentUIScaffoldOptionsBuilder class.
-    /// </summary>
     [TestFixture]
     public class FluentUIScaffoldOptionsBuilderTests
     {
@@ -50,12 +47,14 @@ namespace FluentUIScaffold.Core.Tests
         {
             // Arrange
             var builder = new FluentUIScaffoldOptionsBuilder();
+            var url = new Uri("https://example.com");
 
             // Act
-            var result = builder.WithBaseUrl(new Uri("https://test.example.com"));
+            var result = builder.WithBaseUrl(url);
 
             // Assert
             Assert.That(result, Is.SameAs(builder));
+            Assert.That(builder.Build().BaseUrl, Is.EqualTo(url));
         }
 
         [Test]
@@ -69,54 +68,28 @@ namespace FluentUIScaffold.Core.Tests
         }
 
         [Test]
-        public void WithTimeout_WithValidTimeout_SetsTimeout()
+        public void WithDefaultWaitTimeout_WithValidTimeout_SetsDefaultWaitTimeout()
         {
             // Arrange
             var builder = new FluentUIScaffoldOptionsBuilder();
             var timeout = TimeSpan.FromSeconds(30);
 
             // Act
-            var result = builder.WithTimeout(timeout);
+            var result = builder.WithDefaultWaitTimeout(timeout);
 
             // Assert
             Assert.That(result, Is.SameAs(builder));
+            Assert.That(builder.Build().DefaultWaitTimeout, Is.EqualTo(timeout));
         }
 
         [Test]
-        public void WithTimeout_WithZeroTimeout_ThrowsValidationException()
+        public void WithDefaultWaitTimeout_WithZeroTimeout_ThrowsValidationException()
         {
             // Arrange
             var builder = new FluentUIScaffoldOptionsBuilder();
 
             // Act & Assert
-            Assert.Throws<FluentUIScaffoldValidationException>(() => builder.WithTimeout(TimeSpan.Zero));
-        }
-
-        [Test]
-        public void WithRetryInterval_WithValidInterval_SetsRetryInterval()
-        {
-            // Arrange
-            var builder = new FluentUIScaffoldOptionsBuilder();
-            var interval = TimeSpan.FromSeconds(5);
-
-            // Act
-            var result = builder.WithRetryInterval(interval);
-
-            // Assert
-            Assert.That(result, Is.SameAs(builder));
-        }
-
-        [Test]
-        public void WithWaitStrategy_WithValidStrategy_SetsWaitStrategy()
-        {
-            // Arrange
-            var builder = new FluentUIScaffoldOptionsBuilder();
-
-            // Act
-            var result = builder.WithWaitStrategy(WaitStrategy.Visible);
-
-            // Assert
-            Assert.That(result, Is.SameAs(builder));
+            Assert.Throws<FluentUIScaffoldValidationException>(() => builder.WithDefaultWaitTimeout(TimeSpan.Zero));
         }
 
         [Test]
@@ -130,58 +103,7 @@ namespace FluentUIScaffold.Core.Tests
 
             // Assert
             Assert.That(result, Is.SameAs(builder));
-        }
-
-        [Test]
-        public void WithScreenshotPath_WithValidPath_SetsScreenshotPath()
-        {
-            // Arrange
-            var builder = new FluentUIScaffoldOptionsBuilder();
-
-            // Act
-            var result = builder.WithScreenshotPath("/path/to/screenshots");
-
-            // Assert
-            Assert.That(result, Is.SameAs(builder));
-        }
-
-        [Test]
-        public void WithFrameworkOption_WithValidKeyValue_SetsFrameworkOption()
-        {
-            // Arrange
-            var builder = new FluentUIScaffoldOptionsBuilder();
-
-            // Act
-            var result = builder.WithFrameworkOption("testKey", "testValue");
-
-            // Assert
-            Assert.That(result, Is.SameAs(builder));
-        }
-
-        [Test]
-        public void WithPageValidationStrategy_WithValidStrategy_SetsPageValidationStrategy()
-        {
-            // Arrange
-            var builder = new FluentUIScaffoldOptionsBuilder();
-
-            // Act
-            var result = builder.WithPageValidationStrategy(PageValidationStrategy.Always);
-
-            // Assert
-            Assert.That(result, Is.SameAs(builder));
-        }
-
-        [Test]
-        public void WithAutomaticScreenshots_WithEnabled_SetsAutomaticScreenshots()
-        {
-            // Arrange
-            var builder = new FluentUIScaffoldOptionsBuilder();
-
-            // Act
-            var result = builder.WithAutomaticScreenshots(true);
-
-            // Assert
-            Assert.That(result, Is.SameAs(builder));
+            Assert.That(builder.Build().LogLevel, Is.EqualTo(LogLevel.Information));
         }
 
         [Test]
@@ -195,161 +117,71 @@ namespace FluentUIScaffold.Core.Tests
 
             // Assert
             Assert.That(result, Is.SameAs(builder));
+            Assert.That(builder.Build().HeadlessMode, Is.True);
         }
 
         [Test]
-        public void WithWindowSize_WithValidDimensions_SetsWindowSize()
+        public void WithWebServerProjectPath_WithValidPath_SetsWebServerProjectPath()
+        {
+            // Arrange
+            var builder = new FluentUIScaffoldOptionsBuilder();
+            var path = "/path/to/project";
+
+            // Act
+            var result = builder.WithWebServerProjectPath(path);
+
+            // Assert
+            Assert.That(result, Is.SameAs(builder));
+            Assert.That(builder.Build().WebServerProjectPath, Is.EqualTo(path));
+        }
+
+        [Test]
+        public void WithWebServerProjectPath_WithNullPath_ThrowsValidationException()
+        {
+            // Arrange
+            var builder = new FluentUIScaffoldOptionsBuilder();
+
+            // Act & Assert
+            Assert.Throws<FluentUIScaffoldValidationException>(() => builder.WithWebServerProjectPath(null!));
+        }
+
+        [Test]
+        public void WithDebugMode_WithEnabled_SetsDebugMode()
         {
             // Arrange
             var builder = new FluentUIScaffoldOptionsBuilder();
 
             // Act
-            var result = builder.WithWindowSize(1920, 1080);
+            var result = builder.WithDebugMode(true);
 
             // Assert
             Assert.That(result, Is.SameAs(builder));
-        }
-
-        [Test]
-        public void WithImplicitWaits_WithEnabled_SetsImplicitWaits()
-        {
-            // Arrange
-            var builder = new FluentUIScaffoldOptionsBuilder();
-
-            // Act
-            var result = builder.WithImplicitWaits(true);
-
-            // Assert
-            Assert.That(result, Is.SameAs(builder));
-        }
-
-        [Test]
-        public void WithDefaultWaitTimeout_WithValidTimeout_SetsDefaultWaitTimeout()
-        {
-            // Arrange
-            var builder = new FluentUIScaffoldOptionsBuilder();
-            var timeout = TimeSpan.FromSeconds(10);
-
-            // Act
-            var result = builder.WithDefaultWaitTimeout(timeout);
-
-            // Assert
-            Assert.That(result, Is.SameAs(builder));
-        }
-
-        [Test]
-        public void WithRetryCount_WithValidCount_SetsRetryCount()
-        {
-            // Arrange
-            var builder = new FluentUIScaffoldOptionsBuilder();
-
-            // Act
-            var result = builder.WithRetryCount(3);
-
-            // Assert
-            Assert.That(result, Is.SameAs(builder));
-        }
-
-        [Test]
-        public void WithDetailedLogging_WithEnabled_SetsDetailedLogging()
-        {
-            // Arrange
-            var builder = new FluentUIScaffoldOptionsBuilder();
-
-            // Act
-            var result = builder.WithDetailedLogging(true);
-
-            // Assert
-            Assert.That(result, Is.SameAs(builder));
-        }
-
-        [Test]
-        public void WithUserAgent_WithValidUserAgent_SetsUserAgent()
-        {
-            // Arrange
-            var builder = new FluentUIScaffoldOptionsBuilder();
-
-            // Act
-            var result = builder.WithUserAgent("Test User Agent");
-
-            // Assert
-            Assert.That(result, Is.SameAs(builder));
-        }
-
-        [Test]
-        public void WithJavaScriptEnabled_WithEnabled_SetsJavaScriptEnabled()
-        {
-            // Arrange
-            var builder = new FluentUIScaffoldOptionsBuilder();
-
-            // Act
-            var result = builder.WithJavaScriptEnabled(true);
-
-            // Assert
-            Assert.That(result, Is.SameAs(builder));
-        }
-
-        [Test]
-        public void WithAcceptInsecureCertificates_WithEnabled_SetsAcceptInsecureCertificates()
-        {
-            // Arrange
-            var builder = new FluentUIScaffoldOptionsBuilder();
-
-            // Act
-            var result = builder.WithAcceptInsecureCertificates(true);
-
-            // Assert
-            Assert.That(result, Is.SameAs(builder));
-        }
-
-        [Test]
-        public void WithPageLoadTimeout_WithValidTimeout_SetsPageLoadTimeout()
-        {
-            // Arrange
-            var builder = new FluentUIScaffoldOptionsBuilder();
-            var timeout = TimeSpan.FromSeconds(30);
-
-            // Act
-            var result = builder.WithPageLoadTimeout(timeout);
-
-            // Assert
-            Assert.That(result, Is.SameAs(builder));
-        }
-
-        [Test]
-        public void WithScriptTimeout_WithValidTimeout_SetsScriptTimeout()
-        {
-            // Arrange
-            var builder = new FluentUIScaffoldOptionsBuilder();
-            var timeout = TimeSpan.FromSeconds(30);
-
-            // Act
-            var result = builder.WithScriptTimeout(timeout);
-
-            // Assert
-            Assert.That(result, Is.SameAs(builder));
+            Assert.That(builder.Build().DebugMode, Is.True);
         }
 
         [Test]
         public void Build_WithValidConfiguration_ReturnsOptions()
         {
             // Arrange
-            var builder = new FluentUIScaffoldOptionsBuilder();
+            var builder = new FluentUIScaffoldOptionsBuilder()
+                .WithBaseUrl(new Uri("https://example.com"))
+                .WithDefaultWaitTimeout(TimeSpan.FromSeconds(30))
+                .WithLogLevel(LogLevel.Information)
+                .WithHeadlessMode(true)
+                .WithWebServerProjectPath("/path/to/project")
+                .WithDebugMode(false);
 
             // Act
-            var options = builder
-                .WithBaseUrl(new Uri("https://test.example.com"))
-                .WithTimeout(TimeSpan.FromSeconds(30))
-                .WithWaitStrategy(WaitStrategy.Visible)
-                .WithLogLevel(LogLevel.Information)
-                .Build();
+            var options = builder.Build();
 
             // Assert
             Assert.That(options, Is.Not.Null);
-            Assert.That(options.BaseUrl, Is.EqualTo(new Uri("https://test.example.com")));
-            Assert.That(options.DefaultTimeout, Is.EqualTo(TimeSpan.FromSeconds(30)));
-            Assert.That(options.WaitStrategy, Is.EqualTo(WaitStrategy.Visible));
+            Assert.That(options.BaseUrl, Is.EqualTo(new Uri("https://example.com")));
+            Assert.That(options.DefaultWaitTimeout, Is.EqualTo(TimeSpan.FromSeconds(30)));
             Assert.That(options.LogLevel, Is.EqualTo(LogLevel.Information));
+            Assert.That(options.HeadlessMode, Is.True);
+            Assert.That(options.WebServerProjectPath, Is.EqualTo("/path/to/project"));
+            Assert.That(options.DebugMode, Is.False);
         }
     }
 }

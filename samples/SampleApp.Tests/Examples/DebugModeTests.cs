@@ -27,11 +27,7 @@ namespace SampleApp.Tests.Examples
                 BaseUrl = TestConfiguration.BaseUri,
                 DefaultWaitTimeout = TimeSpan.FromSeconds(10),
                 LogLevel = LogLevel.Information,
-                DebugMode = true, // Enable debug mode for this test
-                // Web server launching configuration
-                EnableWebServerLaunch = true,
-                WebServerProjectPath = Path.Combine(Directory.GetCurrentDirectory(), "..", "SampleApp"),
-                ReuseExistingServer = false
+                DebugMode = true // Enable debug mode for this test
             };
 
             _fluentUI = new FluentUIScaffoldApp<WebApp>(options);
@@ -64,10 +60,8 @@ namespace SampleApp.Tests.Examples
             // Arrange
             var homePage = _fluentUI!.NavigateTo<HomePage>();
 
-            // Act - Navigate to todos section and interact with counter
-            homePage
-                .NavigateToTodosSection()
-                .ClickCounter(); // This interaction will be slowed down in debug mode
+            // Act - Interact with counter directly on home page
+            homePage.ClickCounter(); // This interaction will be slowed down in debug mode
 
             // Assert
             Assert.IsNotNull(homePage);

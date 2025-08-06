@@ -111,9 +111,9 @@ public class PlaywrightDriver : IUIDriver, IDisposable
         }
         else
         {
-            // Normal mode: use configured headless mode and SlowMo
+            // Normal mode: use configured headless mode and default SlowMo
             isHeadless = _options.HeadlessMode || !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("CI"));
-            slowMo = _options.FrameworkOptions.TryGetValue("SlowMo", out var slowMoValue) ? (int)slowMoValue : 0;
+            slowMo = 0; // Default SlowMo
         }
 
         var browserOptions = new BrowserTypeLaunchOptions
@@ -128,10 +128,10 @@ public class PlaywrightDriver : IUIDriver, IDisposable
         {
             ViewportSize = new ViewportSize
             {
-                Width = _options.WindowWidth,
-                Height = _options.WindowHeight
-            },
-            UserAgent = _options.UserAgent
+                Width = 1920, // Default window width
+                Height = 1080 // Default window height
+            }
+            // Use default UserAgent
         };
 
         _context = _browser.NewContextAsync(contextOptions).Result;
@@ -140,13 +140,8 @@ public class PlaywrightDriver : IUIDriver, IDisposable
 
     private IBrowserType GetBrowserType()
     {
-        var browserType = _options.FrameworkOptions.TryGetValue("BrowserType", out var browserTypeValue) ? browserTypeValue as string : "chromium";
-        return browserType?.ToLowerInvariant() switch
-        {
-            "firefox" => _playwright.Firefox,
-            "webkit" => _playwright.Webkit,
-            _ => _playwright.Chromium
-        };
+        // Default to Chromium browser
+        return _playwright.Chromium;
     }
 
     /// <summary>

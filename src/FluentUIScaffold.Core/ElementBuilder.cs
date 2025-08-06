@@ -37,8 +37,8 @@ public class ElementBuilder
 
         // Initialize with default values from options
         _timeout = options.DefaultWaitTimeout;
-        _waitStrategy = options.WaitStrategy;
-        _retryInterval = options.RetryInterval;
+        _waitStrategy = WaitStrategy.Smart; // Default to Smart strategy
+        _retryInterval = TimeSpan.FromMilliseconds(100); // Default retry interval
     }
 
     /// <summary>

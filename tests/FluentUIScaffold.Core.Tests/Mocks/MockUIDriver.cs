@@ -6,7 +6,7 @@ using FluentUIScaffold.Core.Interfaces;
 
 using Microsoft.Extensions.DependencyInjection;
 
-namespace FluentUIScaffold.Core.Drivers
+namespace FluentUIScaffold.Core.Tests.Mocks
 {
     /// <summary>
     /// Mock implementation of IUIDriver for unit testing purposes only.

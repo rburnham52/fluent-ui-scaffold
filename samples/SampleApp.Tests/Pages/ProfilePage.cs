@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 using FluentUIScaffold.Core;
 using FluentUIScaffold.Core.Configuration;
-using FluentUIScaffold.Core.Drivers;
+
 using FluentUIScaffold.Core.Interfaces;
 using FluentUIScaffold.Core.Pages;
 

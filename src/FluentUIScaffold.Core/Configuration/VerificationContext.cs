@@ -1,7 +1,5 @@
 using System;
 
-using FluentUIScaffold.Core.Configuration;
-using FluentUIScaffold.Core.Drivers;
 using FluentUIScaffold.Core.Exceptions;
 using FluentUIScaffold.Core.Interfaces;
 

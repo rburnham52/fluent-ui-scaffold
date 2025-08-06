@@ -10,5 +10,17 @@ export default defineConfig({
     proxy: {
       '/api': 'http://localhost:5000',
     }
+  },
+  // Add explicit build options to reduce file generation issues
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: undefined
+      }
+    }
+  },
+  // Disable source maps in development to reduce file generation
+  esbuild: {
+    sourcemap: false
   }
 })

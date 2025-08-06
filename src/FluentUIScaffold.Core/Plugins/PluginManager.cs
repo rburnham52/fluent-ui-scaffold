@@ -4,7 +4,6 @@ using System.Linq;
 using System.Reflection;
 
 using FluentUIScaffold.Core.Configuration;
-using FluentUIScaffold.Core.Drivers;
 using FluentUIScaffold.Core.Exceptions;
 using FluentUIScaffold.Core.Interfaces;
 
