@@ -28,11 +28,7 @@ namespace SampleApp.Tests.Examples
                 BaseUrl = TestConfiguration.BaseUri,
                 DefaultWaitTimeout = TimeSpan.FromSeconds(10),
                 LogLevel = LogLevel.Information,
-                HeadlessMode = true,
-                // Web server launching configuration
-                EnableWebServerLaunch = true,
-                WebServerProjectPath = Path.Combine(Directory.GetCurrentDirectory(), "..", "SampleApp"),
-                ReuseExistingServer = false
+                HeadlessMode = true // Run in headless mode for CI/CD
             };
 
             _fluentUI = new FluentUIScaffoldApp<WebApp>(options);

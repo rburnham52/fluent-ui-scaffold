@@ -7,10 +7,11 @@ using System.Threading.Tasks;
 
 using Microsoft.Extensions.Logging;
 
-namespace FluentUIScaffold.Playwright
+namespace FluentUIScaffold.Core.Configuration
 {
     /// <summary>
     /// Handles launching and managing web servers for testing purposes.
+    /// This is a framework-agnostic web server launcher that can be used with any UI testing framework.
     /// </summary>
     public class WebServerLauncher : IDisposable
     {
@@ -26,7 +27,7 @@ namespace FluentUIScaffold.Playwright
         }
 
         /// <summary>
-        /// Launches a web server for the specified project path using Playwright-style configuration.
+        /// Launches a web server for the specified project path.
         /// </summary>
         /// <param name="projectPath">The path to the ASP.NET Core project.</param>
         /// <param name="baseUrl">The base URL where the server should be accessible.</param>
@@ -45,54 +46,43 @@ namespace FluentUIScaffold.Playwright
             // Kill any existing processes on the same port
             await KillProcessesOnPortAsync(baseUrl.Port);
 
-            // Start the web server process using Playwright-style configuration
+            // Start the web server process in release mode to avoid SPA proxy
             var startInfo = new ProcessStartInfo
             {
                 FileName = "dotnet",
-                Arguments = $"run --project \"{projectPath}\" --urls \"{baseUrl.Scheme}://localhost:{baseUrl.Port}\" --no-launch-profile",
+                Arguments = $"run --configuration Release --framework net8.0 --urls \"{baseUrl}\" --no-launch-profile",
                 WorkingDirectory = Path.GetDirectoryName(projectPath),
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
-                CreateNoWindow = true,
-                EnvironmentVariables =
-                {
-                    ["ASPNETCORE_ENVIRONMENT"] = "Development",
-                    ["ASPNETCORE_URLS"] = $"{baseUrl.Scheme}://localhost:{baseUrl.Port}",
-                    ["DOTNET_USE_POLLING_FILE_WATCHER"] = "1"
-                }
+                CreateNoWindow = true
             };
 
-            _webServerProcess = new Process { StartInfo = startInfo };
+            // Disable SPA proxy for testing by setting environment variable to empty
+            startInfo.EnvironmentVariables["ASPNETCORE_HOSTINGSTARTUPASSEMBLIES"] = "";
 
-            // Set up output handling
-            _webServerProcess.OutputDataReceived += (sender, e) =>
+            _logger?.LogInformation("Starting web server with command: {Command} {Arguments}", startInfo.FileName, startInfo.Arguments);
+
+            try
             {
-                if (!string.IsNullOrEmpty(e.Data))
+                _webServerProcess = Process.Start(startInfo);
+                if (_webServerProcess == null)
                 {
-                    _logger?.LogDebug("Web server output: {Output}", e.Data);
+                    throw new InvalidOperationException("Failed to start web server process.");
                 }
-            };
 
-            _webServerProcess.ErrorDataReceived += (sender, e) =>
-            {
-                if (!string.IsNullOrEmpty(e.Data))
-                {
-                    _logger?.LogWarning("Web server error: {Error}", e.Data);
-                }
-            };
+                _logger?.LogInformation("Web server process started with PID: {ProcessId}", _webServerProcess.Id);
 
-            // Start the process
-            if (!_webServerProcess.Start())
-            {
-                throw new InvalidOperationException("Failed to start web server process.");
+                // Wait for the server to be ready
+                await WaitForServerReadyAsync(baseUrl, timeout);
+
+                _logger?.LogInformation("Web server is ready and responding at {BaseUrl}", baseUrl);
             }
-
-            _webServerProcess.BeginOutputReadLine();
-            _webServerProcess.BeginErrorReadLine();
-
-            // Wait for the server to be ready
-            await WaitForServerReadyAsync(baseUrl, timeout);
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "Failed to start web server");
+                throw;
+            }
         }
 
         /// <summary>
@@ -107,29 +97,60 @@ namespace FluentUIScaffold.Playwright
 
             var startTime = DateTime.UtcNow;
             var attempt = 0;
+            var maxAttempts = (int)(timeout.TotalMilliseconds / 100);
+
+            // Try the base URL and the weather API endpoint that we know exists
+            var testUrls = new[]
+            {
+                baseUrl,
+                new Uri($"{baseUrl.Scheme}://{baseUrl.Host}:{baseUrl.Port}/api/weather")
+            };
 
             while (DateTime.UtcNow - startTime < timeout)
             {
                 attempt++;
-                try
+                bool serverReady = false;
+
+                foreach (var testUrl in testUrls)
                 {
-                    var response = await _httpClient.GetAsync(baseUrl);
-                    if (response.IsSuccessStatusCode)
+                    try
                     {
-                        _logger?.LogInformation("Web server is ready after {Attempts} attempts", attempt);
-                        return;
+                        var response = await _httpClient.GetAsync(testUrl);
+                        if (response.IsSuccessStatusCode)
+                        {
+                            _logger?.LogInformation("Web server is ready after {Attempts} attempts at {TestUrl}", attempt, testUrl);
+                            return;
+                        }
+                        else
+                        {
+                            _logger?.LogDebug("Server responded with status {StatusCode} on attempt {Attempt} at {TestUrl}", response.StatusCode, attempt, testUrl);
+                        }
                     }
-                    else
+                    catch (HttpRequestException ex)
                     {
-                        _logger?.LogDebug("Server responded with status {StatusCode} on attempt {Attempt}", response.StatusCode, attempt);
+                        _logger?.LogDebug("Attempt {Attempt}: Server not ready yet at {TestUrl} ({Message})", attempt, testUrl, ex.Message);
                     }
                 }
-                catch (HttpRequestException ex)
+
+                // Log progress every 10 attempts
+                if (attempt % 10 == 0)
                 {
-                    _logger?.LogDebug("Attempt {Attempt}: Server not ready yet ({Message})", attempt, ex.Message);
+                    var elapsed = DateTime.UtcNow - startTime;
+                    _logger?.LogInformation("Still waiting for server... Attempt {Attempt}/{MaxAttempts}, Elapsed: {Elapsed:F1}s",
+                        attempt, maxAttempts, elapsed.TotalSeconds);
                 }
 
                 await Task.Delay(100); // Wait 100ms between attempts
+            }
+
+            // Check if the process is still running
+            if (_webServerProcess != null && !_webServerProcess.HasExited)
+            {
+                _logger?.LogWarning("Web server process is still running but not responding. Process ID: {PID}", _webServerProcess.Id);
+            }
+            else if (_webServerProcess != null && _webServerProcess.HasExited)
+            {
+                _logger?.LogError("Web server process has exited with code: {ExitCode}", _webServerProcess.ExitCode);
             }
 
             throw new TimeoutException($"Web server failed to start within {timeout.TotalSeconds} seconds after {attempt} attempts.");

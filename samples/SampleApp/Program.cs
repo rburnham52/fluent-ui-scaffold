@@ -17,7 +17,8 @@ else
     app.UseHsts();
 }
 
-app.UseHttpsRedirection();
+// Disable HTTPS redirection for testing
+// app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseRouting();
 

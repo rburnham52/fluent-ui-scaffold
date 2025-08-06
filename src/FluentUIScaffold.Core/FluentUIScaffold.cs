@@ -1,11 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using System.Threading.Tasks;
 
 using FluentUIScaffold.Core.Configuration;
-using FluentUIScaffold.Core.Drivers;
 using FluentUIScaffold.Core.Exceptions;
 using FluentUIScaffold.Core.Interfaces;
 using FluentUIScaffold.Core.Pages;
@@ -14,7 +12,6 @@ using FluentUIScaffold.Core.Plugins;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 
 namespace FluentUIScaffold.Core
 {
@@ -55,16 +52,15 @@ namespace FluentUIScaffold.Core
         }
 
         /// <summary>
-        /// Initializes the FluentUIScaffoldApp asynchronously, including web server launch if configured.
+        /// Initializes the FluentUIScaffoldApp asynchronously.
+        /// Web server management is handled by TestAssemblyHooks at the assembly level.
         /// </summary>
         /// <returns>A task that completes when initialization is done.</returns>
         public async Task InitializeAsync()
         {
-            // Launch web server if configured
-            if (_options.EnableWebServerLaunch && !string.IsNullOrEmpty(_options.WebServerProjectPath))
-            {
-                await LaunchWebServerAsync(_options.WebServerProjectPath);
-            }
+            // Web server management is handled by TestAssemblyHooks at the assembly level
+            // This method is kept for future extensibility
+            await Task.CompletedTask;
         }
 
         /// <summary>
@@ -122,34 +118,7 @@ namespace FluentUIScaffold.Core
             return page;
         }
 
-        /// <summary>
-        /// Launches a web server for testing if the driver supports it.
-        /// </summary>
-        /// <param name="projectPath">The path to the ASP.NET Core project to launch.</param>
-        /// <returns>A task that completes when the web server is ready.</returns>
-        public async Task LaunchWebServerAsync(string projectPath)
-        {
-            // Use reflection to check if the driver supports web server launching
-            var driverType = _driver.GetType();
-            var launchMethod = driverType.GetMethod("LaunchWebServerAsync", new[] { typeof(string) });
 
-            if (launchMethod != null)
-            {
-                var result = launchMethod.Invoke(_driver, new object[] { projectPath });
-                if (result is Task task)
-                {
-                    await task;
-                }
-                else if (result is ValueTask valueTask)
-                {
-                    await valueTask.AsTask();
-                }
-            }
-            else
-            {
-                throw new InvalidOperationException($"Web server launching is not supported by the current driver. Driver type: {driverType.Name}");
-            }
-        }
 
         /// <summary>
         /// Waits for an element on the current page.
@@ -318,20 +287,29 @@ namespace FluentUIScaffold.Core
                 }
             }
 
-            // If no plugins were successfully registered, add a mock plugin for testing
+            // If no plugins were successfully registered, try to use MockPlugin for testing scenarios
             if (successfulPlugins.Count == 0)
             {
                 try
                 {
-                    var mockPlugin = new MockPlugin();
-                    services.AddSingleton<MockPlugin>(mockPlugin);
-                    mockPlugin.ConfigureServices(services);
-                    pluginManager.RegisterPlugin(mockPlugin);
-                    successfulPlugins.Add(mockPlugin);
+                    // Try to load MockPlugin for testing scenarios
+                    var mockPluginType = Type.GetType("FluentUIScaffold.Core.Tests.Mocks.MockPlugin, FluentUIScaffold.Core.Tests");
+                    if (mockPluginType != null)
+                    {
+                        var mockPlugin = Activator.CreateInstance(mockPluginType) as IUITestingFrameworkPlugin;
+                        if (mockPlugin != null)
+                        {
+                            services.AddSingleton(mockPluginType, mockPlugin);
+                            mockPlugin.ConfigureServices(services);
+                            pluginManager.RegisterPlugin(mockPlugin);
+                            successfulPlugins.Add(mockPlugin);
+                            Console.WriteLine("MockPlugin loaded for testing purposes.");
+                        }
+                    }
                 }
                 catch (Exception ex)
                 {
-                    // Log warning but continue
+                    Console.WriteLine($"Warning: No UI testing framework plugins were found. Please ensure you have a proper plugin installed (e.g., FluentUIScaffold.Playwright). MockPlugin loading failed: {ex.Message}");
                 }
             }
 
@@ -368,7 +346,7 @@ namespace FluentUIScaffold.Core
                         services.AddTransient(pageType, provider =>
                         {
                             // Determine URL pattern for the page
-                            var urlPattern = DetermineUrlPattern(pageType, options.BaseUrl);
+                            var urlPattern = DetermineUrlPattern(pageType, options.BaseUrl);        //TODO what is this meant to be for?
                             return Activator.CreateInstance(pageType, provider, urlPattern)
                                 ?? throw new InvalidOperationException($"Failed to create instance of {pageType.Name}");
                         });

@@ -55,18 +55,15 @@ public class MyFirstTest
     private FluentUIScaffoldApp<WebApp> _fluentUI;
 
     [TestInitialize]
-    public async Task Setup()
+    public void Setup()
     {
-        var options = new FluentUIScaffoldOptions
+        _fluentUI = FluentUIScaffoldBuilder.Web(options =>
         {
-            BaseUrl = new Uri("https://your-app.com"),
-            DefaultWaitTimeout = TimeSpan.FromSeconds(30),
-            LogLevel = LogLevel.Information,
-            HeadlessMode = true // Run in headless mode for CI/CD
-        };
-
-        _fluentUI = new FluentUIScaffoldApp<WebApp>(options);
-        await _fluentUI.InitializeAsync(options);
+            options.BaseUrl = new Uri("https://your-app.com");
+            options.DefaultWaitTimeout = TimeSpan.FromSeconds(60);
+            options.HeadlessMode = true;
+            options.WebServerProjectPath = "./path/to/your/project.csproj";
+        });
     }
 
     [TestMethod]
@@ -110,7 +107,6 @@ public async Task Setup()
     _fluentUI = new FluentUIScaffoldApp<WebApp>(options);
     await _fluentUI.InitializeAsync(options); // This will launch the web server if enabled
 }
-```
 
 The framework will automatically:
 - Launch the web server using `dotnet run` in the specified project path
@@ -160,9 +156,48 @@ public async Task Setup()
 - You can explicitly set `DebugMode = true` for manual control
 - You can also set `HeadlessMode = false` and `FrameworkOptions["SlowMo"] = 1000` manually for more control
 
-### 3. Create Your First Page Object
+For easier debugging during development, debug mode automatically:
+- Disables headless mode to show the browser window
+- Sets SlowMo to 1000ms to slow down interactions for better visibility
+- Provides detailed logging of browser actions
+- **Automatically enables when a debugger is attached** (no configuration needed!)
 
 ```csharp
+[TestInitialize]
+public async Task Setup()
+{
+    var options = new FluentUIScaffoldOptions
+    {
+        BaseUrl = new Uri("https://your-app.com"),
+        DefaultWaitTimeout = TimeSpan.FromSeconds(30),
+        LogLevel = LogLevel.Information,
+        // DebugMode automatically enables when debugger is attached
+        // You can also explicitly set it: DebugMode = true
+        // When DebugMode is true, HeadlessMode is automatically set to false
+        // and SlowMo is set to 1000ms
+    };
+
+    _fluentUI = new FluentUIScaffoldApp<WebApp>(options);
+    await _fluentUI.InitializeAsync();
+}
+```
+
+**Debug Mode vs Normal Mode:**
+
+| Setting | Normal Mode | Debug Mode |
+|---------|-------------|------------|
+| Headless | `HeadlessMode` property (default: true) | Always `false` |
+| SlowMo | `FrameworkOptions["SlowMo"]` or `0` | Always `1000ms` |
+| Browser Window | Hidden (if headless) | Visible |
+| Interaction Speed | Normal | Slowed down for visibility |
+
+**Best Practices:**
+- Debug mode automatically activates when you run tests in debug mode (F5 in Visual Studio, or when a debugger is attached)
+- For CI/CD environments where no debugger is attached, it remains disabled by default
+- You can explicitly set `DebugMode = true` for manual control
+- You can also set `HeadlessMode = false` and `FrameworkOptions["SlowMo"] = 1000` manually for more control
+
+### 5. Create Your First Page Object
 using FluentUIScaffold.Core;
 using FluentUIScaffold.Core.Pages;
 
@@ -261,6 +296,42 @@ public async Task Can_Register_New_User_With_Valid_Data()
 }
 ```
 
+## Web Server Launch
+
+FluentUIScaffold can automatically launch your ASP.NET Core web server for testing. This is particularly useful for integration testing where you need to test against a running application.
+
+### Basic Web Server Launch
+
+```csharp
+var fluentUI = FluentUIScaffoldBuilder.Web(options =>
+{
+    options.BaseUrl = new Uri("https://localhost:5001");
+    options.WebServerProjectPath = "./path/to/your/project.csproj";
+    options.DefaultWaitTimeout = TimeSpan.FromSeconds(60);
+});
+```
+
+### Debug Mode
+
+When running tests during development, you can enable debug mode to see the browser and slow down interactions:
+
+```csharp
+var fluentUI = FluentUIScaffoldBuilder.Web(options =>
+{
+    options.BaseUrl = new Uri("https://localhost:5001");
+    options.WebServerProjectPath = "./path/to/your/project.csproj";
+    options.DebugMode = true; // This overrides HeadlessMode and sets SlowMo
+});
+```
+
+### Configuration Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `WebServerProjectPath` | Path to your ASP.NET Core project file | `null` |
+| `DebugMode` | Enables debug mode (non-headless, SlowMo) | `false` |
+| `HeadlessMode` | Runs browser in headless mode | `true` |
+
 ## Configuration
 
 ### Basic Configuration
@@ -269,24 +340,20 @@ public async Task Can_Register_New_User_With_Valid_Data()
 var options = new FluentUIScaffoldOptions
 {
     BaseUrl = new Uri("https://your-app.com"),
-    DefaultTimeout = TimeSpan.FromSeconds(30),
-    DefaultRetryInterval = TimeSpan.FromMilliseconds(500),
-    WaitStrategy = WaitStrategy.Smart,
+    DefaultWaitTimeout = TimeSpan.FromSeconds(60),
     LogLevel = LogLevel.Information,
-    CaptureScreenshotsOnFailure = true,
-    CaptureDOMStateOnFailure = true,
-    ScreenshotPath = "./screenshots"
+    HeadlessMode = true,
+    WebServerProjectPath = "./path/to/your/project.csproj",
+    DebugMode = false
 };
 ```
 
 ### Framework-Specific Configuration
 
 ```csharp
-// Playwright-specific options
-options.FrameworkSpecificOptions["Headless"] = false;
-options.FrameworkSpecificOptions["SlowMo"] = 1000;
-options.FrameworkSpecificOptions["ViewportWidth"] = 1280;
-options.FrameworkSpecificOptions["ViewportHeight"] = 720;
+// Playwright-specific options are now handled through DebugMode
+// When DebugMode is true, it automatically sets HeadlessMode to false and SlowMo to 1000ms
+options.DebugMode = true; // This will override HeadlessMode and set SlowMo
 ```
 
 ## Element Configuration
@@ -540,22 +607,15 @@ public class UserManagementTests
     private FluentUIScaffoldApp<WebApp> _fluentUI;
 
     [TestInitialize]
-    public async Task Setup()
+    public void Setup()
     {
-        var options = new FluentUIScaffoldOptions
+        _fluentUI = FluentUIScaffoldBuilder.Web(options =>
         {
-            BaseUrl = new Uri("https://your-app.com"),
-            DefaultWaitTimeout = TimeSpan.FromSeconds(30),
-            LogLevel = LogLevel.Information,
-            HeadlessMode = true,
-            CaptureScreenshotsOnFailure = true,
-            // Optional: Enable web server launching
-            EnableWebServerLaunch = true,
-            WebServerProjectPath = "path/to/your/web/app"
-        };
-
-        _fluentUI = new FluentUIScaffoldApp<WebApp>(options);
-        await _fluentUI.InitializeAsync(options);
+            options.BaseUrl = new Uri("https://your-app.com");
+            options.DefaultWaitTimeout = TimeSpan.FromSeconds(60);
+            options.HeadlessMode = true;
+            options.WebServerProjectPath = "./path/to/your/project.csproj";
+        });
     }
 
     [TestMethod]
@@ -656,14 +716,14 @@ options.CaptureScreenshotsOnFailure = true;
 ### Debugging
 
 ```csharp
+// Enable debug mode (overrides headless mode and sets SlowMo)
+options.DebugMode = true;
+
 // Enable detailed logging
 options.LogLevel = LogLevel.Debug;
 
-// Capture DOM state on failure
-options.CaptureDOMStateOnFailure = true;
-
-// Set custom screenshot path
-options.ScreenshotPath = "./debug-screenshots";
+// Set custom web server project path
+options.WebServerProjectPath = "./path/to/your/project.csproj";
 ```
 
 ## Next Steps

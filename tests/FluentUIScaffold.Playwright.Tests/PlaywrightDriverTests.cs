@@ -27,8 +27,6 @@ public class PlaywrightDriverTests
         {
             BaseUrl = new Uri("https://example.com"),
             HeadlessMode = true,
-            WindowWidth = 1280,
-            WindowHeight = 720,
             DefaultWaitTimeout = TimeSpan.FromSeconds(10)
         };
         _logger = NullLogger<PlaywrightDriver>.Instance;

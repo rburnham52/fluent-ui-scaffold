@@ -30,8 +30,6 @@ public class ElementBuilderTests
     {
         // Arrange
         _options.DefaultWaitTimeout = TimeSpan.FromSeconds(15);
-        _options.WaitStrategy = WaitStrategy.Clickable;
-        _options.RetryInterval = TimeSpan.FromMilliseconds(200);
 
         // Act
         var builder = new ElementBuilder("#test", _mockDriver.Object, _options);
@@ -40,8 +38,8 @@ public class ElementBuilderTests
         var element = builder.Build();
         Assert.That(element.Selector, Is.EqualTo("#test"));
         Assert.That(element.Timeout, Is.EqualTo(TimeSpan.FromSeconds(15)));
-        Assert.That(element.WaitStrategy, Is.EqualTo(WaitStrategy.Clickable));
-        Assert.That(element.RetryInterval, Is.EqualTo(TimeSpan.FromMilliseconds(200)));
+        Assert.That(element.WaitStrategy, Is.EqualTo(WaitStrategy.Smart)); // Default to Smart strategy
+        Assert.That(element.RetryInterval, Is.EqualTo(TimeSpan.FromMilliseconds(100))); // Default retry interval
     }
 
     [Test]

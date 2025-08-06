@@ -26,15 +26,13 @@ namespace SampleApp.Tests.Examples
         [TestInitialize]
         public async Task TestInitialize()
         {
-            // Configure FluentUIScaffold with auto-discovery and web server launch
+            // Configure FluentUIScaffold with auto-discovery (web server is managed by TestAssemblyHooks)
             var options = new FluentUIScaffoldOptions
             {
                 BaseUrl = TestConfiguration.BaseUri,
                 DefaultWaitTimeout = TimeSpan.FromSeconds(10),
                 LogLevel = LogLevel.Information,
-                HeadlessMode = true, // Run in headless mode for CI/CD
-                EnableWebServerLaunch = true,
-                WebServerProjectPath = Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "..", "SampleApp")
+                HeadlessMode = true // Run in headless mode for CI/CD
             };
 
             _fluentUI = new FluentUIScaffoldApp<WebApp>(options);
