@@ -1,9 +1,13 @@
 using System;
 using System.Threading.Tasks;
 
+using FluentUIScaffold.Core;
 using FluentUIScaffold.Core.Configuration;
 
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+using SampleApp.Tests.Pages;
+
 
 namespace SampleApp.Tests.Examples
 {
@@ -14,40 +18,67 @@ namespace SampleApp.Tests.Examples
     [TestClass]
     public class RegistrationLoginTests
     {
-        [TestMethod]
-        public async Task Can_Complete_Registration_Flow()
-        {
-            // Arrange
-            var options = new FluentUIScaffoldOptions
-            {
-                BaseUrl = new Uri("http://localhost:5000"),
-                DefaultWaitTimeout = TimeSpan.FromSeconds(30),
-                EnableDebugMode = false
-            };
+        private FluentUIScaffoldApp<WebApp>? _app;
+        private RegistrationPage? _registrationPage;
+        private LoginPage? _loginPage;
 
-            // Act & Assert
-            // This test would normally complete a registration flow, but for now we'll just verify the options are set correctly
-            Assert.AreEqual(new Uri("http://localhost:5000"), options.BaseUrl);
-            Assert.AreEqual(TimeSpan.FromSeconds(30), options.DefaultWaitTimeout);
-            Assert.IsFalse(options.EnableDebugMode);
+        [TestInitialize]
+        public async Task Setup()
+        {
+            // Arrange - Set up the application and page objects
+            var options = new FluentUIScaffoldOptionsBuilder()
+                .WithBaseUrl(TestConfiguration.BaseUri)
+                .WithDefaultWaitTimeout(TimeSpan.FromSeconds(30))
+                .WithDebugMode(false)
+                .Build();
+
+            _app = new FluentUIScaffoldApp<WebApp>(options);
+            await _app.InitializeAsync();
+
+            // Create page objects
+            _registrationPage = new RegistrationPage(_app.ServiceProvider);
+            _loginPage = new LoginPage(_app.ServiceProvider, TestConfiguration.BaseUri);
+        }
+
+        [TestCleanup]
+        public void Cleanup()
+        {
+            _app?.Dispose();
         }
 
         [TestMethod]
-        public async Task Can_Complete_Login_Flow()
+        public async Task CompleteRegistrationFlow_WithValidData_CreatesAccountSuccessfully()
         {
             // Arrange
-            var options = new FluentUIScaffoldOptions
-            {
-                BaseUrl = new Uri("http://localhost:5000"),
-                DefaultWaitTimeout = TimeSpan.FromSeconds(30),
-                EnableDebugMode = false
-            };
+            await _registrationPage!.NavigateToRegistrationAsync();
 
-            // Act & Assert
-            // This test would normally complete a login flow, but for now we'll just verify the options are set correctly
-            Assert.AreEqual(new Uri("http://localhost:5000"), options.BaseUrl);
-            Assert.AreEqual(TimeSpan.FromSeconds(30), options.DefaultWaitTimeout);
-            Assert.IsFalse(options.EnableDebugMode);
+            // Act - Complete registration with valid data
+            _registrationPage
+                .CompleteRegistration("test@example.com", "password123", "John", "Doe")
+                .VerifySuccessfulRegistration();
+
+            // Assert - Verify form is cleared after successful registration
+            _registrationPage.VerifyFormIsCleared();
+        }
+
+        [TestMethod]
+        public async Task CompleteLoginFlow_WithValidCredentials_AuthenticatesUserSuccessfully()
+        {
+            // Arrange
+            await _registrationPage!.NavigateToRegistrationAsync();
+
+            // Act - Complete registration first
+            _registrationPage
+                .CompleteRegistration("login@example.com", "password123", "Login", "User")
+                .VerifySuccessfulRegistration();
+
+            // Now test login with the created account
+            _loginPage!.CompleteLogin("login@example.com", "password123")
+                .VerifyLoginSuccess("Login successful!");
+
+            // Assert - Verify login was successful
+            var successMessage = _loginPage.GetSuccessMessage();
+            Assert.IsTrue(successMessage.Contains("Login successful!"), "Login should be successful");
         }
     }
 }

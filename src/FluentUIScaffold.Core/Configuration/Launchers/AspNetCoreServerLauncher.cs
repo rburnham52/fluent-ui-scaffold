@@ -48,7 +48,7 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
             await KillProcessesOnPortAsync(configuration.BaseUrl.Port);
 
             // Build the command arguments
-            var arguments = BuildCommandArguments(configuration);
+            var arguments = AspNetCoreServerLauncher.BuildCommandArguments(configuration);
 
             // Create the process start info
             var startInfo = new ProcessStartInfo
@@ -68,10 +68,11 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
                 startInfo.EnvironmentVariables[envVar.Key] = envVar.Value;
             }
 
-            // Handle SPA proxy configuration
-            if (!configuration.EnableSpaProxy)
+            // Propagate SPA proxy configuration if provided via configuration environment variables
+            if (configuration.EnvironmentVariables != null &&
+                configuration.EnvironmentVariables.TryGetValue("ASPNETCORE_HOSTINGSTARTUPASSEMBLIES", out var hostingStartupAssemblies))
             {
-                startInfo.EnvironmentVariables["ASPNETCORE_HOSTINGSTARTUPASSEMBLIES"] = "";
+                startInfo.EnvironmentVariables["ASPNETCORE_HOSTINGSTARTUPASSEMBLIES"] = hostingStartupAssemblies ?? string.Empty;
             }
 
             _logger?.LogInformation("Starting ASP.NET Core server with command: {Command} {Arguments}",
@@ -146,7 +147,7 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
             }
         }
 
-        private string BuildCommandArguments(ServerConfiguration configuration)
+        private static string BuildCommandArguments(ServerConfiguration configuration)
         {
             // Use the exact same command format as the old WebServerLauncher
             return $"run --configuration Release --framework net8.0 --urls \"{configuration.BaseUrl}\" --no-launch-profile";

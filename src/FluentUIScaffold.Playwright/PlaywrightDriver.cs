@@ -21,7 +21,6 @@ public class PlaywrightDriver : IUIDriver, IDisposable
     private IBrowserContext? _context;
     private IPage? _page;
     private readonly ILogger<PlaywrightDriver>? _logger;
-    private WebServerLauncher? _webServerLauncher;
     private bool _disposed;
 
     /// <summary>
@@ -53,67 +52,63 @@ public class PlaywrightDriver : IUIDriver, IDisposable
         InitializeBrowser();
     }
 
-    /// <summary>
-    /// Launches a web server for testing if specified in the options.
-    /// </summary>
-    /// <param name="projectPath">The path to the ASP.NET Core project to launch.</param>
-    /// <returns>A task that completes when the web server is ready.</returns>
-    public async Task LaunchWebServerAsync(string projectPath)
-    {
-        if (string.IsNullOrEmpty(projectPath))
-            throw new ArgumentException("Project path cannot be null or empty.", nameof(projectPath));
 
-        if (_options.BaseUrl == null)
-            throw new InvalidOperationException("BaseUrl must be configured to launch a web server.");
-
-        // Use Playwright's built-in web server launching capabilities
-        await LaunchWebServerWithPlaywrightAsync(projectPath);
-    }
-
-    /// <summary>
-    /// Launches a web server using Playwright-style configuration.
-    /// </summary>
-    /// <param name="projectPath">The path to the ASP.NET Core project to launch.</param>
-    /// <returns>A task that completes when the web server is ready.</returns>
-    private async Task LaunchWebServerWithPlaywrightAsync(string projectPath)
-    {
-        try
-        {
-            _logger?.LogInformation("Launching web server using Playwright-style configuration");
-
-            // Use our WebServerLauncher with Playwright-style configuration
-            _webServerLauncher = new WebServerLauncher(_logger);
-            await _webServerLauncher.LaunchWebServerAsync(projectPath, _options.BaseUrl, _options.DefaultWaitTimeout);
-
-            _logger?.LogInformation("Web server launched successfully using Playwright-style configuration");
-        }
-        catch (Exception ex)
-        {
-            _logger?.LogError(ex, "Failed to launch web server using Playwright-style configuration");
-            throw;
-        }
-    }
 
     private void InitializeBrowser()
     {
         var browserType = GetBrowserType();
 
-        // Determine headless mode and SlowMo based on debug mode
+        // Determine headless mode and SlowMo with explicit control and sensible defaults
         bool isHeadless;
         int slowMo;
 
-        if (_options.EnableDebugMode)
+        // Determine headless mode: explicit setting takes precedence, then automatic logic
+        if (_options.HeadlessMode.HasValue)
         {
-            // Debug mode: non-headless with SlowMo for easier debugging
-            isHeadless = false;
-            slowMo = 1000; // Default SlowMo for debugging
-            _logger?.LogInformation("Debug mode enabled: running in non-headless mode with SlowMo = {SlowMo}ms", slowMo);
+            // Use explicit headless setting
+            isHeadless = _options.HeadlessMode.Value;
+            _logger?.LogInformation("Using explicit headless mode setting: {Headless}", isHeadless);
         }
         else
         {
-            // Normal mode: use headless mode and default SlowMo
-            isHeadless = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("CI"));
-            slowMo = 0; // Default SlowMo
+            // Automatic determination based on debug mode and CI environment
+            if (_options.EnableDebugMode)
+            {
+                // Debug mode: non-headless for easier debugging
+                isHeadless = false;
+                _logger?.LogInformation("Debug mode enabled: automatically setting headless mode to false");
+            }
+            else
+            {
+                // Normal mode: use headless mode in CI environments, visible in development
+                isHeadless = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("CI"));
+                _logger?.LogInformation("Automatic headless mode determination: {Headless} (CI: {IsCI})",
+                    isHeadless, !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("CI")));
+            }
+        }
+
+        // Determine SlowMo: explicit setting takes precedence, then automatic logic
+        if (_options.SlowMo.HasValue)
+        {
+            // Use explicit SlowMo setting
+            slowMo = _options.SlowMo.Value;
+            _logger?.LogInformation("Using explicit SlowMo setting: {SlowMo}ms", slowMo);
+        }
+        else
+        {
+            // Automatic determination based on debug mode
+            if (_options.EnableDebugMode)
+            {
+                // Debug mode: use SlowMo for easier debugging
+                slowMo = 1000; // Default SlowMo for debugging
+                _logger?.LogInformation("Debug mode enabled: automatically setting SlowMo to {SlowMo}ms", slowMo);
+            }
+            else
+            {
+                // Normal mode: no SlowMo for faster execution
+                slowMo = 0;
+                _logger?.LogInformation("Normal mode: setting SlowMo to 0ms for faster execution");
+            }
         }
 
         var browserOptions = new BrowserTypeLaunchOptions
@@ -136,6 +131,22 @@ public class PlaywrightDriver : IUIDriver, IDisposable
 
         _context = _browser.NewContextAsync(contextOptions).Result;
         _page = _context.NewPageAsync().Result;
+        try
+        {
+            _page.Dialog += (_, dialog) =>
+            {
+                try
+                {
+                    // Auto-accept any dialog to avoid blocking UI flows during tests
+                    dialog.AcceptAsync().Wait();
+                }
+                catch
+                {
+                    try { dialog.DismissAsync().Wait(); } catch { }
+                }
+            };
+        }
+        catch { }
     }
 
     private IBrowserType GetBrowserType()
@@ -154,7 +165,14 @@ public class PlaywrightDriver : IUIDriver, IDisposable
             throw new ArgumentException("Selector cannot be null or empty.", nameof(selector));
 
         _logger?.LogDebug("Clicking element with selector: {Selector}", selector);
-        _page?.ClickAsync(selector).Wait();
+        var locator = _page!.Locator(selector);
+        locator.WaitForAsync(new LocatorWaitForOptions
+        {
+            State = WaitForSelectorState.Visible,
+            Timeout = (float)_options.DefaultWaitTimeout.TotalMilliseconds
+        }).Wait();
+        try { locator.ScrollIntoViewIfNeededAsync().Wait(); } catch { }
+        locator.ClickAsync().Wait();
     }
 
     /// <summary>
@@ -168,6 +186,11 @@ public class PlaywrightDriver : IUIDriver, IDisposable
             throw new ArgumentException("Selector cannot be null or empty.", nameof(selector));
 
         _logger?.LogDebug("Typing text '{Text}' into element with selector: {Selector}", text, selector);
+        _page?.WaitForSelectorAsync(selector, new PageWaitForSelectorOptions
+        {
+            State = WaitForSelectorState.Visible,
+            Timeout = (float)_options.DefaultWaitTimeout.TotalMilliseconds
+        }).Wait();
         _page?.FillAsync(selector, text).Wait();
     }
 
@@ -182,6 +205,11 @@ public class PlaywrightDriver : IUIDriver, IDisposable
             throw new ArgumentException("Selector cannot be null or empty.", nameof(selector));
 
         _logger?.LogDebug("Selecting option '{Value}' from element with selector: {Selector}", value, selector);
+        _page?.WaitForSelectorAsync(selector, new PageWaitForSelectorOptions
+        {
+            State = WaitForSelectorState.Visible,
+            Timeout = (float)_options.DefaultWaitTimeout.TotalMilliseconds
+        }).Wait();
         _page?.SelectOptionAsync(selector, value).Wait();
     }
 
@@ -200,6 +228,61 @@ public class PlaywrightDriver : IUIDriver, IDisposable
         if (text == null)
             throw new InvalidOperationException($"Element with selector '{selector}' was not found or has no text content.");
         return text;
+    }
+
+    public string GetAttribute(string selector, string attributeName)
+    {
+        if (string.IsNullOrEmpty(selector))
+            throw new ArgumentException("Selector cannot be null or empty.", nameof(selector));
+        if (string.IsNullOrEmpty(attributeName))
+            throw new ArgumentException("Attribute name cannot be null or empty.", nameof(attributeName));
+
+        _logger?.LogDebug("Getting attribute '{Attribute}' from element with selector: {Selector}", attributeName, selector);
+        // Special-case input value: DOM attribute 'value' often differs from the live input value property
+        if (string.Equals(attributeName, "value", StringComparison.OrdinalIgnoreCase))
+        {
+            try
+            {
+                var locator = _page?.Locator(selector);
+                var inputValue = locator?.InputValueAsync().Result;
+                if (!string.IsNullOrEmpty(inputValue))
+                {
+                    return inputValue;
+                }
+            }
+            catch
+            {
+                // Fall back to attribute below
+            }
+        }
+        var value = _page?.GetAttributeAsync(selector, attributeName).Result;
+        return value ?? string.Empty;
+    }
+
+    public string GetValue(string selector)
+    {
+        if (string.IsNullOrEmpty(selector))
+            throw new ArgumentException("Selector cannot be null or empty.", nameof(selector));
+
+        _logger?.LogDebug("Getting value from input with selector: {Selector}", selector);
+        try
+        {
+            var locator = _page?.Locator(selector);
+            // Prefer live input value property for reliability
+            var inputValue = locator?.InputValueAsync().Result;
+            if (!string.IsNullOrEmpty(inputValue))
+            {
+                return inputValue!;
+            }
+        }
+        catch
+        {
+            // Fall through to attribute-based retrieval
+        }
+        var handle = _page?.QuerySelectorAsync(selector).Result;
+        if (handle == null) throw new InvalidOperationException($"Element with selector '{selector}' was not found.");
+        var value = handle.GetAttributeAsync("value").Result;
+        return value ?? string.Empty;
     }
 
     /// <summary>
@@ -287,11 +370,11 @@ public class PlaywrightDriver : IUIDriver, IDisposable
     /// <param name="url">The URL to navigate to.</param>
     public void NavigateToUrl(Uri url)
     {
-        if (url == null)
-            throw new ArgumentNullException(nameof(url));
+        ArgumentNullException.ThrowIfNull(url);
 
         _logger?.LogDebug("Navigating to URL: {Url}", url);
-        _page?.GotoAsync(url.ToString()).Wait();
+        // Ensure page is ready and wait for network idle to reduce flakiness
+        _page?.GotoAsync(url.ToString(), new PageGotoOptions { WaitUntil = WaitUntilState.NetworkIdle }).Wait();
     }
 
     /// <summary>
@@ -344,7 +427,6 @@ public class PlaywrightDriver : IUIDriver, IDisposable
             _context?.CloseAsync();
             _browser?.CloseAsync();
             _playwright?.Dispose();
-            _webServerLauncher?.Dispose();
             _disposed = true;
         }
     }

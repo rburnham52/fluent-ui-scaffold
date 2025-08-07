@@ -28,14 +28,14 @@ public class ElementCollectionTests
         _options = new FluentUIScaffoldOptions();
         _elements = new List<IElement>
         {
-            CreateMockElement("#element1", "Element 1"),
-            CreateMockElement("#element2", "Element 2"),
-            CreateMockElement("#element3", "Element 3")
+            ElementCollectionTests.CreateMockElement("#element1", "Element 1"),
+            ElementCollectionTests.CreateMockElement("#element2", "Element 2"),
+            ElementCollectionTests.CreateMockElement("#element3", "Element 3")
         };
         _collection = new ElementCollection(_elements);
     }
 
-    private IElement CreateMockElement(string selector, string text)
+    private static IElement CreateMockElement(string selector, string text)
     {
         var mockElement = new Mock<IElement>();
         mockElement.Setup(e => e.Selector).Returns(selector);
@@ -48,7 +48,7 @@ public class ElementCollectionTests
     public void Constructor_WithValidElements_ShouldInitializeCollection()
     {
         // Assert
-        Assert.That(_collection.Count, Is.EqualTo(3));
+        Assert.That(_collection, Has.Count.EqualTo(3));
     }
 
     [Test]
@@ -110,10 +110,10 @@ public class ElementCollectionTests
     public void Filter_WithValidPredicate_ShouldReturnFilteredCollection()
     {
         // Act
-        var filtered = _collection.Filter(e => e.Selector.Contains("1"));
+        var filtered = _collection.Filter(e => e.Selector.Contains('1'));
 
         // Assert
-        Assert.That(filtered.Count, Is.EqualTo(1));
+        Assert.That(filtered, Has.Count.EqualTo(1));
         Assert.That(filtered.First().Selector, Is.EqualTo("#element1"));
     }
 
@@ -142,7 +142,7 @@ public class ElementCollectionTests
         var filtered = _collection.FilterByText("Element 1");
 
         // Assert
-        Assert.That(filtered.Count, Is.EqualTo(1));
+        Assert.That(filtered, Has.Count.EqualTo(1));
         Assert.That(filtered.First().GetText(), Is.EqualTo("Element 1"));
     }
 
@@ -153,7 +153,7 @@ public class ElementCollectionTests
         var filtered = _collection.FilterByText("element 1");
 
         // Assert
-        Assert.That(filtered.Count, Is.EqualTo(1));
+        Assert.That(filtered, Has.Count.EqualTo(1));
         Assert.That(filtered.First().GetText(), Is.EqualTo("Element 1"));
     }
 
@@ -184,7 +184,7 @@ public class ElementCollectionTests
         var filtered = _collection.FilterByAttribute("data-testid", "test-element1");
 
         // Assert
-        Assert.That(filtered.Count, Is.EqualTo(1));
+        Assert.That(filtered, Has.Count.EqualTo(1));
         Assert.That(filtered.First().Selector, Is.EqualTo("#element1"));
     }
 
@@ -195,7 +195,7 @@ public class ElementCollectionTests
         var filtered = _collection.FilterByAttribute("data-testid", "TEST-ELEMENT1");
 
         // Assert
-        Assert.That(filtered.Count, Is.EqualTo(1));
+        Assert.That(filtered, Has.Count.EqualTo(1));
         Assert.That(filtered.First().Selector, Is.EqualTo("#element1"));
     }
 
@@ -324,10 +324,13 @@ public class ElementCollectionTests
         var elements = _collection.ToList();
 
         // Assert
-        Assert.That(elements.Count, Is.EqualTo(3));
-        Assert.That(elements[0].Selector, Is.EqualTo("#element1"));
-        Assert.That(elements[1].Selector, Is.EqualTo("#element2"));
-        Assert.That(elements[2].Selector, Is.EqualTo("#element3"));
+        Assert.That(elements, Has.Count.EqualTo(3));
+        Assert.Multiple(() =>
+        {
+            Assert.That(elements[0].Selector, Is.EqualTo("#element1"));
+            Assert.That(elements[1].Selector, Is.EqualTo("#element2"));
+            Assert.That(elements[2].Selector, Is.EqualTo("#element3"));
+        });
     }
 
     [Test]
@@ -341,9 +344,12 @@ public class ElementCollectionTests
         }
 
         // Assert
-        Assert.That(elements.Count, Is.EqualTo(3));
-        Assert.That(elements[0].Selector, Is.EqualTo("#element1"));
-        Assert.That(elements[1].Selector, Is.EqualTo("#element2"));
-        Assert.That(elements[2].Selector, Is.EqualTo("#element3"));
+        Assert.That(elements, Has.Count.EqualTo(3));
+        Assert.Multiple(() =>
+        {
+            Assert.That(elements[0].Selector, Is.EqualTo("#element1"));
+            Assert.That(elements[1].Selector, Is.EqualTo("#element2"));
+            Assert.That(elements[2].Selector, Is.EqualTo("#element3"));
+        });
     }
 }

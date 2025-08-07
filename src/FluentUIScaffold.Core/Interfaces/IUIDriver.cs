@@ -41,6 +41,21 @@ public interface IUIDriver : IDisposable
     string GetText(string selector);
 
     /// <summary>
+    /// Gets an attribute value from an element identified by the specified selector.
+    /// </summary>
+    /// <param name="selector">The CSS selector or other identifier for the element.</param>
+    /// <param name="attributeName">The attribute name to read.</param>
+    /// <returns>The attribute value or empty string if not found.</returns>
+    string GetAttribute(string selector, string attributeName);
+
+    /// <summary>
+    /// Gets the current input value for an element (e.g., input, textarea) identified by the specified selector.
+    /// </summary>
+    /// <param name="selector">The CSS selector or other identifier for the element.</param>
+    /// <returns>The input value.</returns>
+    string GetValue(string selector);
+
+    /// <summary>
     /// Checks if an element identified by the specified selector is visible.
     /// </summary>
     /// <param name="selector">The CSS selector or other identifier for the element.</param>

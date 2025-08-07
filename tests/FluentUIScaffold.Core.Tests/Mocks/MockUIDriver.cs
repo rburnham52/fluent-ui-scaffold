@@ -34,6 +34,24 @@ namespace FluentUIScaffold.Core.Tests.Mocks
                 return "Logo";
             return string.Empty;
         }
+        public string GetAttribute(string selector, string attributeName)
+        {
+            // Minimal mock behavior: return empty or simple canned values
+            if (string.Equals(attributeName, "value", StringComparison.OrdinalIgnoreCase))
+                return GetValue(selector);
+            return string.Empty;
+        }
+        public string GetValue(string selector)
+        {
+            // Minimal mock behavior: return a predictable value for inputs used in tests
+            if (selector.Contains("email", StringComparison.OrdinalIgnoreCase))
+                return "user@test.com";
+            if (selector.Contains("password", StringComparison.OrdinalIgnoreCase))
+                return "securepassword";
+            if (selector.Contains("todo", StringComparison.OrdinalIgnoreCase))
+                return string.Empty;
+            return string.Empty;
+        }
         public bool IsVisible(string selector) => true;
         public bool IsEnabled(string selector) => true;
         public void WaitForElement(string selector) { }
@@ -44,7 +62,7 @@ namespace FluentUIScaffold.Core.Tests.Mocks
         public void Clear(string selector) { }
         public string GetPageTitle() => "FluentUIScaffold Sample App";
         public void NavigateToUrl(Uri url) { }
-        public void NavigateToUrl(string url) { }
+        public static void NavigateToUrl(string url) { }
         public TTarget NavigateTo<TTarget>() where TTarget : class => default!;
         public TDriver GetFrameworkDriver<TDriver>() where TDriver : class => default!;
         public static void Initialize() { }

@@ -27,7 +27,7 @@ namespace FluentUIScaffold.Core.Configuration.Detectors
             try
             {
                 // Try to find git repository root
-                var gitRoot = FindGitRepositoryRoot(context.CurrentDirectory);
+                var gitRoot = GitBasedProjectDetector.FindGitRepositoryRoot(context.CurrentDirectory);
                 if (gitRoot != null)
                 {
                     return DetectProjectInGitRepository(gitRoot, context);
@@ -43,7 +43,7 @@ namespace FluentUIScaffold.Core.Configuration.Detectors
             }
         }
 
-        private string? FindGitRepositoryRoot(string startDirectory)
+        private static string? FindGitRepositoryRoot(string startDirectory)
         {
             var currentDir = startDirectory;
             var maxDepth = 10; // Prevent infinite loops
@@ -156,7 +156,7 @@ namespace FluentUIScaffold.Core.Configuration.Detectors
                     }
 
                     // Also check for project name with extension
-                    var projectExtensions = GetProjectExtensions(context.ProjectType);
+                    var projectExtensions = GitBasedProjectDetector.GetProjectExtensions(context.ProjectType);
                     foreach (var extension in projectExtensions)
                     {
                         var projectPath = Path.Combine(directory, $"{context.ProjectName}.{extension}");
@@ -168,7 +168,7 @@ namespace FluentUIScaffold.Core.Configuration.Detectors
                 }
 
                 // Search for project files by type (recursively)
-                var extensions = GetProjectExtensions(context.ProjectType);
+                var extensions = GitBasedProjectDetector.GetProjectExtensions(context.ProjectType);
                 foreach (var extension in extensions)
                 {
                     var projectFiles = Directory.GetFiles(directory, $"*.{extension}", SearchOption.AllDirectories);
@@ -203,7 +203,7 @@ namespace FluentUIScaffold.Core.Configuration.Detectors
             return null;
         }
 
-        private string[] GetProjectExtensions(string? projectType)
+        private static string[] GetProjectExtensions(string? projectType)
         {
             return projectType?.ToLowerInvariant() switch
             {

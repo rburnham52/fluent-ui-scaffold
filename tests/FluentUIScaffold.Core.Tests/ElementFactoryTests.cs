@@ -89,10 +89,13 @@ public class ElementFactoryTests
 
         // Assert
         Assert.That(element, Is.Not.Null);
-        Assert.That(element.Selector, Is.EqualTo("#test"));
-        Assert.That(element.Timeout, Is.EqualTo(TimeSpan.FromSeconds(20)));
-        Assert.That(element.WaitStrategy, Is.EqualTo(WaitStrategy.Enabled));
-        Assert.That(element.Description, Is.EqualTo("Test Button"));
+        Assert.Multiple(() =>
+        {
+            Assert.That(element.Selector, Is.EqualTo("#test"));
+            Assert.That(element.Timeout, Is.EqualTo(TimeSpan.FromSeconds(20)));
+            Assert.That(element.WaitStrategy, Is.EqualTo(WaitStrategy.Enabled));
+            Assert.That(element.Description, Is.EqualTo("Test Button"));
+        });
     }
 
     [Test]
@@ -111,9 +114,12 @@ public class ElementFactoryTests
 
         // Assert
         Assert.That(element, Is.Not.Null);
-        Assert.That(element.Selector, Is.EqualTo("#test"));
-        Assert.That(_factory.CacheCount, Is.EqualTo(1));
-        Assert.That(_factory.IsCached("test-key"), Is.True);
+        Assert.Multiple(() =>
+        {
+            Assert.That(element.Selector, Is.EqualTo("#test"));
+            Assert.That(_factory.CacheCount, Is.EqualTo(1));
+            Assert.That(_factory.IsCached("test-key"), Is.True);
+        });
     }
 
     [Test]
@@ -128,8 +134,11 @@ public class ElementFactoryTests
 
         // Assert
         Assert.That(secondElement, Is.SameAs(firstElement));
-        Assert.That(secondElement.Selector, Is.EqualTo(firstSelector));
-        Assert.That(_factory.CacheCount, Is.EqualTo(1));
+        Assert.Multiple(() =>
+        {
+            Assert.That(secondElement.Selector, Is.EqualTo(firstSelector));
+            Assert.That(_factory.CacheCount, Is.EqualTo(1));
+        });
     }
 
     [Test]
@@ -165,9 +174,12 @@ public class ElementFactoryTests
         // Act
         _factory.RegisterElement("test-key", element);
 
-        // Assert
-        Assert.That(_factory.CacheCount, Is.EqualTo(1));
-        Assert.That(_factory.IsCached("test-key"), Is.True);
+        Assert.Multiple(() =>
+        {
+            // Assert
+            Assert.That(_factory.CacheCount, Is.EqualTo(1));
+            Assert.That(_factory.IsCached("test-key"), Is.True);
+        });
     }
 
     [Test]
@@ -211,10 +223,13 @@ public class ElementFactoryTests
         // Act
         _factory.ClearCache();
 
-        // Assert
-        Assert.That(_factory.CacheCount, Is.EqualTo(0));
-        Assert.That(_factory.IsCached("key1"), Is.False);
-        Assert.That(_factory.IsCached("key2"), Is.False);
+        Assert.Multiple(() =>
+        {
+            // Assert
+            Assert.That(_factory.CacheCount, Is.EqualTo(0));
+            Assert.That(_factory.IsCached("key1"), Is.False);
+            Assert.That(_factory.IsCached("key2"), Is.False);
+        });
     }
 
     [Test]
@@ -250,10 +265,13 @@ public class ElementFactoryTests
         // Act
         var result = _factory.RemoveFromCache("test-key");
 
-        // Assert
-        Assert.That(result, Is.True);
-        Assert.That(_factory.IsCached("test-key"), Is.False);
-        Assert.That(_factory.CacheCount, Is.EqualTo(0));
+        Assert.Multiple(() =>
+        {
+            // Assert
+            Assert.That(result, Is.True);
+            Assert.That(_factory.IsCached("test-key"), Is.False);
+            Assert.That(_factory.CacheCount, Is.EqualTo(0));
+        });
     }
 
     [Test]

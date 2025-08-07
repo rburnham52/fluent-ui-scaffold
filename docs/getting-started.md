@@ -61,7 +61,7 @@ public class MyFirstTest
         {
             options.BaseUrl = new Uri("https://your-app.com");
             options.DefaultWaitTimeout = TimeSpan.FromSeconds(60);
-            options.HeadlessMode = true;
+            options.WithHeadlessMode(true);  // Explicit headless control
             options.WebServerProjectPath = "./path/to/your/project.csproj";
         });
     }
@@ -86,32 +86,158 @@ public class MyFirstTest
 
 ### 2. Web Server Launching (Optional)
 
-For applications that need to be launched before testing, you can configure automatic web server launching:
+For applications that need to be launched before testing, you can configure automatic web server launching using the new flexible server configuration system:
 
 ```csharp
 [TestInitialize]
 public async Task Setup()
 {
-    var options = new FluentUIScaffoldOptions
-    {
-        BaseUrl = new Uri("https://your-app.com"),
-        DefaultWaitTimeout = TimeSpan.FromSeconds(30),
-        LogLevel = LogLevel.Information,
-        HeadlessMode = true,
-        // Web server launching configuration
-        EnableWebServerLaunch = true,
-        WebServerProjectPath = "path/to/your/web/app",
-        ReuseExistingServer = false // Set to true to reuse an already running server
-    };
+    var options = new FluentUIScaffoldOptionsBuilder()
+        .WithBaseUrl(new Uri("https://your-app.com"))
+        .WithDefaultWaitTimeout(TimeSpan.FromSeconds(30))
+        .WithHeadlessMode(true)  // Explicit headless control
+        .WithWebServerLaunch(true)
+        .WithWebServerLogLevel(LogLevel.Information) // Control launcher logging
+        .WithServerConfiguration(
+            ServerConfiguration.CreateDotNetServer(
+                new Uri("https://your-app.com"),
+                "./path/to/your/project.csproj"
+            )
+            .WithFramework("net8.0")
+            .WithConfiguration("Debug")
+            .WithSpaProxy(true)
+            .WithAspNetCoreEnvironment("Development")
+            .Build()
+        )
+        .Build();
+
+    // Start the server (sets shared options for consistency)
+    await WebServerManager.StartServerAsync(options);
+
+    // Create FluentUIScaffoldApp (uses shared options automatically)
+    _fluentUI = new FluentUIScaffoldApp<WebApp>(options);
+    await _fluentUI.InitializeAsync();
+}
+```
+
+#### Shared Options Pattern
+
+FluentUIScaffold uses a shared options pattern to ensure consistency between `WebServerManager` and `FluentUIScaffoldApp` instances. When `WebServerManager.StartServerAsync` is called, it sets shared options that `FluentUIScaffoldApp` will automatically use if available.
+
+This is particularly useful in scenarios where:
+- You're using Reqnroll or other BDD frameworks
+- You have multiple test classes that need consistent configuration
+- You want to ensure the web server and UI tests use the same settings
+
+Example with shared options:
+
+```csharp
+// In your test assembly hooks (WebServerManager uses these options)
+var options = new FluentUIScaffoldOptionsBuilder()
+    .WithBaseUrl(new Uri("http://localhost:5000"))
+    .WithWebServerLaunch(true)
+    .WithServerConfiguration(ServerConfiguration.CreateDotNetServer(...))
+    .Build();
+
+// Start the server (sets shared options)
+await WebServerManager.StartServerAsync(options);
+
+// In your test classes (FluentUIScaffoldApp uses shared options automatically)
+using var app = new FluentUIScaffoldApp<WebApp>(options);
+await app.InitializeAsync();
+```
+        .WithServerConfiguration(ServerConfiguration.CreateDotNetServer(
+            new Uri("https://your-app.com"), 
+            "path/to/your/web/app.csproj"))
+        .Build();
 
     _fluentUI = new FluentUIScaffoldApp<WebApp>(options);
-    await _fluentUI.InitializeAsync(options); // This will launch the web server if enabled
+    await _fluentUI.InitializeAsync(); // This will launch the web server if enabled
 }
+```
 
-The framework will automatically:
-- Launch the web server using `dotnet run` in the specified project path
-- Wait for the server to be accessible at the configured base URL
-- Clean up the server process when tests complete
+#### Server Configuration Options
+
+The framework supports multiple server types with flexible configuration:
+
+**ASP.NET Core Server:**
+```csharp
+.WithServerConfiguration(ServerConfiguration.CreateDotNetServer(
+    new Uri("https://localhost:5001"), 
+    "path/to/your/project.csproj")
+    .WithAspNetCoreEnvironment("Development")
+    .WithAspNetCoreUrls("https://localhost:5001")
+    .Build())
+```
+
+**Aspire App Host:**
+```csharp
+.WithServerConfiguration(ServerConfiguration.CreateAspireServer(
+    new Uri("http://localhost:5000"), 
+    "path/to/your/AppHost.csproj")
+    .WithDotNetEnvironment("Development")
+    .WithAspireDashboardOtlpEndpoint("https://localhost:21097")
+    .WithAspireResourceServiceEndpoint("https://localhost:22268")
+    .Build())
+```
+
+**Node.js:**
+```csharp
+.WithServerConfiguration(ServerConfiguration.CreateNodeJsServer(
+    new Uri("http://localhost:3000"),
+    "path/to/your/package.json")
+    .WithNpmScript("start")
+    .WithNodeEnvironment("development")
+    .WithStartupTimeout(TimeSpan.FromSeconds(90))
+    .Build())
+```
+
+**WebApplicationFactory (Option A):**
+
+Use this when you want in-process hosting in tests. In this scaffold, the WebApplicationFactory launcher gracefully falls back to the standard ASP.NET process launcher for cross-platform stability. You still declare the server type through the builder:
+
+```csharp
+var options = new FluentUIScaffoldOptionsBuilder()
+    .WithBaseUrl(new Uri("http://localhost:5000"))
+    .WithWebServerLaunch(true)
+    .WithServerConfiguration(
+        // Use ServerType.WebApplicationFactory via DotNet builder
+        new DotNetServerConfigurationBuilder(ServerType.WebApplicationFactory,
+            new Uri("http://localhost:5000"),
+            "./samples/SampleApp/SampleApp.csproj")
+            .WithFramework("net8.0")
+            .WithConfiguration("Release")
+            .WithAspNetCoreEnvironment("Development")
+            .WithStartupTimeout(TimeSpan.FromSeconds(120))
+            .Build())
+    .Build();
+
+await WebServerManager.StartServerAsync(options);
+```
+
+Launcher selection
+
+- ASP.NET Core: default for .NET projects; good general choice.
+- WebApplicationFactory: in-process style; currently falls back to ASP.NET launcher by default for portability.
+- Node.js: for pure SPA/Node servers.
+- Aspire: for .NET Aspire App Host.
+
+#### Log Level Control
+
+You can control the verbosity of web server launcher logs using the `WithWebServerLogLevel` option:
+
+```csharp
+// Show only errors and warnings
+.WithWebServerLogLevel(LogLevel.Warning)
+
+// Show detailed information (default)
+.WithWebServerLogLevel(LogLevel.Information)
+
+// Show debug information for troubleshooting
+.WithWebServerLogLevel(LogLevel.Debug)
+```
+
+This ensures that launcher logs appear in your test results and can be controlled based on your needs.
 
 ### 4. Debug Mode
 
@@ -125,16 +251,11 @@ For easier debugging during development, debug mode automatically:
 [TestInitialize]
 public async Task Setup()
 {
-    var options = new FluentUIScaffoldOptions
-    {
-        BaseUrl = new Uri("https://your-app.com"),
-        DefaultWaitTimeout = TimeSpan.FromSeconds(30),
-        LogLevel = LogLevel.Information,
-        // DebugMode automatically enables when debugger is attached
-        // You can also explicitly set it: DebugMode = true
-        // When DebugMode is true, HeadlessMode is automatically set to false
-        // and SlowMo is set to 1000ms
-    };
+    var options = new FluentUIScaffoldOptionsBuilder()
+        .WithBaseUrl(new Uri("https://your-app.com"))
+        .WithDefaultWaitTimeout(TimeSpan.FromSeconds(30))
+        .WithDebugMode(true)  // Automatically sets HeadlessMode = false, SlowMo = 1000
+        .Build();
 
     _fluentUI = new FluentUIScaffoldApp<WebApp>(options);
     await _fluentUI.InitializeAsync();
@@ -298,7 +419,7 @@ public async Task Can_Register_New_User_With_Valid_Data()
 
 ## Web Server Launch
 
-FluentUIScaffold can automatically launch your ASP.NET Core web server for testing. This is particularly useful for integration testing where you need to test against a running application.
+FluentUIScaffold can automatically launch various types of web servers for testing. This is particularly useful for integration testing where you need to test against a running application.
 
 ### Basic Web Server Launch
 
@@ -306,7 +427,9 @@ FluentUIScaffold can automatically launch your ASP.NET Core web server for testi
 var fluentUI = FluentUIScaffoldBuilder.Web(options =>
 {
     options.BaseUrl = new Uri("https://localhost:5001");
-    options.WebServerProjectPath = "./path/to/your/project.csproj";
+    options.WithServerConfiguration(ServerConfiguration.CreateAspNetCore(
+        new Uri("https://localhost:5001"), 
+        "./path/to/your/project.csproj"));
     options.DefaultWaitTimeout = TimeSpan.FromSeconds(60);
 });
 ```
@@ -319,41 +442,117 @@ When running tests during development, you can enable debug mode to see the brow
 var fluentUI = FluentUIScaffoldBuilder.Web(options =>
 {
     options.BaseUrl = new Uri("https://localhost:5001");
-    options.WebServerProjectPath = "./path/to/your/project.csproj";
-    options.DebugMode = true; // This overrides HeadlessMode and sets SlowMo
+    options.WithServerConfiguration(ServerConfiguration.CreateAspNetCore(
+        new Uri("https://localhost:5001"), 
+        "./path/to/your/project.csproj"));
+    options.WithDebugMode(true); // This automatically sets HeadlessMode = false, SlowMo = 1000
 });
 ```
 
-### Configuration Options
+### Server Configuration Options
 
-| Option | Description | Default |
-|--------|-------------|---------|
-| `WebServerProjectPath` | Path to your ASP.NET Core project file | `null` |
-| `DebugMode` | Enables debug mode (non-headless, SlowMo) | `false` |
-| `HeadlessMode` | Runs browser in headless mode | `true` |
+| Server Type | Factory Method | Description |
+|-------------|----------------|-------------|
+| ASP.NET Core | `ServerConfiguration.CreateAspNetCore()` | Standard ASP.NET Core applications |
+| Aspire App Host | `ServerConfiguration.CreateAspire()` | .NET Aspire applications with dashboard |
+| Node.js | `ServerConfiguration.CreateNodeJs()` | Node.js applications using npm scripts |
+
+### Advanced Server Configuration
+
+**ASP.NET Core with SPA Proxy:**
+```csharp
+.WithServerConfiguration(ServerConfiguration.CreateAspNetCore(
+    new Uri("https://localhost:5001"), 
+    "./path/to/your/project.csproj")
+    .WithAspNetCoreEnvironment("Development")
+    .WithAspNetCoreUrls("https://localhost:5001")
+    .WithAspNetCoreForwardedHeaders(true)
+    .Build())
+```
+
+**Aspire with Custom Environment:**
+```csharp
+.WithServerConfiguration(ServerConfiguration.CreateAspire(
+    new Uri("https://localhost:5001"), 
+    "./path/to/your/aspire-project.csproj")
+    .WithAspNetCoreEnvironment("Development")
+    .WithDotNetEnvironment("Development")
+    .WithAspireDashboardOtlpEndpoint("https://localhost:21097")
+    .WithAspireResourceServiceEndpoint("https://localhost:22268")
+    .Build())
+```
+
+**Node.js with Custom Script:**
+```csharp
+.WithServerConfiguration(ServerConfiguration.CreateNodeJs(
+    new Uri("http://localhost:3000"), 
+    "./path/to/your/package.json")
+    .WithNpmScript("dev")
+    .WithNodeEnvironment("development")
+    .Build())
+```
 
 ## Configuration
 
 ### Basic Configuration
 
 ```csharp
-var options = new FluentUIScaffoldOptions
-{
-    BaseUrl = new Uri("https://your-app.com"),
-    DefaultWaitTimeout = TimeSpan.FromSeconds(60),
-    LogLevel = LogLevel.Information,
-    HeadlessMode = true,
-    WebServerProjectPath = "./path/to/your/project.csproj",
-    DebugMode = false
-};
+var options = new FluentUIScaffoldOptionsBuilder()
+    .WithBaseUrl(new Uri("https://your-app.com"))
+    .WithDefaultWaitTimeout(TimeSpan.FromSeconds(60))
+    .WithHeadlessMode(true)  // Explicit headless control
+    .WithDebugMode(false)    // Debug mode with automatic headless/SlowMo
+    .WithServerConfiguration(ServerConfiguration.CreateAspNetCore(
+        new Uri("https://your-app.com"), 
+        "./path/to/your/project.csproj"))
+    .Build();
 ```
 
 ### Framework-Specific Configuration
 
 ```csharp
-// Playwright-specific options are now handled through DebugMode
-// When DebugMode is true, it automatically sets HeadlessMode to false and SlowMo to 1000ms
-options.DebugMode = true; // This will override HeadlessMode and set SlowMo
+// Headless and SlowMo control with automatic defaults
+var options = new FluentUIScaffoldOptionsBuilder()
+    .WithBaseUrl(new Uri("https://your-app.com"))
+    .WithHeadlessMode(false)  // Force visible browser
+    .WithSlowMo(1000)         // Custom SlowMo delay
+    .WithDebugMode(true)       // Automatically sets HeadlessMode = false, SlowMo = 1000
+    .Build();
+```
+
+### Server Configuration Examples
+
+**ASP.NET Core with SPA:**
+```csharp
+.WithServerConfiguration(ServerConfiguration.CreateAspNetCore(
+    new Uri("https://localhost:5001"), 
+    "./path/to/your/project.csproj")
+    .WithAspNetCoreEnvironment("Development")
+    .WithAspNetCoreUrls("https://localhost:5001")
+    .WithAspNetCoreForwardedHeaders(true)
+    .Build())
+```
+
+**Aspire App Host:**
+```csharp
+.WithServerConfiguration(ServerConfiguration.CreateAspire(
+    new Uri("https://localhost:5001"), 
+    "./path/to/your/aspire-project.csproj")
+    .WithAspNetCoreEnvironment("Development")
+    .WithDotNetEnvironment("Development")
+    .WithAspireDashboardOtlpEndpoint("https://localhost:21097")
+    .WithAspireResourceServiceEndpoint("https://localhost:22268")
+    .Build())
+```
+
+**Node.js Development Server:**
+```csharp
+.WithServerConfiguration(ServerConfiguration.CreateNodeJs(
+    new Uri("http://localhost:3000"), 
+    "./path/to/your/package.json")
+    .WithNpmScript("dev")
+    .WithNodeEnvironment("development")
+    .Build())
 ```
 
 ## Element Configuration

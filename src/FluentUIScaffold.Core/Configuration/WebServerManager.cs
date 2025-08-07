@@ -14,6 +14,8 @@ namespace FluentUIScaffold.Core.Configuration
         private static WebServerManager? _instance;
         private static readonly object _lockObject = new object();
         private static bool _serverStarted = false;
+        private static System.Threading.Mutex? _startupMutex;
+        private static bool _isServerOwner = false;
         private static readonly string _frameworkIdentifier = Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true"
             ? "container"
             : Environment.GetEnvironmentVariable("DOTNET_FRAMEWORK") ?? "unknown";
@@ -46,7 +48,9 @@ namespace FluentUIScaffold.Core.Configuration
             {
                 if (_instance == null)
                 {
-                    _instance = new WebServerManager(logger);
+                    // Create a logger with the specified log level from options
+                    var configuredLogger = CreateConfiguredLogger(logger, options.WebServerLogLevel);
+                    _instance = new WebServerManager(configuredLogger);
                 }
                 return _instance;
             }
@@ -59,6 +63,15 @@ namespace FluentUIScaffold.Core.Configuration
         /// <returns>A task that completes when the server is ready.</returns>
         public static async Task StartServerAsync(FluentUIScaffoldOptions options)
         {
+            // Set shared options for consistency with FluentUIScaffoldApp
+            SharedOptionsManager.SetSharedOptions(options);
+
+            // Initialize a cross-process mutex to avoid multiple runners racing to start/stop the same server
+            var port = options.BaseUrl?.Port ?? 5000;
+            var mutexName = $"FluentUIScaffold_WebServer_{port}"; // cross-platform safe name
+            bool createdNew;
+            _startupMutex = new System.Threading.Mutex(initiallyOwned: false, name: mutexName, createdNew: out _);
+
             lock (_lockObject)
             {
                 if (_serverStarted)
@@ -76,14 +89,44 @@ namespace FluentUIScaffold.Core.Configuration
             {
                 instance = GetInstance(options);
 
-                // Check if server is already running on the expected port
-                if (await IsServerRunningOnPortAsync(options.BaseUrl?.Port ?? 5000))
+                // Try to acquire ownership to start the server. If another process owns it, wait until the server is up.
+                var acquired = _startupMutex!.WaitOne(TimeSpan.FromSeconds(1));
+                if (!acquired)
                 {
-                    instance._logger?.LogInformation("Server is already running on port {Port}, skipping startup", options.BaseUrl?.Port ?? 5000);
+                    // Another process is starting/owns the server. Wait until it's up.
+                    instance._logger?.LogInformation("Another test runner is starting the server. Waiting for readiness on port {Port}...", port);
+                    var waitStart = DateTime.UtcNow;
+                    while (DateTime.UtcNow - waitStart < TimeSpan.FromSeconds(120))
+                    {
+                        if (await IsServerRunningOnPortAsync(port))
+                        {
+                            lock (_lockObject)
+                            {
+                                _serverStarted = true;
+                                _isServerOwner = false;
+                            }
+                            instance._logger?.LogInformation("Detected running server on port {Port}. Skipping startup.", port);
+                            return;
+                        }
+                        await Task.Delay(250);
+                    }
+                    throw new TimeoutException($"Timed out waiting for existing server to start on port {port}.");
+                }
+
+                // We own the mutex; we'll be responsible for starting and stopping the server
+                _isServerOwner = true;
+
+                // Check if server is already running on the expected port
+                if (await IsServerRunningOnPortAsync(port))
+                {
+                    instance._logger?.LogInformation("Server is already running on port {Port}, skipping startup", port);
                     lock (_lockObject)
                     {
                         _serverStarted = true;
+                        _isServerOwner = false; // We didn't start it
                     }
+                    // Release mutex since we didn't start the server
+                    try { _startupMutex.ReleaseMutex(); } catch { }
                     return;
                 }
 
@@ -102,6 +145,7 @@ namespace FluentUIScaffold.Core.Configuration
                 lock (_lockObject)
                 {
                     _serverStarted = false;
+                    _isServerOwner = false;
                 }
 
                 instance?._logger?.LogError(ex, "Failed to start web server via WebServerManager for framework: {Framework}", _frameworkIdentifier);
@@ -121,9 +165,15 @@ namespace FluentUIScaffold.Core.Configuration
 
                 try
                 {
-                    _instance._currentLauncher?.Dispose();
+                    // Only the owner of the startup mutex should stop the server
+                    if (_isServerOwner)
+                    {
+                        _instance._currentLauncher?.Dispose();
+                    }
                     _instance = null;
                     _serverStarted = false;
+                    _isServerOwner = false;
+                    try { _startupMutex?.ReleaseMutex(); } catch { }
                     _instance?._logger?.LogInformation("Web server stopped successfully for framework: {Framework}", _frameworkIdentifier);
                 }
                 catch (Exception ex)
@@ -131,6 +181,9 @@ namespace FluentUIScaffold.Core.Configuration
                     _instance?._logger?.LogError(ex, "Failed to stop web server via WebServerManager for framework: {Framework}", _frameworkIdentifier);
                 }
             }
+
+            // Clear shared options when server stops
+            SharedOptionsManager.ClearSharedOptions();
         }
 
         /// <summary>
@@ -170,19 +223,23 @@ namespace FluentUIScaffold.Core.Configuration
             if (!string.IsNullOrEmpty(options.WebServerProjectPath))
             {
                 _logger?.LogInformation("Using explicit project path: {ProjectPath}", options.WebServerProjectPath);
-                return _factory.CreateConfiguration(options.BaseUrl!, ServerType.AspNetCore, options.WebServerProjectPath);
+                return ServerConfiguration.CreateDotNetServer(options.BaseUrl!, options.WebServerProjectPath).Build();
             }
 
-            // Use automatic project detection
+            // Use simplified project detection (just check if project path is provided)
             if (options.EnableProjectDetection)
             {
-                _logger?.LogInformation("Using automatic project detection");
-                return _factory.CreateConfigurationWithDetection(options.BaseUrl!, ServerType.AspNetCore, options.AdditionalSearchPaths);
+                _logger?.LogInformation("Using simplified project detection");
+                // For now, we'll just throw an exception since we need a project path
+                // In the future, this could be extended to search for common project patterns
+                throw new InvalidOperationException(
+                    "Project detection is enabled but no project path is provided. " +
+                    "Please provide either ServerConfiguration, WebServerProjectPath, or disable EnableProjectDetection.");
             }
 
             throw new InvalidOperationException(
-                "No server configuration provided and automatic project detection is disabled. " +
-                "Please provide either ServerConfiguration, WebServerProjectPath, or enable EnableProjectDetection.");
+                "No server configuration provided. " +
+                "Please provide either ServerConfiguration or WebServerProjectPath.");
         }
 
 
@@ -190,12 +247,26 @@ namespace FluentUIScaffold.Core.Configuration
         private void RegisterDefaultComponents()
         {
             // Register default server launchers
-            _factory.RegisterLauncher(new Launchers.AspNetCoreServerLauncher(_logger));
-            _factory.RegisterLauncher(new Launchers.AspireServerLauncher(_logger));
+            _factory.RegisterLauncher(new Launchers.AspNetServerLauncher(_logger));
+            _factory.RegisterLauncher(new Launchers.NodeJsServerLauncher(_logger));
+            _factory.RegisterLauncher(new Launchers.WebApplicationFactoryServerLauncher(_logger));
 
             // Register default project detectors
             _factory.RegisterDetector(new Detectors.EnvironmentBasedProjectDetector(_logger));
             _factory.RegisterDetector(new Detectors.GitBasedProjectDetector(_logger));
+        }
+
+        /// <summary>
+        /// Creates a configured logger with the specified log level.
+        /// </summary>
+        /// <param name="logger">The base logger.</param>
+        /// <param name="logLevel">The minimum log level to include.</param>
+        /// <returns>A configured logger.</returns>
+        private static ILogger? CreateConfiguredLogger(ILogger? logger, LogLevel logLevel)
+        {
+            // For now, just return the existing logger
+            // The log level filtering should be handled by the logging infrastructure
+            return logger;
         }
 
         public void Dispose()

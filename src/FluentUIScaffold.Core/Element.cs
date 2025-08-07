@@ -207,9 +207,7 @@ public class Element : IElement
     /// <inheritdoc/>
     public string GetAttribute(string attributeName)
     {
-        // This would need to be implemented in the driver
-        // For now, return empty string as a placeholder
-        return string.Empty;
+        return _driver.GetAttribute(Selector, attributeName) ?? string.Empty;
     }
 
     /// <inheritdoc/>
@@ -219,4 +217,6 @@ public class Element : IElement
         // For now, return empty string as a placeholder
         return string.Empty;
     }
+
+    // Note: CSS value retrieval is not supported by the current driver abstraction
 }

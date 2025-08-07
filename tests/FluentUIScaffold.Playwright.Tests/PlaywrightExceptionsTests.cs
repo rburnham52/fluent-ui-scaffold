@@ -21,10 +21,13 @@ public class PlaywrightExceptionsTests
         // Act
         var exception = new PlaywrightException(message, selector);
 
-        // Assert
-        Assert.That(exception.Message, Is.EqualTo(message));
-        Assert.That(exception.Selector, Is.EqualTo(selector));
-        Assert.That(exception.InnerException, Is.Null);
+        Assert.Multiple(() =>
+        {
+            // Assert
+            Assert.That(exception.Message, Is.EqualTo(message));
+            Assert.That(exception.Selector, Is.EqualTo(selector));
+            Assert.That(exception.InnerException, Is.Null);
+        });
     }
 
     [Test]
@@ -38,10 +41,13 @@ public class PlaywrightExceptionsTests
         // Act
         var exception = new PlaywrightException(message, selector, innerException);
 
-        // Assert
-        Assert.That(exception.Message, Is.EqualTo(message));
-        Assert.That(exception.Selector, Is.EqualTo(selector));
-        Assert.That(exception.InnerException, Is.EqualTo(innerException));
+        Assert.Multiple(() =>
+        {
+            // Assert
+            Assert.That(exception.Message, Is.EqualTo(message));
+            Assert.That(exception.Selector, Is.EqualTo(selector));
+            Assert.That(exception.InnerException, Is.EqualTo(innerException));
+        });
     }
 
     [Test]
@@ -53,9 +59,12 @@ public class PlaywrightExceptionsTests
         // Act
         var exception = new PlaywrightException(message, null);
 
-        // Assert
-        Assert.That(exception.Message, Is.EqualTo(message));
-        Assert.That(exception.Selector, Is.Null);
+        Assert.Multiple(() =>
+        {
+            // Assert
+            Assert.That(exception.Message, Is.EqualTo(message));
+            Assert.That(exception.Selector, Is.Null);
+        });
     }
 
     [Test]
@@ -69,11 +78,14 @@ public class PlaywrightExceptionsTests
         // Act
         var exception = new PlaywrightTimeoutException(message, selector, timeout);
 
-        // Assert
-        Assert.That(exception.Message, Is.EqualTo(message));
-        Assert.That(exception.Selector, Is.EqualTo(selector));
-        Assert.That(exception.Timeout, Is.EqualTo(timeout));
-        Assert.That(exception.InnerException, Is.Null);
+        Assert.Multiple(() =>
+        {
+            // Assert
+            Assert.That(exception.Message, Is.EqualTo(message));
+            Assert.That(exception.Selector, Is.EqualTo(selector));
+            Assert.That(exception.Timeout, Is.EqualTo(timeout));
+            Assert.That(exception.InnerException, Is.Null);
+        });
     }
 
     [Test]
@@ -86,10 +98,13 @@ public class PlaywrightExceptionsTests
         // Act
         var exception = new PlaywrightTimeoutException(message, selector);
 
-        // Assert
-        Assert.That(exception.Message, Is.EqualTo(message));
-        Assert.That(exception.Selector, Is.EqualTo(selector));
-        Assert.That(exception.Timeout, Is.EqualTo(TimeSpan.Zero));
+        Assert.Multiple(() =>
+        {
+            // Assert
+            Assert.That(exception.Message, Is.EqualTo(message));
+            Assert.That(exception.Selector, Is.EqualTo(selector));
+            Assert.That(exception.Timeout, Is.EqualTo(TimeSpan.Zero));
+        });
     }
 
     [Test]
@@ -101,10 +116,13 @@ public class PlaywrightExceptionsTests
         // Act
         var exception = new PlaywrightElementNotFoundException(selector);
 
-        // Assert
-        Assert.That(exception.Message, Is.EqualTo($"Element with selector '{selector}' was not found."));
-        Assert.That(exception.Selector, Is.EqualTo(selector));
-        Assert.That(exception.InnerException, Is.Null);
+        Assert.Multiple(() =>
+        {
+            // Assert
+            Assert.That(exception.Message, Is.EqualTo($"Element with selector '{selector}' was not found."));
+            Assert.That(exception.Selector, Is.EqualTo(selector));
+            Assert.That(exception.InnerException, Is.Null);
+        });
     }
 
     [Test]
@@ -117,10 +135,13 @@ public class PlaywrightExceptionsTests
         // Act
         var exception = new PlaywrightElementNotFoundException(selector, innerException);
 
-        // Assert
-        Assert.That(exception.Message, Is.EqualTo($"Element with selector '{selector}' was not found."));
-        Assert.That(exception.Selector, Is.EqualTo(selector));
-        Assert.That(exception.InnerException, Is.EqualTo(innerException));
+        Assert.Multiple(() =>
+        {
+            // Assert
+            Assert.That(exception.Message, Is.EqualTo($"Element with selector '{selector}' was not found."));
+            Assert.That(exception.Selector, Is.EqualTo(selector));
+            Assert.That(exception.InnerException, Is.EqualTo(innerException));
+        });
     }
 
     [Test]
@@ -132,10 +153,13 @@ public class PlaywrightExceptionsTests
         // Act
         var exception = new PlaywrightElementNotVisibleException(selector);
 
-        // Assert
-        Assert.That(exception.Message, Is.EqualTo($"Element with selector '{selector}' is not visible."));
-        Assert.That(exception.Selector, Is.EqualTo(selector));
-        Assert.That(exception.InnerException, Is.Null);
+        Assert.Multiple(() =>
+        {
+            // Assert
+            Assert.That(exception.Message, Is.EqualTo($"Element with selector '{selector}' is not visible."));
+            Assert.That(exception.Selector, Is.EqualTo(selector));
+            Assert.That(exception.InnerException, Is.Null);
+        });
     }
 
     [Test]
@@ -148,10 +172,13 @@ public class PlaywrightExceptionsTests
         // Act
         var exception = new PlaywrightElementNotVisibleException(selector, innerException);
 
-        // Assert
-        Assert.That(exception.Message, Is.EqualTo($"Element with selector '{selector}' is not visible."));
-        Assert.That(exception.Selector, Is.EqualTo(selector));
-        Assert.That(exception.InnerException, Is.EqualTo(innerException));
+        Assert.Multiple(() =>
+        {
+            // Assert
+            Assert.That(exception.Message, Is.EqualTo($"Element with selector '{selector}' is not visible."));
+            Assert.That(exception.Selector, Is.EqualTo(selector));
+            Assert.That(exception.InnerException, Is.EqualTo(innerException));
+        });
     }
 
     [Test]
@@ -163,10 +190,13 @@ public class PlaywrightExceptionsTests
         // Act
         var exception = new PlaywrightElementNotEnabledException(selector);
 
-        // Assert
-        Assert.That(exception.Message, Is.EqualTo($"Element with selector '{selector}' is not enabled."));
-        Assert.That(exception.Selector, Is.EqualTo(selector));
-        Assert.That(exception.InnerException, Is.Null);
+        Assert.Multiple(() =>
+        {
+            // Assert
+            Assert.That(exception.Message, Is.EqualTo($"Element with selector '{selector}' is not enabled."));
+            Assert.That(exception.Selector, Is.EqualTo(selector));
+            Assert.That(exception.InnerException, Is.Null);
+        });
     }
 
     [Test]
@@ -179,10 +209,13 @@ public class PlaywrightExceptionsTests
         // Act
         var exception = new PlaywrightElementNotEnabledException(selector, innerException);
 
-        // Assert
-        Assert.That(exception.Message, Is.EqualTo($"Element with selector '{selector}' is not enabled."));
-        Assert.That(exception.Selector, Is.EqualTo(selector));
-        Assert.That(exception.InnerException, Is.EqualTo(innerException));
+        Assert.Multiple(() =>
+        {
+            // Assert
+            Assert.That(exception.Message, Is.EqualTo($"Element with selector '{selector}' is not enabled."));
+            Assert.That(exception.Selector, Is.EqualTo(selector));
+            Assert.That(exception.InnerException, Is.EqualTo(innerException));
+        });
     }
 
     [Test]
@@ -195,11 +228,14 @@ public class PlaywrightExceptionsTests
         // Act
         var exception = new PlaywrightNavigationException(message, url);
 
-        // Assert
-        Assert.That(exception.Message, Is.EqualTo(message));
-        Assert.That(exception.Url, Is.EqualTo(url));
-        Assert.That(exception.Selector, Is.Null);
-        Assert.That(exception.InnerException, Is.Null);
+        Assert.Multiple(() =>
+        {
+            // Assert
+            Assert.That(exception.Message, Is.EqualTo(message));
+            Assert.That(exception.Url, Is.EqualTo(url));
+            Assert.That(exception.Selector, Is.Null);
+            Assert.That(exception.InnerException, Is.Null);
+        });
     }
 
     [Test]
@@ -213,11 +249,14 @@ public class PlaywrightExceptionsTests
         // Act
         var exception = new PlaywrightNavigationException(message, url, innerException);
 
-        // Assert
-        Assert.That(exception.Message, Is.EqualTo(message));
-        Assert.That(exception.Url, Is.EqualTo(url));
-        Assert.That(exception.Selector, Is.Null);
-        Assert.That(exception.InnerException, Is.EqualTo(innerException));
+        Assert.Multiple(() =>
+        {
+            // Assert
+            Assert.That(exception.Message, Is.EqualTo(message));
+            Assert.That(exception.Url, Is.EqualTo(url));
+            Assert.That(exception.Selector, Is.Null);
+            Assert.That(exception.InnerException, Is.EqualTo(innerException));
+        });
     }
 
     [Test]
@@ -229,9 +268,12 @@ public class PlaywrightExceptionsTests
         // Act
         var exception = new PlaywrightNavigationException(message, null);
 
-        // Assert
-        Assert.That(exception.Message, Is.EqualTo(message));
-        Assert.That(exception.Url, Is.Null);
+        Assert.Multiple(() =>
+        {
+            // Assert
+            Assert.That(exception.Message, Is.EqualTo(message));
+            Assert.That(exception.Url, Is.Null);
+        });
     }
 
     [Test]
@@ -244,11 +286,14 @@ public class PlaywrightExceptionsTests
         // Act
         var exception = new PlaywrightBrowserStartupException(message, browserType);
 
-        // Assert
-        Assert.That(exception.Message, Is.EqualTo(message));
-        Assert.That(exception.BrowserType, Is.EqualTo(browserType));
-        Assert.That(exception.Selector, Is.Null);
-        Assert.That(exception.InnerException, Is.Null);
+        Assert.Multiple(() =>
+        {
+            // Assert
+            Assert.That(exception.Message, Is.EqualTo(message));
+            Assert.That(exception.BrowserType, Is.EqualTo(browserType));
+            Assert.That(exception.Selector, Is.Null);
+            Assert.That(exception.InnerException, Is.Null);
+        });
     }
 
     [Test]
@@ -262,11 +307,14 @@ public class PlaywrightExceptionsTests
         // Act
         var exception = new PlaywrightBrowserStartupException(message, browserType, innerException);
 
-        // Assert
-        Assert.That(exception.Message, Is.EqualTo(message));
-        Assert.That(exception.BrowserType, Is.EqualTo(browserType));
-        Assert.That(exception.Selector, Is.Null);
-        Assert.That(exception.InnerException, Is.EqualTo(innerException));
+        Assert.Multiple(() =>
+        {
+            // Assert
+            Assert.That(exception.Message, Is.EqualTo(message));
+            Assert.That(exception.BrowserType, Is.EqualTo(browserType));
+            Assert.That(exception.Selector, Is.Null);
+            Assert.That(exception.InnerException, Is.EqualTo(innerException));
+        });
     }
 
     [Test]
@@ -278,9 +326,12 @@ public class PlaywrightExceptionsTests
         // Act
         var exception = new PlaywrightBrowserStartupException(message, null);
 
-        // Assert
-        Assert.That(exception.Message, Is.EqualTo(message));
-        Assert.That(exception.BrowserType, Is.Null);
+        Assert.Multiple(() =>
+        {
+            // Assert
+            Assert.That(exception.Message, Is.EqualTo(message));
+            Assert.That(exception.BrowserType, Is.Null);
+        });
     }
 
     [Test]

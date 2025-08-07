@@ -115,24 +115,25 @@ namespace FluentUIScaffold.Core.Configuration
                 throw new InvalidOperationException($"Could not detect project path for server type '{serverType}'. Please specify the project path explicitly.");
             }
 
-            return CreateConfiguration(baseUrl, serverType, projectPath);
+            return ServerLauncherFactory.CreateConfiguration(baseUrl, serverType, projectPath);
         }
 
         /// <summary>
-        /// Creates a server configuration with explicit project path.
+        /// Creates a server configuration for the specified server type.
         /// </summary>
         /// <param name="baseUrl">The base URL for the server.</param>
-        /// <param name="serverType">The type of server to launch.</param>
+        /// <param name="serverType">The type of server to create configuration for.</param>
         /// <param name="projectPath">The path to the project file.</param>
-        /// <returns>A server configuration.</returns>
-        public ServerConfiguration CreateConfiguration(Uri baseUrl, ServerType serverType, string projectPath)
+        /// <returns>A configured server configuration.</returns>
+        public static ServerConfiguration CreateConfiguration(Uri baseUrl, ServerType serverType, string projectPath)
         {
-            return new ServerConfiguration
+            return serverType switch
             {
-                BaseUrl = baseUrl,
-                ServerType = serverType,
-                ProjectPath = projectPath,
-                WorkingDirectory = Path.GetDirectoryName(projectPath)
+                ServerType.AspNetCore => ServerConfiguration.CreateDotNetServer(baseUrl, projectPath).Build(),
+                ServerType.Aspire => ServerConfiguration.CreateAspireServer(baseUrl, projectPath).Build(),
+                ServerType.NodeJs => ServerConfiguration.CreateNodeJsServer(baseUrl, projectPath).Build(),
+                ServerType.WebApplicationFactory => new DotNetServerConfigurationBuilder(ServerType.WebApplicationFactory, baseUrl, projectPath).Build(),
+                _ => throw new ArgumentException($"Unsupported server type: {serverType}")
             };
         }
 
@@ -147,6 +148,8 @@ namespace FluentUIScaffold.Core.Configuration
             {
                 ServerType.AspNetCore => "csproj",
                 ServerType.Aspire => "csproj",
+                ServerType.WebApplicationFactory => "csproj",
+                ServerType.NodeJs => "package.json",
                 _ => throw new ArgumentException($"Unknown server type: {serverType}")
             };
         }

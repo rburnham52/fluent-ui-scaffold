@@ -49,8 +49,7 @@ var options = new FluentUIScaffoldOptions
 {
     BaseUrl = new Uri("https://your-app.com"),
     DefaultWaitTimeout = TimeSpan.FromSeconds(30),
-    LogLevel = LogLevel.Information,
-    HeadlessMode = true
+    EnableDebugMode = false
 };
 
 var fluentUI = new FluentUIScaffoldApp<WebApp>(options);
@@ -120,15 +119,25 @@ dotnet test
 ### Basic Configuration
 
 ```csharp
-var options = new FluentUIScaffoldOptions
-{
-    BaseUrl = new Uri("https://your-app.com"),
-    DefaultTimeout = TimeSpan.FromSeconds(30),
-    DefaultRetryInterval = TimeSpan.FromMilliseconds(500),
-    WaitStrategy = WaitStrategy.Smart,
-    LogLevel = LogLevel.Information,
-    CaptureScreenshotsOnFailure = true
-};
+var options = new FluentUIScaffoldOptionsBuilder()
+    .WithBaseUrl(new Uri("https://your-app.com"))
+    .WithDefaultWaitTimeout(TimeSpan.FromSeconds(30))
+    .WithHeadlessMode(true)  // Explicit headless control
+    .WithDebugMode(false)    // Debug mode with automatic headless/SlowMo
+    .Build();
+```
+
+### Server Configuration
+
+```csharp
+var options = new FluentUIScaffoldOptionsBuilder()
+    .WithBaseUrl(new Uri("https://localhost:5001"))
+    .WithServerConfiguration(ServerConfiguration.CreateAspNetCore(
+        new Uri("https://localhost:5001"), 
+        "./path/to/your/project.csproj")
+        .WithAspNetCoreEnvironment("Development")
+        .Build())
+    .Build();
 ```
 
 ### Page Object Pattern

@@ -102,7 +102,7 @@ public class PlaywrightWaitStrategy
                 break;
 
             case WaitStrategy.Smart:
-                WaitForElementSmart(locator, timeout);
+                PlaywrightWaitStrategy.WaitForElementSmart(locator, timeout);
                 break;
 
             case WaitStrategy.None:
@@ -119,7 +119,7 @@ public class PlaywrightWaitStrategy
     /// </summary>
     /// <param name="locator">The element locator.</param>
     /// <param name="timeout">The timeout for the wait operation.</param>
-    private void WaitForElementSmart(ILocator locator, TimeSpan timeout)
+    private static void WaitForElementSmart(ILocator locator, TimeSpan timeout)
     {
         var timeoutMs = (float)timeout.TotalMilliseconds;
 

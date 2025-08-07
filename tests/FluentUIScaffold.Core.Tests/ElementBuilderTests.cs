@@ -36,10 +36,13 @@ public class ElementBuilderTests
 
         // Assert
         var element = builder.Build();
-        Assert.That(element.Selector, Is.EqualTo("#test"));
-        Assert.That(element.Timeout, Is.EqualTo(TimeSpan.FromSeconds(15)));
-        Assert.That(element.WaitStrategy, Is.EqualTo(WaitStrategy.Smart)); // Default to Smart strategy
-        Assert.That(element.RetryInterval, Is.EqualTo(TimeSpan.FromMilliseconds(100))); // Default retry interval
+        Assert.Multiple(() =>
+        {
+            Assert.That(element.Selector, Is.EqualTo("#test"));
+            Assert.That(element.Timeout, Is.EqualTo(TimeSpan.FromSeconds(15)));
+            Assert.That(element.WaitStrategy, Is.EqualTo(WaitStrategy.Smart)); // Default to Smart strategy
+            Assert.That(element.RetryInterval, Is.EqualTo(TimeSpan.FromMilliseconds(100))); // Default retry interval
+        });
     }
 
     [Test]
@@ -238,11 +241,14 @@ public class ElementBuilderTests
 
         // Assert
         Assert.That(element, Is.Not.Null);
-        Assert.That(element.Selector, Is.EqualTo("#test"));
-        Assert.That(element.Timeout, Is.EqualTo(TimeSpan.FromSeconds(25)));
-        Assert.That(element.WaitStrategy, Is.EqualTo(WaitStrategy.Disabled));
-        Assert.That(element.Description, Is.EqualTo("Submit Button"));
-        Assert.That(element.RetryInterval, Is.EqualTo(TimeSpan.FromMilliseconds(400)));
+        Assert.Multiple(() =>
+        {
+            Assert.That(element.Selector, Is.EqualTo("#test"));
+            Assert.That(element.Timeout, Is.EqualTo(TimeSpan.FromSeconds(25)));
+            Assert.That(element.WaitStrategy, Is.EqualTo(WaitStrategy.Disabled));
+            Assert.That(element.Description, Is.EqualTo("Submit Button"));
+            Assert.That(element.RetryInterval, Is.EqualTo(TimeSpan.FromMilliseconds(400)));
+        });
     }
 
     [Test]
@@ -257,11 +263,14 @@ public class ElementBuilderTests
             .WithAttribute("data-testid", "test-element")
             .Build();
 
-        // Assert
-        Assert.That(element.Selector, Is.EqualTo("#test"));
-        Assert.That(element.Timeout, Is.EqualTo(TimeSpan.FromSeconds(10)));
-        Assert.That(element.WaitStrategy, Is.EqualTo(WaitStrategy.Visible));
-        Assert.That(element.Description, Is.EqualTo("Test Element"));
-        Assert.That(element.RetryInterval, Is.EqualTo(TimeSpan.FromMilliseconds(500)));
+        Assert.Multiple(() =>
+        {
+            // Assert
+            Assert.That(element.Selector, Is.EqualTo("#test"));
+            Assert.That(element.Timeout, Is.EqualTo(TimeSpan.FromSeconds(10)));
+            Assert.That(element.WaitStrategy, Is.EqualTo(WaitStrategy.Visible));
+            Assert.That(element.Description, Is.EqualTo("Test Element"));
+            Assert.That(element.RetryInterval, Is.EqualTo(TimeSpan.FromMilliseconds(500)));
+        });
     }
 }

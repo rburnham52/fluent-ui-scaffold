@@ -133,7 +133,7 @@ namespace FluentUIScaffold.Core.Configuration.Detectors
                     continue;
 
                 // Look for project files in the additional search path
-                var projectExtensions = GetProjectExtensions(context.ProjectType);
+                var projectExtensions = EnvironmentBasedProjectDetector.GetProjectExtensions(context.ProjectType);
                 foreach (var extension in projectExtensions)
                 {
                     var projectFiles = Directory.GetFiles(searchPath, $"*.{extension}", SearchOption.TopDirectoryOnly);
@@ -201,7 +201,7 @@ namespace FluentUIScaffold.Core.Configuration.Detectors
             return null;
         }
 
-        private string[] GetProjectExtensions(string? projectType)
+        private static string[] GetProjectExtensions(string? projectType)
         {
             return projectType?.ToLowerInvariant() switch
             {

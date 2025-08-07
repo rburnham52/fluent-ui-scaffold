@@ -5,7 +5,8 @@ using System.IO;
 namespace FluentUIScaffold.Core.Configuration
 {
     /// <summary>
-    /// Configuration for web server startup and management.
+    /// Generic configuration for web server startup and management.
+    /// Contains only common properties needed to launch any server type.
     /// </summary>
     public class ServerConfiguration
     {
@@ -40,11 +41,6 @@ namespace FluentUIScaffold.Core.Configuration
         public Dictionary<string, string> EnvironmentVariables { get; set; } = new Dictionary<string, string>();
 
         /// <summary>
-        /// Gets or sets whether to enable SPA proxy for ASP.NET Core applications.
-        /// </summary>
-        public bool EnableSpaProxy { get; set; } = false;
-
-        /// <summary>
         /// Gets or sets the timeout for server startup.
         /// </summary>
         public TimeSpan StartupTimeout { get; set; } = TimeSpan.FromSeconds(60);
@@ -55,43 +51,75 @@ namespace FluentUIScaffold.Core.Configuration
         public List<string> HealthCheckEndpoints { get; set; } = new List<string> { "/" };
 
         /// <summary>
-        /// Creates a new ASP.NET Core server configuration.
+        /// The name of the process to launch/kill.
+        /// </summary>
+        public string ProcessName { get; set; }
+
+        /// <summary>
+        /// Creates a .NET server configuration builder for ASP.NET Core applications.
         /// </summary>
         /// <param name="baseUrl">The base URL for the server.</param>
         /// <param name="projectPath">The path to the project file.</param>
-        /// <returns>A new ASP.NET Core server configuration.</returns>
-        public static ServerConfiguration CreateAspNetCore(Uri baseUrl, string projectPath)
+        /// <returns>A .NET server configuration builder.</returns>
+        public static DotNetServerConfigurationBuilder CreateDotNetServer(Uri baseUrl, string projectPath)
         {
-            return new ServerConfiguration
-            {
-                ServerType = ServerType.AspNetCore,
-                BaseUrl = baseUrl,
-                ProjectPath = projectPath,
-                WorkingDirectory = Path.GetDirectoryName(projectPath),
-                EnableSpaProxy = false,
-                StartupTimeout = TimeSpan.FromSeconds(60),
-                HealthCheckEndpoints = new List<string> { "/" }
-            };
+            return new DotNetServerConfigurationBuilder(ServerType.AspNetCore, baseUrl, projectPath)
+                .WithAspNetCoreEnvironment("Development")
+                .WithAspNetCoreHostingStartupAssemblies("") // Disabled by default
+                .WithStartupTimeout(TimeSpan.FromSeconds(60));
         }
 
         /// <summary>
-        /// Creates a new Aspire App Host server configuration.
+        /// Creates a .NET server configuration builder for Aspire applications.
         /// </summary>
         /// <param name="baseUrl">The base URL for the server.</param>
         /// <param name="projectPath">The path to the project file.</param>
-        /// <returns>A new Aspire App Host server configuration.</returns>
-        public static ServerConfiguration CreateAspire(Uri baseUrl, string projectPath)
+        /// <returns>A .NET server configuration builder.</returns>
+        public static DotNetServerConfigurationBuilder CreateAspireServer(Uri baseUrl, string projectPath)
         {
-            return new ServerConfiguration
-            {
-                ServerType = ServerType.Aspire,
-                BaseUrl = baseUrl,
-                ProjectPath = projectPath,
-                WorkingDirectory = Path.GetDirectoryName(projectPath),
-                EnableSpaProxy = false,
-                StartupTimeout = TimeSpan.FromSeconds(90),
-                HealthCheckEndpoints = new List<string> { "/" }
-            };
+            return new DotNetServerConfigurationBuilder(ServerType.Aspire, baseUrl, projectPath)
+                .WithAspNetCoreEnvironment("Development")
+                .WithDotNetEnvironment("Development")
+                .WithAspireDashboardOtlpEndpoint("https://localhost:21097")
+                .WithAspireResourceServiceEndpoint("https://localhost:22268")
+                .WithAspNetCoreHostingStartupAssemblies("") // Disabled by default
+                .WithAspNetCoreUrls(baseUrl.ToString())
+                .WithAspNetCoreForwardedHeaders(false) // Disabled by default
+                .WithStartupTimeout(TimeSpan.FromSeconds(90));
         }
+
+        /// <summary>
+        /// Creates a Node.js server configuration builder.
+        /// </summary>
+        /// <param name="baseUrl">The base URL for the server.</param>
+        /// <param name="projectPath">The path to the package.json file.</param>
+        /// <returns>A Node.js server configuration builder.</returns>
+        public static NodeJsServerConfigurationBuilder CreateNodeJsServer(Uri baseUrl, string projectPath)
+        {
+            return new NodeJsServerConfigurationBuilder(baseUrl, projectPath)
+                .WithNodeEnvironment("development")
+                .WithStartupTimeout(TimeSpan.FromSeconds(60));
+        }
+    }
+
+    /// <summary>
+    /// .NET-specific configuration for .NET-based servers.
+    /// </summary>
+    public class DotNetServerConfiguration
+    {
+        /// <summary>
+        /// Gets or sets the .NET framework to target (e.g., "net6.0", "net7.0", "net8.0").
+        /// </summary>
+        public string Framework { get; set; } = "net8.0";
+
+        /// <summary>
+        /// Gets or sets the build configuration (e.g., "Debug", "Release").
+        /// </summary>
+        public string Configuration { get; set; } = "Release";
+
+        /// <summary>
+        /// Gets or sets whether to enable SPA proxy for ASP.NET Core applications.
+        /// </summary>
+        public bool EnableSpaProxy { get; set; } = false;
     }
 }

@@ -85,7 +85,7 @@ samples/
    ```
 
 4. **Access the application**:
-   - Open your browser to `http://localhost:5000`
+   - Open your browser to `http://localhost:5001`
    - The application will automatically proxy to the Vite dev server
 
 ### Running the Tests

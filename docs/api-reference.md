@@ -88,12 +88,17 @@ Configuration options for the FluentUIScaffold framework.
 public class FluentUIScaffoldOptions
 {
     public Uri? BaseUrl { get; set; }
-    public TimeSpan DefaultWaitTimeout { get; set; } = TimeSpan.FromSeconds(60);
-    public LogLevel LogLevel { get; set; } = LogLevel.Information;
-    public bool HeadlessMode { get; set; } = true;
+    public TimeSpan DefaultWaitTimeout { get; set; } = TimeSpan.FromSeconds(30);
+    public TimeSpan DefaultWaitTimeoutDebug { get; set; } = TimeSpan.FromSeconds(120);
+    public bool EnableDebugMode { get; set; } = false;
+    public bool? HeadlessMode { get; set; } = null;  // null = automatic determination
+    public int? SlowMo { get; set; } = null;         // null = automatic determination
     public string? WebServerProjectPath { get; set; }
-    public bool DebugMode { get; set; } = false;
+    public bool EnableProjectDetection { get; set; } = false;
+    public bool EnableWebServerLaunch { get; set; } = false;
+    public ServerConfiguration? ServerConfiguration { get; set; }
 }
+```
 ```
 
 #### Properties
@@ -101,11 +106,55 @@ public class FluentUIScaffoldOptions
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
 | `BaseUrl` | `Uri?` | `null` | Base URL for the application |
-| `DefaultWaitTimeout` | `TimeSpan` | `60 seconds` | Default timeout for wait operations |
-| `LogLevel` | `LogLevel` | `Information` | Logging level for the framework |
-| `HeadlessMode` | `bool` | `true` | Whether to run the browser in headless mode |
-| `WebServerProjectPath` | `string?` | `null` | Path to the ASP.NET Core project for web server launching |
-| `DebugMode` | `bool` | `false` | Whether to run in debug mode (overrides HeadlessMode and sets SlowMo) |
+| `DefaultWaitTimeout` | `TimeSpan` | `30s` | Default timeout for element operations |
+| `DefaultWaitTimeoutDebug` | `TimeSpan` | `120s` | Default timeout when debug mode is enabled |
+| `EnableDebugMode` | `bool` | `false` | Enable debug mode (auto-detected when debugger attached) |
+| `HeadlessMode` | `bool?` | `null` | Explicit headless control (null = automatic) |
+| `SlowMo` | `int?` | `null` | Explicit SlowMo control in milliseconds (null = automatic) |
+| `WebServerProjectPath` | `string?` | `null` | Path to web server project file |
+| `EnableProjectDetection` | `bool` | `false` | Enable automatic project detection |
+| `EnableWebServerLaunch` | `bool` | `false` | Enable automatic web server launching |
+| `WebServerLogLevel` | `LogLevel` | `LogLevel.Information` | Control log level for web server launcher operations |
+| `ServerConfiguration` | `ServerConfiguration?` | `null` | Server configuration for launching web servers |
+
+### FluentUIScaffoldOptionsBuilder
+
+Builder for creating and configuring FluentUIScaffoldOptions instances with a fluent API.
+
+```csharp
+public class FluentUIScaffoldOptionsBuilder
+{
+    public FluentUIScaffoldOptionsBuilder WithBaseUrl(Uri baseUrl)
+    public FluentUIScaffoldOptionsBuilder WithDefaultWaitTimeout(TimeSpan timeout)
+    public FluentUIScaffoldOptionsBuilder WithDefaultWaitTimeoutDebug(TimeSpan timeout)
+    public FluentUIScaffoldOptionsBuilder WithDebugMode(bool enabled = true)
+    public FluentUIScaffoldOptionsBuilder WithHeadlessMode(bool? headless)
+    public FluentUIScaffoldOptionsBuilder WithSlowMo(int? slowMo)
+    public FluentUIScaffoldOptionsBuilder WithWebServerProjectPath(string projectPath)
+    public FluentUIScaffoldOptionsBuilder WithServerConfiguration(ServerConfiguration serverConfiguration)
+    public FluentUIScaffoldOptionsBuilder WithProjectDetection(bool enabled = true)
+    public FluentUIScaffoldOptionsBuilder WithWebServerLaunch(bool enabled = true)
+    public FluentUIScaffoldOptionsBuilder WithWebServerLogLevel(LogLevel logLevel)
+    public FluentUIScaffoldOptions Build()
+}
+```
+
+#### Methods
+
+| Method | Description | Parameters | Returns |
+|--------|-------------|------------|---------|
+| `WithBaseUrl` | Sets the base URL for the application | `Uri baseUrl` | `FluentUIScaffoldOptionsBuilder` |
+| `WithDefaultWaitTimeout` | Sets the default timeout for element operations | `TimeSpan timeout` | `FluentUIScaffoldOptionsBuilder` |
+| `WithDefaultWaitTimeoutDebug` | Sets the default timeout when debug mode is enabled | `TimeSpan timeout` | `FluentUIScaffoldOptionsBuilder` |
+| `WithDebugMode` | Enables or disables debug mode | `bool enabled = true` | `FluentUIScaffoldOptionsBuilder` |
+| `WithHeadlessMode` | Sets explicit headless control | `bool? headless` | `FluentUIScaffoldOptionsBuilder` |
+| `WithSlowMo` | Sets explicit SlowMo control in milliseconds | `int? slowMo` | `FluentUIScaffoldOptionsBuilder` |
+| `WithWebServerProjectPath` | Sets the path to the web server project file | `string projectPath` | `FluentUIScaffoldOptionsBuilder` |
+| `WithServerConfiguration` | Sets the server configuration for launching web servers | `ServerConfiguration serverConfiguration` | `FluentUIScaffoldOptionsBuilder` |
+| `WithProjectDetection` | Enables or disables automatic project detection | `bool enabled = true` | `FluentUIScaffoldOptionsBuilder` |
+| `WithWebServerLaunch` | Enables or disables web server launching | `bool enabled = true` | `FluentUIScaffoldOptionsBuilder` |
+| `WithWebServerLogLevel` | Sets the log level for web server launcher operations | `LogLevel logLevel` | `FluentUIScaffoldOptionsBuilder` |
+| `Build` | Builds and returns the configured options | None | `FluentUIScaffoldOptions` |
 
 ### WaitStrategy
 
@@ -137,6 +186,99 @@ public enum WaitStrategy
 | `Disabled` | Wait for element to be disabled |
 | `TextPresent` | Wait for specific text to be present |
 | `Smart` | Framework-specific intelligent waiting |
+
+### ServerConfiguration
+
+Configuration for web server launching.
+
+```csharp
+public class ServerConfiguration
+{
+    public ServerType ServerType { get; set; }
+    public Uri BaseUrl { get; set; }
+    public string ProjectPath { get; set; }
+    public Dictionary<string, string> EnvironmentVariables { get; set; }
+    public List<string> Arguments { get; set; }
+    public List<string> HealthCheckEndpoints { get; set; }
+    
+    // Factory methods for creating pre-configured servers
+    public static DotNetServerConfigurationBuilder CreateAspNetCore(Uri baseUrl, string projectPath)
+    public static DotNetServerConfigurationBuilder CreateAspire(Uri baseUrl, string projectPath)
+    public static NodeJsServerConfigurationBuilder CreateNodeJs(Uri baseUrl, string projectPath)
+}
+```
+
+#### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `ServerType` | `ServerType` | Type of server to launch |
+| `BaseUrl` | `Uri` | Base URL for the server |
+| `ProjectPath` | `string` | Path to the project file |
+| `EnvironmentVariables` | `Dictionary<string, string>` | Environment variables for the server |
+| `Arguments` | `List<string>` | Command line arguments |
+| `HealthCheckEndpoints` | `List<string>` | Endpoints to check for server readiness |
+
+#### Factory Methods
+
+| Method | Description | Parameters |
+|--------|-------------|------------|
+| `CreateDotNetServer` | Creates ASP.NET Core server configuration | `Uri baseUrl, string projectPath` |
+| `CreateAspireServer` | Creates Aspire App Host configuration | `Uri baseUrl, string projectPath` |
+| `CreateNodeJsServer` | Creates Node.js server configuration | `Uri baseUrl, string projectPath` |
+
+### ServerType
+
+Enumeration of supported server types.
+
+```csharp
+public enum ServerType
+{
+    AspNetCore,
+    Aspire,
+    NodeJs,
+    WebApplicationFactory
+}
+```
+
+#### Values
+
+| Value | Description |
+|-------|-------------|
+| `AspNetCore` | ASP.NET Core applications |
+| `Aspire` | .NET Aspire App Host applications |
+| `NodeJs` | Node.js applications |
+| `WebApplicationFactory` | ASP.NET Core apps hosted in-process via WebApplicationFactory (falls back to ASP.NET launcher by default) |
+
+### DotNetServerConfigurationBuilder
+
+Builder for .NET server configurations.
+
+```csharp
+public class DotNetServerConfigurationBuilder : ServerConfigurationBuilder
+{
+    public DotNetServerConfigurationBuilder WithAspNetCoreEnvironment(string environment)
+    public DotNetServerConfigurationBuilder WithDotNetEnvironment(string environment)
+    public DotNetServerConfigurationBuilder WithAspireDashboardOtlpEndpoint(string endpoint)
+    public DotNetServerConfigurationBuilder WithAspireResourceServiceEndpoint(string endpoint)
+    public DotNetServerConfigurationBuilder WithAspNetCoreHostingStartupAssemblies(string assemblies)
+    public DotNetServerConfigurationBuilder WithAspNetCoreUrls(string urls)
+    public DotNetServerConfigurationBuilder WithAspNetCoreForwardedHeaders(bool enabled)
+}
+```
+
+### NodeJsServerConfigurationBuilder
+
+Builder for Node.js server configurations.
+
+```csharp
+public class NodeJsServerConfigurationBuilder : ServerConfigurationBuilder
+{
+    public NodeJsServerConfigurationBuilder WithNpmScript(string script)
+    public NodeJsServerConfigurationBuilder WithNodeEnvironment(string environment)
+    public NodeJsServerConfigurationBuilder WithPort(int port)
+}
+```
 
 ### PageValidationStrategy
 
