@@ -1,9 +1,9 @@
 using System;
-using System.Collections.Generic; // Added missing import
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
-using System.Threading; // Added missing import
+using System.Threading;
 using System.Threading.Tasks;
 
 using Microsoft.Extensions.Logging;
@@ -11,18 +11,19 @@ using Microsoft.Extensions.Logging;
 namespace FluentUIScaffold.Core.Configuration.Launchers
 {
     /// <summary>
-    /// Server launcher for ASP.NET Core applications with support for SPA proxy configuration.
+    /// Unified server launcher for ASP.NET Core and Aspire applications.
+    /// Handles both server types with different configuration options.
     /// </summary>
-    public class AspNetCoreServerLauncher : IServerLauncher
+    public class AspNetServerLauncher : IServerLauncher
     {
         private readonly ILogger? _logger;
         private Process? _webServerProcess;
         private readonly HttpClient _httpClient;
         private bool _disposed;
 
-        public string Name => "AspNetCoreServerLauncher";
+        public string Name => "AspNetServerLauncher";
 
-        public AspNetCoreServerLauncher(ILogger? logger = null)
+        public AspNetServerLauncher(ILogger? logger = null)
         {
             _logger = logger;
             _httpClient = new HttpClient();
@@ -30,18 +31,23 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
 
         public bool CanHandle(ServerConfiguration configuration)
         {
-            return configuration.ServerType == ServerType.AspNetCore;
+            return configuration.ServerType == ServerType.AspNetCore ||
+                   configuration.ServerType == ServerType.Aspire;
         }
 
         public async Task LaunchAsync(ServerConfiguration configuration)
         {
+            if (_disposed)
+                throw new ObjectDisposedException(nameof(AspNetServerLauncher));
+
             if (string.IsNullOrEmpty(configuration.ProjectPath))
                 throw new ArgumentException("Project path cannot be null or empty.", nameof(configuration));
 
             if (configuration.BaseUrl == null)
                 throw new ArgumentException("Base URL cannot be null.", nameof(configuration));
 
-            _logger?.LogInformation("Launching ASP.NET Core server for project: {ProjectPath}", configuration.ProjectPath);
+            _logger?.LogInformation("Launching {ServerType} server for project: {ProjectPath}",
+                configuration.ServerType, configuration.ProjectPath);
             _logger?.LogInformation("Expected base URL: {BaseUrl}", configuration.BaseUrl);
 
             // Kill any existing processes on the same port
@@ -55,7 +61,7 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
             {
                 FileName = "dotnet",
                 Arguments = arguments,
-                WorkingDirectory = Path.GetDirectoryName(configuration.ProjectPath), // Use project directory like old launcher
+                WorkingDirectory = configuration.WorkingDirectory ?? Path.GetDirectoryName(configuration.ProjectPath),
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
@@ -68,24 +74,22 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
                 startInfo.EnvironmentVariables[envVar.Key] = envVar.Value;
             }
 
-            // Handle SPA proxy configuration
-            if (!configuration.EnableSpaProxy)
-            {
-                startInfo.EnvironmentVariables["ASPNETCORE_HOSTINGSTARTUPASSEMBLIES"] = "";
-            }
+            // Set server-specific environment variables
+            SetServerSpecificEnvironmentVariables(startInfo, configuration);
 
-            _logger?.LogInformation("Starting ASP.NET Core server with command: {Command} {Arguments}",
-                startInfo.FileName, startInfo.Arguments);
+            _logger?.LogInformation("Starting {ServerType} server with command: {Command} {Arguments}",
+                configuration.ServerType, startInfo.FileName, startInfo.Arguments);
 
             try
             {
                 _webServerProcess = Process.Start(startInfo);
                 if (_webServerProcess == null)
                 {
-                    throw new InvalidOperationException("Failed to start ASP.NET Core server process.");
+                    throw new InvalidOperationException($"Failed to start {configuration.ServerType} server process.");
                 }
 
-                _logger?.LogInformation("ASP.NET Core server process started with PID: {ProcessId}", _webServerProcess.Id);
+                _logger?.LogInformation("{ServerType} server process started with PID: {ProcessId}",
+                    configuration.ServerType, _webServerProcess.Id);
 
                 // Start capturing output asynchronously
                 _ = Task.Run(async () =>
@@ -137,28 +141,95 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
                 // Wait for the server to be ready
                 await WaitForServerReadyAsync(configuration);
 
-                _logger?.LogInformation("ASP.NET Core server is ready and responding at {BaseUrl}", configuration.BaseUrl);
+                _logger?.LogInformation("{ServerType} server is ready and responding at {BaseUrl}",
+                    configuration.ServerType, configuration.BaseUrl);
             }
             catch (Exception ex)
             {
-                _logger?.LogError(ex, "Failed to start ASP.NET Core server");
+                _logger?.LogError(ex, "Failed to start {ServerType} server", configuration.ServerType);
                 throw;
+            }
+        }
+
+        private void SetServerSpecificEnvironmentVariables(ProcessStartInfo startInfo, ServerConfiguration configuration)
+        {
+            // The builder defaults handle all standard environment variables.
+            // This method is now only for server-specific overrides that can't be handled by the builder.
+
+            switch (configuration.ServerType)
+            {
+                case ServerType.AspNetCore:
+                    // ASP.NET Core specific overrides can be added here if needed
+                    // Currently, all environment variables are handled by the builder defaults
+                    break;
+
+                case ServerType.Aspire:
+                    // Aspire-specific overrides can be added here if needed
+                    // Currently, all environment variables are handled by the builder defaults
+                    break;
             }
         }
 
         private string BuildCommandArguments(ServerConfiguration configuration)
         {
-            // Use the exact same command format as the old WebServerLauncher
-            return $"run --configuration Release --framework net8.0 --urls \"{configuration.BaseUrl}\" --no-launch-profile";
+            // Build the base command
+            var arguments = new List<string> { "run" };
+
+            // Add framework and configuration from arguments (set by the builder)
+            var frameworkIndex = configuration.Arguments.IndexOf("--framework");
+            var configurationIndex = configuration.Arguments.IndexOf("--configuration");
+
+            if (frameworkIndex >= 0 && frameworkIndex + 1 < configuration.Arguments.Count)
+            {
+                arguments.AddRange(new[] { "--framework", configuration.Arguments[frameworkIndex + 1] });
+            }
+            else
+            {
+                arguments.AddRange(new[] { "--framework", "net8.0" }); // Default
+            }
+
+            if (configurationIndex >= 0 && configurationIndex + 1 < configuration.Arguments.Count)
+            {
+                arguments.AddRange(new[] { "--configuration", configuration.Arguments[configurationIndex + 1] });
+            }
+            else
+            {
+                arguments.AddRange(new[] { "--configuration", "Release" }); // Default
+            }
+
+            // Add URL configuration for ASP.NET Core
+            if (configuration.ServerType == ServerType.AspNetCore)
+            {
+                arguments.Add("--urls");
+                arguments.Add($"\"{configuration.BaseUrl}\"");
+            }
+
+            arguments.Add("--no-launch-profile");
+
+            // Add any additional custom arguments (excluding the ones we already processed)
+            var customArguments = new List<string>();
+            for (int i = 0; i < configuration.Arguments.Count; i++)
+            {
+                if (configuration.Arguments[i] == "--framework" || configuration.Arguments[i] == "--configuration")
+                {
+                    i++; // Skip the value too
+                    continue;
+                }
+                customArguments.Add(configuration.Arguments[i]);
+            }
+            arguments.AddRange(customArguments);
+
+            return string.Join(" ", arguments);
         }
 
         private async Task WaitForServerReadyAsync(ServerConfiguration configuration)
         {
-            _logger?.LogInformation("Waiting for ASP.NET Core server to be ready at {BaseUrl}", configuration.BaseUrl);
+            _logger?.LogInformation("Waiting for {ServerType} server to be ready at {BaseUrl}",
+                configuration.ServerType, configuration.BaseUrl);
 
             var startTime = DateTime.UtcNow;
             var attempt = 0;
-            var maxAttempts = (int)(configuration.StartupTimeout.TotalMilliseconds / 200); // Check every 200ms instead of 100ms
+            var maxAttempts = (int)(configuration.StartupTimeout.TotalMilliseconds / 200);
 
             // Build test URLs from health check endpoints
             var testUrls = new List<Uri> { configuration.BaseUrl };
@@ -184,23 +255,22 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
                 if (_webServerProcess?.HasExited == true)
                 {
                     var exitCode = _webServerProcess.ExitCode;
-                    _logger?.LogError("ASP.NET Core server process has exited with code: {ExitCode}", exitCode);
-                    throw new InvalidOperationException($"ASP.NET Core server process exited with code {exitCode}");
+                    _logger?.LogError("{ServerType} server process has exited with code: {ExitCode}",
+                        configuration.ServerType, exitCode);
+                    throw new InvalidOperationException($"{configuration.ServerType} server process exited with code {exitCode}");
                 }
-
-                bool serverReady = false;
 
                 foreach (var testUrl in testUrls)
                 {
                     try
                     {
-                        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5)); // 5 second timeout per request
+                        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
                         var response = await _httpClient.GetAsync(testUrl, cts.Token);
 
                         if (response.IsSuccessStatusCode)
                         {
-                            _logger?.LogInformation("ASP.NET Core server is ready after {Attempts} attempts at {TestUrl}",
-                                attempt, testUrl);
+                            _logger?.LogInformation("{ServerType} server is ready after {Attempts} attempts at {TestUrl}",
+                                configuration.ServerType, attempt, testUrl);
                             return;
                         }
                         else
@@ -229,31 +299,32 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
                 if (attempt % 5 == 0)
                 {
                     var elapsed = DateTime.UtcNow - startTime;
-                    _logger?.LogInformation("Still waiting for ASP.NET Core server... Attempt {Attempt}/{MaxAttempts}, Elapsed: {Elapsed:F1}s",
-                        attempt, maxAttempts, elapsed.TotalSeconds);
+                    _logger?.LogInformation("Still waiting for {ServerType} server... Attempt {Attempt}/{MaxAttempts}, Elapsed: {Elapsed:F1}s",
+                        configuration.ServerType, attempt, maxAttempts, elapsed.TotalSeconds);
                 }
 
-                await Task.Delay(200); // Wait 200ms between attempts
+                await Task.Delay(200);
             }
 
             // Check if the process is still running
             if (_webServerProcess != null && !_webServerProcess.HasExited)
             {
-                _logger?.LogWarning("ASP.NET Core server process is still running but not responding. Process ID: {PID}", _webServerProcess.Id);
+                _logger?.LogWarning("{ServerType} server process is still running but not responding. Process ID: {PID}",
+                    configuration.ServerType, _webServerProcess.Id);
             }
             else if (_webServerProcess != null && _webServerProcess.HasExited)
             {
-                _logger?.LogError("ASP.NET Core server process has exited with code: {ExitCode}", _webServerProcess.ExitCode);
+                _logger?.LogError("{ServerType} server process has exited with code: {ExitCode}",
+                    configuration.ServerType, _webServerProcess.ExitCode);
             }
 
-            throw new TimeoutException($"ASP.NET Core server failed to start within {configuration.StartupTimeout.TotalSeconds} seconds after {attempt} attempts.");
+            throw new TimeoutException($"{configuration.ServerType} server failed to start within {configuration.StartupTimeout.TotalSeconds} seconds after {attempt} attempts.");
         }
 
         private async Task KillProcessesOnPortAsync(int port)
         {
             try
             {
-                // Use netstat to find processes using the port
                 var startInfo = new ProcessStartInfo
                 {
                     FileName = "netstat",
@@ -269,7 +340,6 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
                     var output = await process.StandardOutput.ReadToEndAsync();
                     await process.WaitForExitAsync();
 
-                    // Parse the output to find PIDs
                     var lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
                     foreach (var line in lines)
                     {
@@ -315,13 +385,13 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
                 {
                     try
                     {
-                        _logger?.LogInformation("Stopping ASP.NET Core server process");
+                        _logger?.LogInformation("Stopping ASP.NET server process");
                         _webServerProcess.Kill();
-                        _webServerProcess.WaitForExit(5000); // Wait up to 5 seconds
+                        _webServerProcess.WaitForExit(5000);
                     }
                     catch (Exception ex)
                     {
-                        _logger?.LogWarning("Failed to stop ASP.NET Core server process: {Message}", ex.Message);
+                        _logger?.LogWarning("Failed to stop ASP.NET server process: {Message}", ex.Message);
                     }
                     finally
                     {

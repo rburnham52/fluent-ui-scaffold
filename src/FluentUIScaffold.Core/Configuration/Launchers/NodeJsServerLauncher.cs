@@ -10,31 +10,31 @@ using Microsoft.Extensions.Logging;
 namespace FluentUIScaffold.Core.Configuration.Launchers
 {
     /// <summary>
-    /// Server launcher for Aspire App Host applications.
-    /// Handles the specific requirements for launching Aspire applications with proper environment configuration.
+    /// Server launcher for Node.js applications.
+    /// Handles launching Node.js applications with npm/yarn commands.
     /// </summary>
-    public class AspireServerLauncher : IServerLauncher
+    public class NodeJsServerLauncher : IServerLauncher
     {
         private readonly ILogger? _logger;
         private Process? _process;
         private bool _disposed;
 
-        public AspireServerLauncher(ILogger? logger = null)
+        public NodeJsServerLauncher(ILogger? logger = null)
         {
             _logger = logger;
         }
 
-        public string Name => "AspireServerLauncher";
+        public string Name => "NodeJsServerLauncher";
 
         public bool CanHandle(ServerConfiguration configuration)
         {
-            return configuration.ServerType == ServerType.Aspire;
+            return configuration.ServerType == ServerType.NodeJs;
         }
 
         public async Task LaunchAsync(ServerConfiguration configuration)
         {
             if (_disposed)
-                throw new ObjectDisposedException(nameof(AspireServerLauncher));
+                throw new ObjectDisposedException(nameof(NodeJsServerLauncher));
 
             if (string.IsNullOrEmpty(configuration.ProjectPath))
                 throw new ArgumentException("Project path cannot be null or empty.", nameof(configuration));
@@ -42,7 +42,7 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
             if (configuration.BaseUrl == null)
                 throw new ArgumentException("Base URL cannot be null.", nameof(configuration));
 
-            _logger?.LogInformation("Launching Aspire server with configuration: {ProjectPath}", configuration.ProjectPath);
+            _logger?.LogInformation("Launching Node.js server with configuration: {ProjectPath}", configuration.ProjectPath);
 
             // Kill existing processes on the port
             await KillProcessesOnPortAsync(configuration.BaseUrl.Port);
@@ -50,25 +50,13 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
             // Build command arguments
             var arguments = BuildCommandArguments(configuration);
 
-            // Set up environment variables
-            var environmentVariables = new Dictionary<string, string>(configuration.EnvironmentVariables)
-            {
-                ["ASPNETCORE_ENVIRONMENT"] = "Development",
-                ["ASPNETCORE_HOSTINGSTARTUPASSEMBLIES"] = "",
-                ["DOTNET_ENVIRONMENT"] = "Development",
-                ["ASPNETCORE_URLS"] = configuration.BaseUrl.ToString()
-            };
-
-            // Disable SPA proxy if not enabled
-            if (!configuration.EnableSpaProxy)
-            {
-                environmentVariables["ASPNETCORE_FORWARDEDHEADERS_ENABLED"] = "false";
-            }
+            // Use environment variables from configuration (set by builder defaults)
+            var environmentVariables = new Dictionary<string, string>(configuration.EnvironmentVariables);
 
             // Start the process
             var startInfo = new ProcessStartInfo
             {
-                FileName = "dotnet",
+                FileName = "npm",
                 Arguments = arguments,
                 WorkingDirectory = configuration.WorkingDirectory ?? Path.GetDirectoryName(configuration.ProjectPath),
                 UseShellExecute = false,
@@ -85,26 +73,22 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
 
             _process = new Process { StartInfo = startInfo };
 
-            _logger?.LogInformation("Starting Aspire process: dotnet {Arguments}", arguments);
+            _logger?.LogInformation("Starting Node.js process: npm {Arguments}", arguments);
 
             if (!_process.Start())
             {
-                throw new InvalidOperationException("Failed to start Aspire server process");
+                throw new InvalidOperationException("Failed to start Node.js server process");
             }
 
             // Wait for server to be ready
             await WaitForServerReadyAsync(configuration);
 
-            _logger?.LogInformation("Aspire server is ready at {BaseUrl}", configuration.BaseUrl);
+            _logger?.LogInformation("Node.js server is ready at {BaseUrl}", configuration.BaseUrl);
         }
 
         private string BuildCommandArguments(ServerConfiguration configuration)
         {
-            var arguments = new List<string> { "run" };
-
-            arguments.AddRange(new[] { "--framework", "net8.0" });
-            arguments.AddRange(new[] { "--configuration", "Release" });
-            arguments.Add("--no-launch-profile");
+            var arguments = new List<string> { "start" };
 
             // Add custom arguments
             arguments.AddRange(configuration.Arguments);
@@ -149,7 +133,7 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
                 attempt++;
             }
 
-            throw new TimeoutException($"Aspire server did not become ready within {configuration.StartupTimeout}");
+            throw new TimeoutException($"Node.js server did not become ready within {configuration.StartupTimeout}");
         }
 
         private async Task KillProcessesOnPortAsync(int port)

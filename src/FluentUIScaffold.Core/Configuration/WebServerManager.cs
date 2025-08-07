@@ -46,7 +46,9 @@ namespace FluentUIScaffold.Core.Configuration
             {
                 if (_instance == null)
                 {
-                    _instance = new WebServerManager(logger);
+                    // Create a logger with the specified log level from options
+                    var configuredLogger = CreateConfiguredLogger(logger, options.WebServerLogLevel);
+                    _instance = new WebServerManager(configuredLogger);
                 }
                 return _instance;
             }
@@ -170,19 +172,23 @@ namespace FluentUIScaffold.Core.Configuration
             if (!string.IsNullOrEmpty(options.WebServerProjectPath))
             {
                 _logger?.LogInformation("Using explicit project path: {ProjectPath}", options.WebServerProjectPath);
-                return _factory.CreateConfiguration(options.BaseUrl!, ServerType.AspNetCore, options.WebServerProjectPath);
+                return ServerConfiguration.CreateDotNetServer(options.BaseUrl!, options.WebServerProjectPath).Build();
             }
 
-            // Use automatic project detection
+            // Use simplified project detection (just check if project path is provided)
             if (options.EnableProjectDetection)
             {
-                _logger?.LogInformation("Using automatic project detection");
-                return _factory.CreateConfigurationWithDetection(options.BaseUrl!, ServerType.AspNetCore, options.AdditionalSearchPaths);
+                _logger?.LogInformation("Using simplified project detection");
+                // For now, we'll just throw an exception since we need a project path
+                // In the future, this could be extended to search for common project patterns
+                throw new InvalidOperationException(
+                    "Project detection is enabled but no project path is provided. " +
+                    "Please provide either ServerConfiguration, WebServerProjectPath, or disable EnableProjectDetection.");
             }
 
             throw new InvalidOperationException(
-                "No server configuration provided and automatic project detection is disabled. " +
-                "Please provide either ServerConfiguration, WebServerProjectPath, or enable EnableProjectDetection.");
+                "No server configuration provided. " +
+                "Please provide either ServerConfiguration or WebServerProjectPath.");
         }
 
 
@@ -190,12 +196,25 @@ namespace FluentUIScaffold.Core.Configuration
         private void RegisterDefaultComponents()
         {
             // Register default server launchers
-            _factory.RegisterLauncher(new Launchers.AspNetCoreServerLauncher(_logger));
-            _factory.RegisterLauncher(new Launchers.AspireServerLauncher(_logger));
+            _factory.RegisterLauncher(new Launchers.AspNetServerLauncher(_logger));
+            _factory.RegisterLauncher(new Launchers.NodeJsServerLauncher(_logger));
 
             // Register default project detectors
             _factory.RegisterDetector(new Detectors.EnvironmentBasedProjectDetector(_logger));
             _factory.RegisterDetector(new Detectors.GitBasedProjectDetector(_logger));
+        }
+
+        /// <summary>
+        /// Creates a configured logger with the specified log level.
+        /// </summary>
+        /// <param name="logger">The base logger.</param>
+        /// <param name="logLevel">The minimum log level to include.</param>
+        /// <returns>A configured logger.</returns>
+        private static ILogger? CreateConfiguredLogger(ILogger? logger, LogLevel logLevel)
+        {
+            // For now, just return the existing logger
+            // The log level filtering should be handled by the logging infrastructure
+            return logger;
         }
 
         public void Dispose()

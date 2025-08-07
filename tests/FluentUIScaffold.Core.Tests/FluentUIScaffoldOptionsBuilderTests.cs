@@ -118,6 +118,16 @@ namespace FluentUIScaffold.Core.Tests
         }
 
         [Test]
+        public void WithDefaultWaitTimeoutDebug_WithZeroTimeout_ThrowsException()
+        {
+            // Arrange
+            var builder = new FluentUIScaffoldOptionsBuilder();
+
+            // Act & Assert
+            Assert.Throws<FluentUIScaffoldValidationException>(() => builder.WithDefaultWaitTimeoutDebug(TimeSpan.Zero));
+        }
+
+        [Test]
         public void WithDebugMode_WithEnabled_SetsDebugMode()
         {
             // Arrange
@@ -163,7 +173,89 @@ namespace FluentUIScaffold.Core.Tests
             var builder = new FluentUIScaffoldOptionsBuilder();
 
             // Act & Assert
-            Assert.Throws<FluentUIScaffoldValidationException>(() => builder.WithWebServerProjectPath(""));
+            Assert.Throws<FluentUIScaffoldValidationException>(() => builder.WithWebServerProjectPath(string.Empty));
+        }
+
+        [Test]
+        public void WithHeadlessMode_WithValidValue_SetsHeadlessMode()
+        {
+            // Arrange
+            var builder = new FluentUIScaffoldOptionsBuilder();
+            bool? expectedHeadless = false;
+
+            // Act
+            var result = builder.WithHeadlessMode(expectedHeadless);
+
+            // Assert
+            Assert.That(result, Is.SameAs(builder));
+            Assert.That(builder.Build().HeadlessMode, Is.EqualTo(expectedHeadless));
+        }
+
+        [Test]
+        public void WithHeadlessMode_WithNullValue_SetsHeadlessModeToNull()
+        {
+            // Arrange
+            var builder = new FluentUIScaffoldOptionsBuilder();
+
+            // Act
+            var result = builder.WithHeadlessMode(null);
+
+            // Assert
+            Assert.That(result, Is.SameAs(builder));
+            Assert.That(builder.Build().HeadlessMode, Is.Null);
+        }
+
+        [Test]
+        public void WithSlowMo_WithValidValue_SetsSlowMo()
+        {
+            // Arrange
+            var builder = new FluentUIScaffoldOptionsBuilder();
+            int? expectedSlowMo = 500;
+
+            // Act
+            var result = builder.WithSlowMo(expectedSlowMo);
+
+            // Assert
+            Assert.That(result, Is.SameAs(builder));
+            Assert.That(builder.Build().SlowMo, Is.EqualTo(expectedSlowMo));
+        }
+
+        [Test]
+        public void WithSlowMo_WithNullValue_SetsSlowMoToNull()
+        {
+            // Arrange
+            var builder = new FluentUIScaffoldOptionsBuilder();
+
+            // Act
+            var result = builder.WithSlowMo(null);
+
+            // Assert
+            Assert.That(result, Is.SameAs(builder));
+            Assert.That(builder.Build().SlowMo, Is.Null);
+        }
+
+        [Test]
+        public void WithSlowMo_WithNegativeValue_ThrowsException()
+        {
+            // Arrange
+            var builder = new FluentUIScaffoldOptionsBuilder();
+
+            // Act & Assert
+            Assert.Throws<FluentUIScaffoldValidationException>(() => builder.WithSlowMo(-100));
+        }
+
+        [Test]
+        public void WithSlowMo_WithZeroValue_SetsSlowMoToZero()
+        {
+            // Arrange
+            var builder = new FluentUIScaffoldOptionsBuilder();
+
+            // Act
+            var result = builder.WithSlowMo(0);
+
+            // Assert
+            Assert.That(result, Is.SameAs(builder));
+            Assert.That(builder.Build().SlowMo, Is.EqualTo(0));
         }
 
         [Test]
@@ -171,18 +263,19 @@ namespace FluentUIScaffold.Core.Tests
         {
             // Arrange
             var builder = new FluentUIScaffoldOptionsBuilder();
-            var expectedConfig = new ServerConfiguration
+            var serverConfig = new ServerConfiguration
             {
                 ServerType = ServerType.AspNetCore,
-                ProjectPath = "/path/to/project.csproj"
+                ProjectPath = "/path/to/project.csproj",
+                BaseUrl = new Uri("http://localhost:5000")
             };
 
             // Act
-            var result = builder.WithServerConfiguration(expectedConfig);
+            var result = builder.WithServerConfiguration(serverConfig);
 
             // Assert
             Assert.That(result, Is.SameAs(builder));
-            Assert.That(builder.Build().ServerConfiguration, Is.EqualTo(expectedConfig));
+            Assert.That(builder.Build().ServerConfiguration, Is.EqualTo(serverConfig));
         }
 
         [Test]
@@ -207,31 +300,6 @@ namespace FluentUIScaffold.Core.Tests
             // Assert
             Assert.That(result, Is.SameAs(builder));
             Assert.That(builder.Build().EnableProjectDetection, Is.True);
-        }
-
-        [Test]
-        public void WithAdditionalSearchPaths_WithValidPaths_SetsAdditionalSearchPaths()
-        {
-            // Arrange
-            var builder = new FluentUIScaffoldOptionsBuilder();
-            var expectedPaths = new[] { "/path1", "/path2" };
-
-            // Act
-            var result = builder.WithAdditionalSearchPaths(expectedPaths);
-
-            // Assert
-            Assert.That(result, Is.SameAs(builder));
-            Assert.That(builder.Build().AdditionalSearchPaths, Is.EquivalentTo(expectedPaths));
-        }
-
-        [Test]
-        public void WithAdditionalSearchPaths_WithNullPaths_ThrowsException()
-        {
-            // Arrange
-            var builder = new FluentUIScaffoldOptionsBuilder();
-
-            // Act & Assert
-            Assert.Throws<FluentUIScaffoldValidationException>(() => builder.WithAdditionalSearchPaths(null!));
         }
 
         [Test]
@@ -278,7 +346,25 @@ namespace FluentUIScaffold.Core.Tests
             var builder = new FluentUIScaffoldOptionsBuilder();
 
             // Act & Assert
-            Assert.Throws<FluentUIScaffoldValidationException>(() => builder.WithDefaultWaitTimeout(TimeSpan.Zero).Build());
+            Assert.Throws<FluentUIScaffoldValidationException>(() => builder
+                .WithDefaultWaitTimeout(TimeSpan.Zero)
+                .Build());
+        }
+
+        [Test]
+        public void WithWebServerLogLevel_WithValidValue_SetsWebServerLogLevel()
+        {
+            // Arrange
+            var builder = new FluentUIScaffoldOptionsBuilder();
+            var expectedLogLevel = LogLevel.Debug;
+
+            // Act
+            var result = builder.WithWebServerLogLevel(expectedLogLevel);
+            var options = builder.Build(); // Build the options object
+
+            // Assert
+            Assert.That(result, Is.SameAs(builder));
+            Assert.That(options.WebServerLogLevel, Is.EqualTo(expectedLogLevel));
         }
     }
 }

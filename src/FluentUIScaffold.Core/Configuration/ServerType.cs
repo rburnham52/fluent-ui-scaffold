@@ -1,18 +1,23 @@
 namespace FluentUIScaffold.Core.Configuration
 {
     /// <summary>
-    /// Defines the supported server types for the flexible server startup framework.
+    /// Defines the types of servers that can be launched.
     /// </summary>
     public enum ServerType
     {
         /// <summary>
-        /// ASP.NET Core web application
+        /// ASP.NET Core applications
         /// </summary>
         AspNetCore,
 
         /// <summary>
-        /// Aspire App Host application
+        /// Aspire App Host applications
         /// </summary>
-        Aspire
+        Aspire,
+
+        /// <summary>
+        /// Node.js applications
+        /// </summary>
+        NodeJs
     }
 }

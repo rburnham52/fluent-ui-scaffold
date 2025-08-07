@@ -32,6 +32,18 @@ namespace FluentUIScaffold.Core.Configuration
         public bool EnableDebugMode { get; set; } = false;
 
         /// <summary>
+        /// Gets or sets whether to run the browser in headless mode.
+        /// When null, the framework will determine headless mode automatically based on debug mode and CI environment.
+        /// </summary>
+        public bool? HeadlessMode { get; set; } = null;
+
+        /// <summary>
+        /// Gets or sets the SlowMo value for browser operations in milliseconds.
+        /// When null, the framework will determine SlowMo automatically based on debug mode.
+        /// </summary>
+        public int? SlowMo { get; set; } = null;
+
+        /// <summary>
         /// Gets or sets the path to the web server project.
         /// </summary>
         public string? WebServerProjectPath { get; set; }
@@ -47,13 +59,13 @@ namespace FluentUIScaffold.Core.Configuration
         public bool EnableProjectDetection { get; set; } = true;
 
         /// <summary>
-        /// Gets or sets additional search paths for project detection.
-        /// </summary>
-        public List<string> AdditionalSearchPaths { get; set; } = new List<string>();
-
-        /// <summary>
         /// Gets or sets whether to enable web server launching.
         /// </summary>
         public bool EnableWebServerLaunch { get; set; } = false;
+
+        /// <summary>
+        /// Gets or sets the log level for web server launcher operations.
+        /// </summary>
+        public LogLevel WebServerLogLevel { get; set; } = LogLevel.Information;
     }
 }
