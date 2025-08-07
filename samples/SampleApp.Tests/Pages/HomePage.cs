@@ -1,155 +1,265 @@
 using System;
-using System.Collections.Generic;
+using System.Threading.Tasks;
 
 using FluentUIScaffold.Core;
-using FluentUIScaffold.Core.Configuration;
-
-using FluentUIScaffold.Core.Interfaces;
 using FluentUIScaffold.Core.Pages;
+using FluentUIScaffold.Core.Interfaces;
+using FluentUIScaffold.Core.Configuration;
 using FluentUIScaffold.Playwright;
-
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
+using Microsoft.Playwright;
 
 namespace SampleApp.Tests.Pages
 {
     /// <summary>
-    /// Page object for the home page of the FluentUIScaffold sample application.
-    /// Demonstrates basic navigation, element interactions, and page validation.
+    /// Page object for the home page of the sample application.
+    /// Demonstrates how to create page objects using the FluentUIScaffold framework.
     /// </summary>
     public class HomePage : BasePageComponent<PlaywrightDriver, HomePage>
     {
-        public IElement CounterButton { get; set; } = null!;
-        public IElement CounterValue { get; set; } = null!;
-        public IElement PageTitle { get; set; } = null!;
-        public IElement HomeSectionTitle { get; set; } = null!;
-        public IElement LoginNavButton { get; set; } = null!;
-        public IElement RegisterNavButton { get; set; } = null!;
-        public IElement ProfileNavButton { get; set; } = null!;
-        public IElement TodosNavButton { get; set; } = null!;
-
-        public HomePage(IServiceProvider serviceProvider, Uri urlPattern)
-            : base(serviceProvider, urlPattern)
+        public HomePage(IServiceProvider serviceProvider)
+            : base(serviceProvider, TestConfiguration.BaseUri)
         {
         }
 
         protected override void ConfigureElements()
         {
-            // Configure elements for the home page using ElementFactory
+            // Configure home page elements
+            WelcomeMessage = Element("h2")
+                .WithDescription("Welcome Message")
+                .WithWaitStrategy(WaitStrategy.Visible)
+                .Build();
+
+            Subtitle = Element(".subtitle")
+                .WithDescription("Subtitle")
+                .WithWaitStrategy(WaitStrategy.Visible)
+                .Build();
+
             CounterButton = Element(".card button")
                 .WithDescription("Counter Button")
                 .WithWaitStrategy(WaitStrategy.Clickable)
                 .Build();
 
+            // The counter value is part of the button text, not a separate element
             CounterValue = Element(".card button")
                 .WithDescription("Counter Value")
                 .WithWaitStrategy(WaitStrategy.Visible)
                 .Build();
 
-            PageTitle = Element("h1")
-                .WithDescription("Header Title")
+            NavigationButtons = Element("nav")
+                .WithDescription("Navigation Buttons")
                 .WithWaitStrategy(WaitStrategy.Visible)
                 .Build();
 
-            HomeSectionTitle = Element(".home-section h2")
-                .WithDescription("Home Section Title")
-                .WithWaitStrategy(WaitStrategy.Visible)
-                .Build();
-
-            LoginNavButton = Element("[data-testid=\"nav-login\"]")
-                .WithDescription("Login Navigation Button")
+            HomeButton = Element("nav button[data-testid='nav-home']")
+                .WithDescription("Home Button")
                 .WithWaitStrategy(WaitStrategy.Clickable)
                 .Build();
 
-            RegisterNavButton = Element("[data-testid=\"nav-register\"]")
-                .WithDescription("Register Navigation Button")
+            TodosButton = Element("nav button[data-testid='nav-todos']")
+                .WithDescription("Todos Button")
                 .WithWaitStrategy(WaitStrategy.Clickable)
                 .Build();
 
-            ProfileNavButton = Element("[data-testid=\"nav-profile\"]")
-                .WithDescription("Profile Navigation Button")
+            ProfileButton = Element("nav button[data-testid='nav-profile']")
+                .WithDescription("Profile Button")
                 .WithWaitStrategy(WaitStrategy.Clickable)
                 .Build();
 
-            TodosNavButton = Element("[data-testid=\"nav-todos\"]")
-                .WithDescription("Todos Navigation Button")
+            RegisterButton = Element("nav button[data-testid='nav-register']")
+                .WithDescription("Register Button")
+                .WithWaitStrategy(WaitStrategy.Clickable)
+                .Build();
+
+            LoginButton = Element("nav button[data-testid='nav-login']")
+                .WithDescription("Login Button")
                 .WithWaitStrategy(WaitStrategy.Clickable)
                 .Build();
         }
 
+        // Element properties
+        public IElement WelcomeMessage { get; set; } = null!;
+        public IElement Subtitle { get; set; } = null!;
+        public IElement CounterButton { get; set; } = null!;
+        public IElement CounterValue { get; set; } = null!;
+        public IElement NavigationButtons { get; set; } = null!;
+        public IElement HomeButton { get; set; } = null!;
+        public IElement TodosButton { get; set; } = null!;
+        public IElement ProfileButton { get; set; } = null!;
+        public IElement RegisterButton { get; set; } = null!;
+        public IElement LoginButton { get; set; } = null!;
+
         /// <summary>
-        /// Clicks the counter button using the fluent API.
+        /// Navigates to the home page.
         /// </summary>
-        /// <returns>The current page instance for method chaining</returns>
-        public HomePage ClickCounter()
+        public async Task NavigateToHomeAsync()
         {
-            return Click(e => e.CounterButton);
+            Driver.NavigateToUrl(TestConfiguration.BaseUri);
+            await WaitForPageToLoadAsync();
         }
 
         /// <summary>
-        /// Gets the current counter value using the fluent API.
+        /// Waits for the home page to be fully loaded.
         /// </summary>
-        /// <returns>The current counter value as a string</returns>
-        public string GetCounterValue()
+        public async Task WaitForPageToLoadAsync()
         {
-            var buttonText = CounterValue.GetText();
-            // Extract the number from "count is X"
-            if (buttonText.Contains("count is "))
+            Driver.WaitForElementToBeVisible("h2");
+            Driver.WaitForElementToBeVisible(".subtitle");
+        }
+
+        /// <summary>
+        /// Gets the page title.
+        /// </summary>
+        public string GetPageTitle()
+        {
+            return Driver.GetPageTitle();
+        }
+
+        /// <summary>
+        /// Gets the welcome message text.
+        /// </summary>
+        public string GetWelcomeMessage()
+        {
+            return WelcomeMessage.GetText();
+        }
+
+        /// <summary>
+        /// Gets the subtitle text.
+        /// </summary>
+        public string GetSubtitle()
+        {
+            return Subtitle.GetText();
+        }
+
+        /// <summary>
+        /// Clicks the counter button.
+        /// </summary>
+        public async Task ClickCounterButtonAsync()
+        {
+            CounterButton.Click();
+        }
+
+        /// <summary>
+        /// Clicks the counter button and returns the new count (alias for ClickCounterButtonAsync).
+        /// </summary>
+        public int ClickCounter()
+        {
+            CounterButton.Click();
+            return GetCounterValue();
+        }
+
+        /// <summary>
+        /// Gets the current counter value.
+        /// </summary>
+        public int GetCounterValue()
+        {
+            var text = CounterValue.GetText();
+            // The button text is "count is {count}", so extract the number
+            var match = System.Text.RegularExpressions.Regex.Match(text, @"count is (\d+)");
+            if (match.Success)
             {
-                return buttonText.Replace("count is ", "");
+                return int.Parse(match.Groups[1].Value);
             }
-            return buttonText;
+            return 0;
         }
 
         /// <summary>
-        /// Verifies that the page title contains the expected text.
+        /// Verifies that weather data is displayed.
         /// </summary>
-        /// <param name="expectedTitle">The expected title text</param>
-        /// <returns>The current page instance for method chaining</returns>
-        public HomePage VerifyPageTitle()
+        public async Task<bool> IsWeatherDataDisplayedAsync()
         {
-            var title = Driver.GetPageTitle();
-            if (string.IsNullOrEmpty(title))
+            try
             {
-                throw new InvalidOperationException("Page title is null or empty");
+                Driver.WaitForElementToBeVisible(".weather-section");
+                Driver.WaitForElementToBeVisible("[data-testid='weather-item']");
+                return true;
             }
-            return this;
+            catch
+            {
+                return false;
+            }
         }
 
         /// <summary>
-        /// Navigates to the login section by clicking the login navigation button.
+        /// Gets the weather section title.
         /// </summary>
-        /// <returns>The current page instance for method chaining</returns>
-        public HomePage NavigateToLoginSection()
+        public string GetWeatherSectionTitle()
         {
-            return Click(e => e.LoginNavButton);
+            return Driver.GetText(".weather-section h3");
         }
 
         /// <summary>
-        /// Navigates to the register section by clicking the register navigation button.
+        /// Gets the text of the first weather item.
         /// </summary>
-        /// <returns>The current page instance for method chaining</returns>
-        public HomePage NavigateToRegisterSection()
+        public string GetFirstWeatherItemText()
         {
-            return Click(e => e.RegisterNavButton);
+            return Driver.GetText("[data-testid='weather-item']");
         }
 
         /// <summary>
-        /// Navigates to the profile section by clicking the profile navigation button.
+        /// Navigates to a specific section.
         /// </summary>
-        /// <returns>The current page instance for method chaining</returns>
-        public HomePage NavigateToProfileSection()
+        public async Task NavigateToSectionAsync(string section)
         {
-            return Click(e => e.ProfileNavButton);
+            Driver.Click($"nav button[data-testid='nav-{section}']");
+            // Don't wait for subtitle on other pages since it only exists on home page
+            if (section == "home")
+            {
+                await WaitForPageToLoadAsync();
+            }
+            else
+            {
+                // Wait for the section to be visible instead
+                Driver.WaitForElementToBeVisible($".{section}-section");
+            }
         }
 
         /// <summary>
-        /// Navigates to the todos section by clicking the todos navigation button.
+        /// Checks if a navigation button is active.
         /// </summary>
-        /// <returns>The current page instance for method chaining</returns>
-        public HomePage NavigateToTodosSection()
+        public async Task<bool> IsNavigationButtonActiveAsync(string section)
         {
-            return Click(e => e.TodosNavButton);
+            // Get the button element and check its class attribute
+            var page = Driver.GetFrameworkDriver<IPage>();
+            var buttonElement = await page.QuerySelectorAsync($"nav button[data-testid='nav-{section}']");
+            if (buttonElement != null)
+            {
+                var className = await buttonElement.GetAttributeAsync("class");
+                return className?.Contains("active") ?? false;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Verifies that the home page has the expected content.
+        /// </summary>
+        public async Task<bool> HasExpectedContentAsync()
+        {
+            try
+            {
+                // Wait for the page to load
+                await WaitForPageToLoadAsync();
+                
+                // Check page title (browser title)
+                var pageTitle = GetPageTitle();
+                var hasPageTitle = !string.IsNullOrEmpty(pageTitle);
+                
+                // Check welcome message (h2 element)
+                var welcomeMessage = GetWelcomeMessage();
+                var hasWelcomeMessage = welcomeMessage.Contains("Welcome to");
+                
+                // Check subtitle
+                var subtitle = GetSubtitle();
+                var hasSubtitle = subtitle.Contains("sample application");
+                
+                // Check counter button
+                var hasCounterButton = CounterButton.IsVisible();
+                
+                return hasPageTitle && hasWelcomeMessage && hasSubtitle && hasCounterButton;
+            }
+            catch
+            {
+                return false;
+            }
         }
     }
 }

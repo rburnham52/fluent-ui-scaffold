@@ -26,6 +26,11 @@ namespace FluentUIScaffold.Core
         private readonly IUIDriver _driver;
         private readonly ILogger _logger;
         private readonly IServiceProvider _serviceProvider;
+
+        /// <summary>
+        /// Gets the service provider for dependency injection.
+        /// </summary>
+        public IServiceProvider ServiceProvider => _serviceProvider;
         private readonly PluginManager _pluginManager;
         private bool _disposed = false;
 
@@ -37,11 +42,12 @@ namespace FluentUIScaffold.Core
         /// <param name="options">The configuration options</param>
         public FluentUIScaffoldApp(FluentUIScaffoldOptions options)
         {
-            _options = options ?? throw new ArgumentNullException(nameof(options));
+            // Use shared options if available, otherwise use the provided options
+            _options = SharedOptionsManager.GetOrCreateSharedOptions(options ?? throw new ArgumentNullException(nameof(options)));
 
             // Build service collection with auto-discovery
             var services = new ServiceCollection();
-            ConfigureServicesWithAutoDiscovery(services, options);
+            ConfigureServicesWithAutoDiscovery(services, _options);
 
             _serviceProvider = services.BuildServiceProvider();
             _logger = _serviceProvider.GetRequiredService<ILogger<FluentUIScaffoldApp<TApp>>>();

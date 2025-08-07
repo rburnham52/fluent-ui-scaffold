@@ -19,17 +19,19 @@ namespace SampleApp.Tests
         [AssemblyInitialize]
         public static void AssemblyInitialize(TestContext context)
         {
-            // Enable web server startup for testing
+            // Disable web server startup since we're running it manually
             StartServerAsync().Wait();
-            Console.WriteLine("Web server started successfully.");
+            // Console.WriteLine("Web server started successfully.");
+            Console.WriteLine("Web server startup disabled - running manually.");
         }
 
         [AssemblyCleanup]
         public static void AssemblyCleanup()
         {
-            // Stop the web server after all tests in the assembly have run
+            // Disable web server cleanup since we're not starting it automatically
             WebServerManager.StopServer();
-            Console.WriteLine("Web server stopped.");
+            // Console.WriteLine("Web server stopped.");
+            Console.WriteLine("Web server cleanup disabled - running manually.");
         }
 
         private static async Task StartServerAsync()
@@ -41,18 +43,21 @@ namespace SampleApp.Tests
             // For ASP.NET Core applications
             var options = new FluentUIScaffoldOptions
             {
-                BaseUrl = new Uri("http://localhost:5000"),
+                BaseUrl = new Uri("https://localhost:5001"),
                 EnableWebServerLaunch = true,
-                WebServerLogLevel = LogLevel.Information, // Control launcher log level
+                WebServerLogLevel = LogLevel.Information, // Control launcher log level,
+                HeadlessMode = true,
+                DefaultWaitTimeout = TimeSpan.FromSeconds(30),
                 ServerConfiguration = ServerConfiguration.CreateDotNetServer(
-                    new Uri("http://localhost:5000"),
+                    new Uri("https://localhost:5001"),
                     projectPath
                 )
                     .WithFramework("net8.0")
                     .WithConfiguration("Release")
-                    .WithSpaProxy(false)
+                    .WithSpaProxy(true)
                     .WithAspNetCoreEnvironment("Development")
-                    .WithAspNetCoreHostingStartupAssemblies("") // Disable SPA proxy
+                    .WithAspNetCoreHostingStartupAssemblies("Microsoft.AspNetCore.SpaProxy") // Disable SPA proxy
+                    .WithProcessName("SampleApp")
                     .Build()
             };
 
@@ -60,7 +65,7 @@ namespace SampleApp.Tests
             /*
             var aspireProjectPath = Path.Combine(projectRoot, "samples", "SampleApp", "SampleApp.AppHost.csproj");
             options.ServerConfiguration = ServerConfiguration.CreateAspireServer(
-                new Uri("http://localhost:5000"), 
+                new Uri("http://localhost:5000"),
                 aspireProjectPath
             )
                 .WithFramework("net8.0")
@@ -77,7 +82,7 @@ namespace SampleApp.Tests
             /*
             var nodeProjectPath = Path.Combine(projectRoot, "samples", "NodeApp", "package.json");
             options.ServerConfiguration = ServerConfiguration.CreateNodeJsServer(
-                new Uri("http://localhost:3000"), 
+                new Uri("http://localhost:3000"),
                 nodeProjectPath
             )
                 .WithNpmScript("dev") // Use "dev" script instead of "start"

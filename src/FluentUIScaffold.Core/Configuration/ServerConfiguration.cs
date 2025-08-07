@@ -51,6 +51,11 @@ namespace FluentUIScaffold.Core.Configuration
         public List<string> HealthCheckEndpoints { get; set; } = new List<string> { "/" };
 
         /// <summary>
+        /// The name of the process to launch/kill.
+        /// </summary>
+        public string ProcessName { get; set; }
+
+        /// <summary>
         /// Creates a .NET server configuration builder for ASP.NET Core applications.
         /// </summary>
         /// <param name="baseUrl">The base URL for the server.</param>

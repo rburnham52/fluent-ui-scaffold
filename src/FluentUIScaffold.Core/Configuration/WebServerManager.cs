@@ -61,6 +61,9 @@ namespace FluentUIScaffold.Core.Configuration
         /// <returns>A task that completes when the server is ready.</returns>
         public static async Task StartServerAsync(FluentUIScaffoldOptions options)
         {
+            // Set shared options for consistency with FluentUIScaffoldApp
+            SharedOptionsManager.SetSharedOptions(options);
+
             lock (_lockObject)
             {
                 if (_serverStarted)
@@ -133,6 +136,9 @@ namespace FluentUIScaffold.Core.Configuration
                     _instance?._logger?.LogError(ex, "Failed to stop web server via WebServerManager for framework: {Framework}", _frameworkIdentifier);
                 }
             }
+
+            // Clear shared options when server stops
+            SharedOptionsManager.ClearSharedOptions();
         }
 
         /// <summary>

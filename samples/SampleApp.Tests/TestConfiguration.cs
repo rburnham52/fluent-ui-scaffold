@@ -10,6 +10,7 @@ namespace SampleApp.Tests
     {
         /// <summary>
         /// The base URL for the sample application.
+        /// In development mode, the ASP.NET Core app serves the built SPA files directly.
         /// In release mode, the ASP.NET Core app serves the built SPA files directly.
         /// </summary>
         public const string BaseUrl = "http://localhost:5000";

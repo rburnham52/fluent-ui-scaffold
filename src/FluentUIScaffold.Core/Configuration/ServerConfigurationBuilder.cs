@@ -33,6 +33,13 @@ namespace FluentUIScaffold.Core.Configuration
             return this;
         }
 
+        public ServerConfigurationBuilder WithProcessName(string processName)
+        {
+            _configuration.ProcessName = processName;
+            return this;
+        }
+
+
         /// <summary>
         /// Sets the startup timeout.
         /// </summary>
@@ -197,7 +204,7 @@ namespace FluentUIScaffold.Core.Configuration
         /// </summary>
         /// <param name="assemblies">The hosting startup assemblies (default: "" for disabled, "Microsoft.AspNetCore.SpaProxy" for enabled).</param>
         /// <returns>The builder instance for method chaining.</returns>
-        public DotNetServerConfigurationBuilder WithAspNetCoreHostingStartupAssemblies(string assemblies = "")
+        public DotNetServerConfigurationBuilder WithAspNetCoreHostingStartupAssemblies(string assemblies = "Microsoft.AspNetCore.SpaProxy")
         {
             _configuration.EnvironmentVariables["ASPNETCORE_HOSTINGSTARTUPASSEMBLIES"] = assemblies;
             return this;

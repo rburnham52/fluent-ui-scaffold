@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -51,7 +52,7 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
             _logger?.LogInformation("Expected base URL: {BaseUrl}", configuration.BaseUrl);
 
             // Kill any existing processes on the same port
-            await KillProcessesOnPortAsync(configuration.BaseUrl.Port);
+            await KillProcessesOnPortAsync(configuration.BaseUrl.Port, configuration.ProcessName);
 
             // Build the command arguments
             var arguments = BuildCommandArguments(configuration);
@@ -321,7 +322,7 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
             throw new TimeoutException($"{configuration.ServerType} server failed to start within {configuration.StartupTimeout.TotalSeconds} seconds after {attempt} attempts.");
         }
 
-        private async Task KillProcessesOnPortAsync(int port)
+        private async Task KillProcessesOnPortAsync(int port, string processName)
         {
             try
             {
@@ -329,16 +330,17 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
                 {
                     FileName = "netstat",
                     Arguments = $"-ano | findstr :{port}",
-                    UseShellExecute = false,
+                    UseShellExecute = true,
                     RedirectStandardOutput = true,
                     CreateNoWindow = true
                 };
-
-                using var process = Process.Start(startInfo);
-                if (process != null)
+                var result = await PortProcessFinder.FindProcessesOnPortAsync(port);
+                // using var process = Process.Start(startInfo);
+                if (result != null)
                 {
-                    var output = await process.StandardOutput.ReadToEndAsync();
-                    await process.WaitForExitAsync();
+                    // var output = await process.StandardOutput.ReadToEndAsync();
+                    var output = result; // Use the output from PortProcessFinder
+                    // await process.WaitForExitAsync();
 
                     var lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
                     foreach (var line in lines)
@@ -349,7 +351,7 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
                             try
                             {
                                 var targetProcess = Process.GetProcessById(pid);
-                                if (targetProcess.ProcessName.Contains("dotnet") || targetProcess.ProcessName.Contains("SampleApp"))
+                                if (targetProcess.ProcessName.Contains("dotnet") || targetProcess.ProcessName.Contains(processName))
                                 {
                                     _logger?.LogInformation("Killing existing process {ProcessName} (PID: {PID}) on port {Port}",
                                         targetProcess.ProcessName, pid, port);
@@ -374,7 +376,6 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
         public void Dispose()
         {
             Dispose(true);
-            GC.SuppressFinalize(this);
         }
 
         protected virtual void Dispose(bool disposing)

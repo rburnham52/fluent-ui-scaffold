@@ -98,6 +98,54 @@ public async Task Setup()
         .WithHeadlessMode(true)  // Explicit headless control
         .WithWebServerLaunch(true)
         .WithWebServerLogLevel(LogLevel.Information) // Control launcher logging
+        .WithServerConfiguration(
+            ServerConfiguration.CreateDotNetServer(
+                new Uri("https://your-app.com"),
+                "./path/to/your/project.csproj"
+            )
+            .WithFramework("net8.0")
+            .WithConfiguration("Debug")
+            .WithSpaProxy(true)
+            .WithAspNetCoreEnvironment("Development")
+            .Build()
+        )
+        .Build();
+
+    // Start the server (sets shared options for consistency)
+    await WebServerManager.StartServerAsync(options);
+
+    // Create FluentUIScaffoldApp (uses shared options automatically)
+    _fluentUI = new FluentUIScaffoldApp<WebApp>(options);
+    await _fluentUI.InitializeAsync();
+}
+```
+
+#### Shared Options Pattern
+
+FluentUIScaffold uses a shared options pattern to ensure consistency between `WebServerManager` and `FluentUIScaffoldApp` instances. When `WebServerManager.StartServerAsync` is called, it sets shared options that `FluentUIScaffoldApp` will automatically use if available.
+
+This is particularly useful in scenarios where:
+- You're using Reqnroll or other BDD frameworks
+- You have multiple test classes that need consistent configuration
+- You want to ensure the web server and UI tests use the same settings
+
+Example with shared options:
+
+```csharp
+// In your test assembly hooks (WebServerManager uses these options)
+var options = new FluentUIScaffoldOptionsBuilder()
+    .WithBaseUrl(new Uri("http://localhost:5000"))
+    .WithWebServerLaunch(true)
+    .WithServerConfiguration(ServerConfiguration.CreateDotNetServer(...))
+    .Build();
+
+// Start the server (sets shared options)
+await WebServerManager.StartServerAsync(options);
+
+// In your test classes (FluentUIScaffoldApp uses shared options automatically)
+using var app = new FluentUIScaffoldApp<WebApp>(options);
+await app.InitializeAsync();
+```
         .WithServerConfiguration(ServerConfiguration.CreateAspNetCore(
             new Uri("https://your-app.com"), 
             "path/to/your/web/app.csproj"))

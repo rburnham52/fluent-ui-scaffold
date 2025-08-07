@@ -26,6 +26,25 @@ namespace SampleApp.Tests.Pages
         {
         }
 
+        /// <summary>
+        /// Navigates to the login page.
+        /// </summary>
+        public async Task NavigateToLoginPageAsync()
+        {
+            Driver.NavigateToUrl(TestConfiguration.BaseUri);
+            // Navigate to login section
+            Driver.Click("nav button[data-testid='nav-login']");
+            await WaitForPageToLoadAsync();
+        }
+
+        /// <summary>
+        /// Waits for the login page to be fully loaded.
+        /// </summary>
+        public async Task WaitForPageToLoadAsync()
+        {
+            Driver.WaitForElementToBeVisible(".login-form");
+        }
+
         protected override void ConfigureElements()
         {
             // Configure elements for the login page using ElementFactory

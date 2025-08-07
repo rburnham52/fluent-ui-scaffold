@@ -31,31 +31,33 @@ namespace SampleApp.Tests.Pages
 
         public TodosPage AddTodo(string todoText)
         {
-            Driver.Type("#todo-input", todoText);
-            Driver.Click("#add-todo-button");
+            // Wait for the todos section to be loaded
+            Driver.WaitForElementToBeVisible(".todos-section");
+            Driver.Type("[data-testid='new-todo-input']", todoText);
+            Driver.Click("[data-testid='add-todo-btn']");
             return this;
         }
 
         public TodosPage CompleteTodo(int index)
         {
-            Driver.Click($"#todo-{index}-checkbox");
+            Driver.Click($"[data-testid='todo-checkbox']:nth-child({index + 1})");
             return this;
         }
 
         public TodosPage DeleteTodo(int index)
         {
-            Driver.Click($"#todo-{index}-delete");
+            Driver.Click($"[data-testid='delete-todo-btn']:nth-child({index + 1})");
             return this;
         }
 
         public string GetTodoText(int index)
         {
-            return Driver.GetText($"#todo-{index}-text");
+            return Driver.GetText($"[data-testid='todo-text']:nth-child({index + 1})");
         }
 
         public bool IsTodoCompleted(int index)
         {
-            return Driver.IsVisible($"#todo-{index}-completed");
+            return Driver.IsVisible($"[data-testid='todo-item']:nth-child({index + 1}).completed");
         }
     }
 }
