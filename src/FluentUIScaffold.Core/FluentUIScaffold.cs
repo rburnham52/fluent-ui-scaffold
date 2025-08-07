@@ -194,7 +194,7 @@ namespace FluentUIScaffold.Core
             services.AddSingleton(options);
             services.AddLogging(builder =>
             {
-                builder.SetMinimumLevel(options.LogLevel);
+                builder.SetMinimumLevel(LogLevel.Information);
                 builder.AddConsole();
             });
 

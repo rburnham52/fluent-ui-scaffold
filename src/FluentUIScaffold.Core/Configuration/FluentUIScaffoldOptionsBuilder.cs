@@ -9,14 +9,15 @@ using Microsoft.Extensions.Logging;
 namespace FluentUIScaffold.Core.Configuration
 {
     /// <summary>
-    /// Builder class for creating FluentUIScaffoldOptions with a fluent API.
+    /// Builder for creating and configuring FluentUIScaffoldOptions instances.
+    /// Provides a fluent API for setting up test configuration.
     /// </summary>
     public class FluentUIScaffoldOptionsBuilder
     {
         private readonly FluentUIScaffoldOptions _options;
 
         /// <summary>
-        /// Initializes a new instance of the FluentUIScaffoldOptionsBuilder class.
+        /// Initializes a new instance of the FluentUIScaffoldOptionsBuilder.
         /// </summary>
         public FluentUIScaffoldOptionsBuilder()
         {
@@ -24,9 +25,9 @@ namespace FluentUIScaffold.Core.Configuration
         }
 
         /// <summary>
-        /// Initializes a new instance of the FluentUIScaffoldOptionsBuilder class with existing options.
+        /// Initializes a new instance of the FluentUIScaffoldOptionsBuilder with existing options.
         /// </summary>
-        /// <param name="options">Existing options to build upon</param>
+        /// <param name="options">The existing options to build upon</param>
         public FluentUIScaffoldOptionsBuilder(FluentUIScaffoldOptions options)
         {
             _options = options ?? throw new ArgumentNullException(nameof(options));
@@ -35,7 +36,7 @@ namespace FluentUIScaffold.Core.Configuration
         /// <summary>
         /// Sets the base URL for the application under test.
         /// </summary>
-        /// <param name="baseUrl">The base URL to use for navigation</param>
+        /// <param name="baseUrl">The base URL</param>
         /// <returns>The current builder instance for method chaining</returns>
         public FluentUIScaffoldOptionsBuilder WithBaseUrl(Uri baseUrl)
         {
@@ -60,24 +61,27 @@ namespace FluentUIScaffold.Core.Configuration
         }
 
         /// <summary>
-        /// Sets the log level for the framework.
+        /// Sets the default timeout for UI operations in debug mode.
         /// </summary>
-        /// <param name="level">The log level to use</param>
+        /// <param name="timeout">The timeout duration</param>
         /// <returns>The current builder instance for method chaining</returns>
-        public FluentUIScaffoldOptionsBuilder WithLogLevel(LogLevel level)
+        public FluentUIScaffoldOptionsBuilder WithDefaultWaitTimeoutDebug(TimeSpan timeout)
         {
-            _options.LogLevel = level;
+            if (timeout <= TimeSpan.Zero)
+                throw new FluentUIScaffoldValidationException("Default wait timeout debug must be greater than zero", nameof(timeout));
+
+            _options.DefaultWaitTimeoutDebug = timeout;
             return this;
         }
 
         /// <summary>
-        /// Sets whether to run the browser in headless mode.
+        /// Sets whether to enable debug mode.
         /// </summary>
-        /// <param name="enabled">True to run in headless mode, false otherwise</param>
+        /// <param name="enabled">True to enable debug mode, false otherwise</param>
         /// <returns>The current builder instance for method chaining</returns>
-        public FluentUIScaffoldOptionsBuilder WithHeadlessMode(bool enabled = true)
+        public FluentUIScaffoldOptionsBuilder WithDebugMode(bool enabled = true)
         {
-            _options.HeadlessMode = enabled;
+            _options.EnableDebugMode = enabled;
             return this;
         }
 
@@ -96,13 +100,53 @@ namespace FluentUIScaffold.Core.Configuration
         }
 
         /// <summary>
-        /// Sets whether to run in debug mode.
+        /// Sets the server configuration for web server launching.
         /// </summary>
-        /// <param name="enabled">True to enable debug mode, false otherwise</param>
+        /// <param name="serverConfiguration">The server configuration</param>
         /// <returns>The current builder instance for method chaining</returns>
-        public FluentUIScaffoldOptionsBuilder WithDebugMode(bool enabled = true)
+        public FluentUIScaffoldOptionsBuilder WithServerConfiguration(ServerConfiguration serverConfiguration)
         {
-            _options.DebugMode = enabled;
+            if (serverConfiguration == null)
+                throw new FluentUIScaffoldValidationException("Server configuration cannot be null", nameof(serverConfiguration));
+
+            _options.ServerConfiguration = serverConfiguration;
+            return this;
+        }
+
+        /// <summary>
+        /// Sets whether to enable project detection.
+        /// </summary>
+        /// <param name="enabled">True to enable project detection, false otherwise</param>
+        /// <returns>The current builder instance for method chaining</returns>
+        public FluentUIScaffoldOptionsBuilder WithProjectDetection(bool enabled = true)
+        {
+            _options.EnableProjectDetection = enabled;
+            return this;
+        }
+
+        /// <summary>
+        /// Sets additional search paths for project detection.
+        /// </summary>
+        /// <param name="searchPaths">The additional search paths</param>
+        /// <returns>The current builder instance for method chaining</returns>
+        public FluentUIScaffoldOptionsBuilder WithAdditionalSearchPaths(IEnumerable<string> searchPaths)
+        {
+            if (searchPaths == null)
+                throw new FluentUIScaffoldValidationException("Search paths cannot be null", nameof(searchPaths));
+
+            _options.AdditionalSearchPaths.Clear();
+            _options.AdditionalSearchPaths.AddRange(searchPaths);
+            return this;
+        }
+
+        /// <summary>
+        /// Sets whether to enable web server launching.
+        /// </summary>
+        /// <param name="enabled">True to enable web server launching, false otherwise</param>
+        /// <returns>The current builder instance for method chaining</returns>
+        public FluentUIScaffoldOptionsBuilder WithWebServerLaunch(bool enabled = true)
+        {
+            _options.EnableWebServerLaunch = enabled;
             return this;
         }
 

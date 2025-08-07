@@ -1,46 +1,47 @@
 using System;
 using System.Threading.Tasks;
 
-using FluentUIScaffold.Core;
 using FluentUIScaffold.Core.Configuration;
 
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace SampleApp.Tests.Examples
 {
+    /// <summary>
+    /// Simple core functionality tests.
+    /// These tests demonstrate basic FluentUIScaffold usage patterns.
+    /// </summary>
     [TestClass]
     public class SimpleCoreTest
     {
         [TestMethod]
-        public void Can_Create_FluentUIScaffoldApp()
+        public void Can_Create_Basic_Options()
         {
-            // Arrange
+            // Arrange & Act
             var options = new FluentUIScaffoldOptions
             {
-                BaseUrl = new Uri("https://localhost:5001"),
+                BaseUrl = new Uri("http://localhost:5000"),
                 DefaultWaitTimeout = TimeSpan.FromSeconds(30),
-                LogLevel = Microsoft.Extensions.Logging.LogLevel.Information
+                EnableDebugMode = false
             };
 
-            // Act & Assert
-            var app = new FluentUIScaffoldApp<object>(options);
-            Assert.IsNotNull(app);
+            // Assert
+            Assert.AreEqual(new Uri("http://localhost:5000"), options.BaseUrl);
+            Assert.AreEqual(TimeSpan.FromSeconds(30), options.DefaultWaitTimeout);
+            Assert.IsFalse(options.EnableDebugMode);
         }
 
         [TestMethod]
-        public void Can_Create_FluentUIScaffoldOptionsBuilder()
+        public void Can_Create_Options_With_Builder()
         {
             // Arrange & Act
-            var builder = new FluentUIScaffoldOptionsBuilder();
-            var options = builder
-                .WithBaseUrl(new Uri("https://localhost:5001"))
+            var options = new FluentUIScaffoldOptionsBuilder()
+                .WithBaseUrl(new Uri("http://localhost:5000"))
                 .WithDefaultWaitTimeout(TimeSpan.FromSeconds(30))
-                .WithLogLevel(Microsoft.Extensions.Logging.LogLevel.Information)
                 .Build();
 
             // Assert
-            Assert.IsNotNull(options);
-            Assert.AreEqual("https://localhost:5001/", options.BaseUrl?.ToString());
+            Assert.AreEqual(new Uri("http://localhost:5000"), options.BaseUrl);
             Assert.AreEqual(TimeSpan.FromSeconds(30), options.DefaultWaitTimeout);
         }
     }
