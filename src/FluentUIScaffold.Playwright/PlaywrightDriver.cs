@@ -102,7 +102,7 @@ public class PlaywrightDriver : IUIDriver, IDisposable
         bool isHeadless;
         int slowMo;
 
-        if (_options.DebugMode)
+        if (_options.EnableDebugMode)
         {
             // Debug mode: non-headless with SlowMo for easier debugging
             isHeadless = false;
@@ -111,8 +111,8 @@ public class PlaywrightDriver : IUIDriver, IDisposable
         }
         else
         {
-            // Normal mode: use configured headless mode and default SlowMo
-            isHeadless = _options.HeadlessMode || !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("CI"));
+            // Normal mode: use headless mode and default SlowMo
+            isHeadless = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("CI"));
             slowMo = 0; // Default SlowMo
         }
 

@@ -10,8 +10,8 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace SampleApp.Tests
 {
     /// <summary>
-    /// MSTest-specific assembly hooks that use the unified TestAssemblyWebHook for web server management.
-    /// This provides a clean, unified approach to web server management.
+    /// MSTest-specific assembly hooks that use the new WebServerManager for web server management.
+    /// This provides automatic project detection and flexible server startup.
     /// </summary>
     [TestClass]
     public class TestAssemblyHooks
@@ -21,52 +21,47 @@ namespace SampleApp.Tests
         {
             // Enable web server startup for testing
             StartServerAsync().Wait();
-            Console.WriteLine("Web server startup enabled for testing.");
+            Console.WriteLine("Web server started successfully.");
         }
 
         [AssemblyCleanup]
         public static void AssemblyCleanup()
         {
-            TestAssemblyWebHook.StopServer();
+            // Stop the web server after all tests in the assembly have run
+            WebServerManager.StopServer();
+            Console.WriteLine("Web server stopped.");
         }
 
         private static async Task StartServerAsync()
         {
-            try
+            // Get the absolute path to the SampleApp project
+            var projectRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+            var projectPath = Path.Combine(projectRoot, "samples", "SampleApp", "SampleApp.csproj");
+            var workingDirectory = Path.Combine(projectRoot, "samples", "SampleApp");
+
+            var options = new FluentUIScaffoldOptions
             {
-                // Find the repo root by walking up from AppContext.BaseDirectory
-                string? repoRoot = AppContext.BaseDirectory;
-                while (repoRoot != null && !Directory.Exists(Path.Combine(repoRoot, ".git")))
+                BaseUrl = new Uri("http://localhost:5000"),
+                EnableWebServerLaunch = true,
+                EnableProjectDetection = true,
+                AdditionalSearchPaths = { "samples" },
+                ServerConfiguration = new ServerConfiguration
                 {
-                    repoRoot = Directory.GetParent(repoRoot)?.FullName;
+                    ProjectPath = projectPath,
+                    WorkingDirectory = workingDirectory,
+                    BaseUrl = new Uri("http://localhost:5000"),
+                    ServerType = ServerType.AspNetCore,
+                    EnvironmentVariables =
+                    {
+                        ["ASPNETCORE_ENVIRONMENT"] = "Development",
+                        ["ASPNETCORE_HOSTINGSTARTUPASSEMBLIES"] = "Microsoft.AspNetCore.SpaProxy"
+                    },
+                    EnableSpaProxy = true,
+                    StartupTimeout = TimeSpan.FromSeconds(90)
                 }
-                if (repoRoot == null)
-                {
-                    throw new InvalidOperationException("Could not find repo root (directory containing .git)");
-                }
-                var projectPath = Path.Combine(repoRoot, "samples", "SampleApp", "SampleApp.csproj");
-                Console.WriteLine($"Repo root: {repoRoot}");
-                Console.WriteLine($"Using project path: {projectPath}");
+            };
 
-                // Create options for the unified TestAssemblyWebHook
-                var options = new FluentUIScaffoldOptions
-                {
-                    BaseUrl = TestConfiguration.BaseUri,
-                    DefaultWaitTimeout = TimeSpan.FromSeconds(60),
-                    LogLevel = LogLevel.Information,
-                    WebServerProjectPath = projectPath
-                };
-
-                // Use the unified TestAssemblyWebHook to start the server
-                await TestAssemblyWebHook.StartServerAsync(options);
-
-                Console.WriteLine("Sample app server started successfully via unified TestAssemblyWebHook.");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Failed to start sample app server via unified TestAssemblyWebHook: {ex.Message}");
-                throw;
-            }
+            await WebServerManager.StartServerAsync(options);
         }
     }
 }

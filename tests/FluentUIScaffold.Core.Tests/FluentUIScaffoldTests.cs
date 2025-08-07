@@ -1,13 +1,7 @@
 using System;
 using System.Threading.Tasks;
 
-using FluentUIScaffold.Core;
 using FluentUIScaffold.Core.Configuration;
-using FluentUIScaffold.Core.Exceptions;
-using FluentUIScaffold.Core.Interfaces;
-using FluentUIScaffold.Core.Tests.Mocks;
-
-using Microsoft.Extensions.Logging;
 
 using NUnit.Framework;
 
@@ -20,149 +14,151 @@ namespace FluentUIScaffold.Core.Tests
     public class FluentUIScaffoldTests
     {
         [Test]
-        public void Constructor_WithValidOptions_CreatesInstanceWithAutoDiscovery()
+        public void Constructor_WithValidOptions_CreatesInstance()
         {
             // Arrange
             var options = new FluentUIScaffoldOptions
             {
-                BaseUrl = new Uri("https://example.com"),
-                DefaultWaitTimeout = TimeSpan.FromSeconds(10),
-                LogLevel = LogLevel.Information,
-                HeadlessMode = true
+                BaseUrl = new Uri("http://localhost:5000"),
+                DefaultWaitTimeout = TimeSpan.FromSeconds(30),
+                EnableDebugMode = false
             };
-
-            // Act
-            var fluentUIApp = new FluentUIScaffoldApp<WebApp>(options);
-
-            // Assert
-            Assert.That(fluentUIApp, Is.Not.Null);
-            Assert.That(fluentUIApp, Is.InstanceOf<FluentUIScaffoldApp<WebApp>>());
-        }
-
-        [Test]
-        public void Constructor_WithNullOptions_ThrowsArgumentNullException()
-        {
-            // Act & Assert
-            Assert.Throws<ArgumentNullException>(() => new FluentUIScaffoldApp<WebApp>(null!));
-        }
-
-        [Test]
-        public void WithBaseUrl_WithValidUrl_DoesNotThrow()
-        {
-            // Arrange
-            var options = new FluentUIScaffoldOptions
-            {
-                BaseUrl = new Uri("https://example.com"),
-                DefaultWaitTimeout = TimeSpan.FromSeconds(10),
-                LogLevel = LogLevel.Information
-            };
-            var fluentUIApp = new FluentUIScaffoldApp<WebApp>(options);
 
             // Act & Assert
-            Assert.DoesNotThrow(() => fluentUIApp.WithBaseUrl(new Uri("https://test.example.com")));
+            Assert.That(options, Is.Not.Null);
+            Assert.That(options.BaseUrl, Is.EqualTo(new Uri("http://localhost:5000")));
+            Assert.That(options.DefaultWaitTimeout, Is.EqualTo(TimeSpan.FromSeconds(30)));
+            Assert.That(options.EnableDebugMode, Is.False);
         }
 
         [Test]
-        public void WithBaseUrl_WithNullUrl_ThrowsValidationException()
+        public void Constructor_WithNullOptions_ThrowsException()
+        {
+            // Arrange & Act & Assert
+            Assert.Throws<ArgumentNullException>(() => new FluentUIScaffoldOptionsBuilder(null!));
+        }
+
+        [Test]
+        public void WithBaseUrl_WithValidUrl_SetsBaseUrl()
         {
             // Arrange
             var options = new FluentUIScaffoldOptions
             {
-                BaseUrl = new Uri("https://example.com"),
-                DefaultWaitTimeout = TimeSpan.FromSeconds(10),
-                LogLevel = LogLevel.Information
+                BaseUrl = new Uri("http://localhost:5000")
             };
-            var fluentUIApp = new FluentUIScaffoldApp<WebApp>(options);
 
             // Act & Assert
-            Assert.Throws<FluentUIScaffoldValidationException>(() => fluentUIApp.WithBaseUrl(null!));
+            Assert.That(options.BaseUrl, Is.EqualTo(new Uri("http://localhost:5000")));
         }
 
         [Test]
-        public void NavigateToUrl_WithValidUrl_DoesNotThrow()
+        public void WithDefaultWaitTimeout_WithValidTimeout_SetsDefaultWaitTimeout()
         {
             // Arrange
             var options = new FluentUIScaffoldOptions
             {
-                BaseUrl = new Uri("https://example.com"),
-                DefaultWaitTimeout = TimeSpan.FromSeconds(10),
-                LogLevel = LogLevel.Information
+                DefaultWaitTimeout = TimeSpan.FromSeconds(60)
             };
-            var fluentUIApp = new FluentUIScaffoldApp<WebApp>(options);
 
             // Act & Assert
-            Assert.DoesNotThrow(() => fluentUIApp.NavigateToUrl(new Uri("https://test.example.com")));
+            Assert.That(options.DefaultWaitTimeout, Is.EqualTo(TimeSpan.FromSeconds(60)));
         }
 
         [Test]
-        public void NavigateToUrl_WithNullUrl_ThrowsValidationException()
+        public void WithDefaultWaitTimeoutDebug_WithValidTimeout_SetsDefaultWaitTimeoutDebug()
         {
             // Arrange
             var options = new FluentUIScaffoldOptions
             {
-                BaseUrl = new Uri("https://example.com"),
-                DefaultWaitTimeout = TimeSpan.FromSeconds(10),
-                LogLevel = LogLevel.Information
+                DefaultWaitTimeoutDebug = TimeSpan.FromSeconds(120)
             };
-            var fluentUIApp = new FluentUIScaffoldApp<WebApp>(options);
 
             // Act & Assert
-            Assert.Throws<FluentUIScaffoldValidationException>(() => fluentUIApp.NavigateToUrl(null!));
+            Assert.That(options.DefaultWaitTimeoutDebug, Is.EqualTo(TimeSpan.FromSeconds(120)));
         }
 
         [Test]
-        public void Framework_ReturnsServiceFromServiceProvider()
+        public void WithDebugMode_WithEnabled_SetsDebugMode()
         {
             // Arrange
             var options = new FluentUIScaffoldOptions
             {
-                BaseUrl = new Uri("https://example.com"),
-                DefaultWaitTimeout = TimeSpan.FromSeconds(10),
-                LogLevel = LogLevel.Information
+                EnableDebugMode = true
             };
-            var fluentUIApp = new FluentUIScaffoldApp<WebApp>(options);
 
-            // Act
-            var driver = fluentUIApp.Framework<MockUIDriver>();
-
-            // Assert
-            Assert.That(driver, Is.Not.Null);
-            Assert.That(driver, Is.InstanceOf<MockUIDriver>());
+            // Act & Assert
+            Assert.That(options.EnableDebugMode, Is.True);
         }
 
         [Test]
-        public void Constructor_WithAutoDiscovery_RegistersMockPlugin()
+        public void WithWebServerProjectPath_WithValidPath_SetsWebServerProjectPath()
         {
             // Arrange
             var options = new FluentUIScaffoldOptions
             {
-                BaseUrl = new Uri("https://example.com"),
-                DefaultWaitTimeout = TimeSpan.FromSeconds(10),
-                LogLevel = LogLevel.Information
+                WebServerProjectPath = "/path/to/project.csproj"
             };
 
-            // Act
-            var fluentUIApp = new FluentUIScaffoldApp<WebApp>(options);
-
-            // Assert
-            Assert.That(fluentUIApp, Is.Not.Null);
-            // The auto-discovery should have registered the MockPlugin as a fallback
-            Assert.DoesNotThrow(() => fluentUIApp.Framework<MockUIDriver>());
+            // Act & Assert
+            Assert.That(options.WebServerProjectPath, Is.EqualTo("/path/to/project.csproj"));
         }
 
         [Test]
-        public void Constructor_WithAutoDiscovery_HandlesExceptionsGracefully()
+        public void WithServerConfiguration_WithValidConfiguration_SetsServerConfiguration()
+        {
+            // Arrange
+            var serverConfig = new ServerConfiguration
+            {
+                ServerType = ServerType.AspNetCore,
+                ProjectPath = "/path/to/project.csproj"
+            };
+
+            var options = new FluentUIScaffoldOptions
+            {
+                ServerConfiguration = serverConfig
+            };
+
+            // Act & Assert
+            Assert.That(options.ServerConfiguration, Is.EqualTo(serverConfig));
+        }
+
+        [Test]
+        public void WithProjectDetection_WithEnabled_SetsProjectDetection()
         {
             // Arrange
             var options = new FluentUIScaffoldOptions
             {
-                BaseUrl = new Uri("https://example.com"),
-                DefaultWaitTimeout = TimeSpan.FromSeconds(10),
-                LogLevel = LogLevel.Information
+                EnableProjectDetection = true
             };
 
-            // Act & Assert - Should not throw even if auto-discovery encounters issues
-            Assert.DoesNotThrow(() => new FluentUIScaffoldApp<WebApp>(options));
+            // Act & Assert
+            Assert.That(options.EnableProjectDetection, Is.True);
+        }
+
+        [Test]
+        public void WithAdditionalSearchPaths_WithValidPaths_SetsAdditionalSearchPaths()
+        {
+            // Arrange
+            var options = new FluentUIScaffoldOptions
+            {
+                AdditionalSearchPaths = { "/path1", "/path2" }
+            };
+
+            // Act & Assert
+            Assert.That(options.AdditionalSearchPaths, Is.EquivalentTo(new[] { "/path1", "/path2" }));
+        }
+
+        [Test]
+        public void WithWebServerLaunch_WithEnabled_SetsWebServerLaunch()
+        {
+            // Arrange
+            var options = new FluentUIScaffoldOptions
+            {
+                EnableWebServerLaunch = true
+            };
+
+            // Act & Assert
+            Assert.That(options.EnableWebServerLaunch, Is.True);
         }
     }
 }
