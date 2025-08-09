@@ -56,4 +56,20 @@
             </ResolvedFileToPublish>
         </ItemGroup>
     </Target>
+
+  <!-- Build SPA assets into wwwroot for Release builds so dotnet run -c Release serves static files without SPA proxy -->
+  <!-- Run SPA build once (for net8.0) to avoid parallel builds locking dist/ files across TFMs -->
+  <Target Name="BuildSpaAssetsForRelease" AfterTargets="Build" Condition=" '$(Configuration)' == 'Release' and '$(TargetFramework)' == 'net8.0' ">
+    <Message Importance="high" Text="Building SPA assets for Release configuration..." />
+    <Exec WorkingDirectory="$(SpaRoot)" Command="npm install" />
+    <Exec WorkingDirectory="$(SpaRoot)" Command="npm run build" />
+
+    <MakeDir Directories="$(ProjectDir)wwwroot" />
+    <ItemGroup>
+      <SpaBuiltFiles Include="$(SpaRoot)dist\**\*.*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(SpaBuiltFiles)"
+          DestinationFiles="@(SpaBuiltFiles->'$(ProjectDir)wwwroot\\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
 </Project>

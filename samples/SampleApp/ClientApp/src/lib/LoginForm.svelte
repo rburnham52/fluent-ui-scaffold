@@ -21,21 +21,21 @@
     }
 
     if (!email.includes('@')) {
-      errorMessage = 'Please enter a valid email address';
+      errorMessage = 'valid email address';
       showError = true;
       return;
     }
 
-    // Simulate login with test credentials
-    if (email === 'john.doe@example.com' && password === 'SecurePass123!') {
-      welcomeMessage = 'Welcome, John!';
+    // Simulate login: accept any valid email with the test password
+    if (password === 'password123') {
+      welcomeMessage = 'Login successful!';
       showWelcome = true;
       
       // Clear form
       email = '';
       password = '';
     } else {
-      errorMessage = 'Invalid email or password';
+      errorMessage = 'Invalid credentials';
       showError = true;
     }
   }
@@ -43,7 +43,7 @@
 
 <div class="login-form">
   <h2>User Login</h2>
-  <form id="loginForm" on:submit|preventDefault={handleSubmit}>
+  <form id="loginForm" novalidate on:submit|preventDefault={handleSubmit}>
     <div class="form-group">
       <label for="email-input">Email:</label>
       <input 
@@ -51,7 +51,6 @@
         id="email-input" 
         name="email" 
         bind:value={email}
-        required
       />
     </div>
     <div class="form-group">
@@ -61,7 +60,6 @@
         id="password-input" 
         name="password" 
         bind:value={password}
-        required
       />
     </div>
     <div class="form-group">

@@ -25,6 +25,7 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
         }
 
         public string Name => "AspireServerLauncher";
+        private static readonly string[] collection = new[] { "--framework", "net8.0" };
 
         public bool CanHandle(ServerConfiguration configuration)
         {
@@ -48,7 +49,7 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
             await KillProcessesOnPortAsync(configuration.BaseUrl.Port);
 
             // Build command arguments
-            var arguments = BuildCommandArguments(configuration);
+            var arguments = AspireServerLauncher.BuildCommandArguments(configuration);
 
             // Set up environment variables
             var environmentVariables = new Dictionary<string, string>(configuration.EnvironmentVariables)
@@ -59,10 +60,11 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
                 ["ASPNETCORE_URLS"] = configuration.BaseUrl.ToString()
             };
 
-            // Disable SPA proxy if not enabled
-            if (!configuration.EnableSpaProxy)
+            // Respect explicit hosting startup assemblies setting (SPA proxy on/off)
+            if (configuration.EnvironmentVariables != null &&
+                configuration.EnvironmentVariables.TryGetValue("ASPNETCORE_HOSTINGSTARTUPASSEMBLIES", out var hostingStartupAssemblies))
             {
-                environmentVariables["ASPNETCORE_FORWARDEDHEADERS_ENABLED"] = "false";
+                environmentVariables["ASPNETCORE_HOSTINGSTARTUPASSEMBLIES"] = hostingStartupAssemblies ?? string.Empty;
             }
 
             // Start the process
@@ -98,11 +100,11 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
             _logger?.LogInformation("Aspire server is ready at {BaseUrl}", configuration.BaseUrl);
         }
 
-        private string BuildCommandArguments(ServerConfiguration configuration)
+        private static string BuildCommandArguments(ServerConfiguration configuration)
         {
             var arguments = new List<string> { "run" };
 
-            arguments.AddRange(new[] { "--framework", "net8.0" });
+            arguments.AddRange(collection);
             arguments.AddRange(new[] { "--configuration", "Release" });
             arguments.Add("--no-launch-profile");
 

@@ -37,7 +37,7 @@
     <h1>FluentUIScaffold Sample App</h1>
   </header>
 
-  <nav class="app-nav">
+  <nav class="app-nav" data-testid="app-nav">
     <button 
       class="nav-button" 
       class:active={currentTab === 'home'}

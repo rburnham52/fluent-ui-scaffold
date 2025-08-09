@@ -21,11 +21,14 @@ namespace FluentUIScaffold.Core.Tests
                 EnableDebugMode = false
             };
 
-            // Act & Assert
-            // This test would require a running web server, so we'll just verify the options are set correctly
-            Assert.That(options.BaseUrl, Is.EqualTo(new Uri("http://localhost:5000")));
-            Assert.That(options.DefaultWaitTimeout, Is.EqualTo(TimeSpan.FromSeconds(30)));
-            Assert.That(options.EnableDebugMode, Is.False);
+            Assert.Multiple(() =>
+            {
+                // Act & Assert
+                // This test would require a running web server, so we'll just verify the options are set correctly
+                Assert.That(options.BaseUrl, Is.EqualTo(new Uri("http://localhost:5000")));
+                Assert.That(options.DefaultWaitTimeout, Is.EqualTo(TimeSpan.FromSeconds(30)));
+                Assert.That(options.EnableDebugMode, Is.False);
+            });
         }
 
         [Test]

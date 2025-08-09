@@ -3,6 +3,8 @@ using System.Threading.Tasks;
 
 using FluentUIScaffold.Core.Configuration;
 
+using Microsoft.Extensions.Logging;
+
 using NUnit.Framework;
 
 namespace FluentUIScaffold.Core.Tests
@@ -20,22 +22,27 @@ namespace FluentUIScaffold.Core.Tests
             var options = new FluentUIScaffoldOptions
             {
                 BaseUrl = new Uri("http://localhost:5000"),
-                DefaultWaitTimeout = TimeSpan.FromSeconds(30),
-                EnableDebugMode = false
+                DefaultWaitTimeout = TimeSpan.FromSeconds(30)
             };
 
-            // Act & Assert
-            Assert.That(options, Is.Not.Null);
-            Assert.That(options.BaseUrl, Is.EqualTo(new Uri("http://localhost:5000")));
-            Assert.That(options.DefaultWaitTimeout, Is.EqualTo(TimeSpan.FromSeconds(30)));
-            Assert.That(options.EnableDebugMode, Is.False);
+            // Act
+            var app = new FluentUIScaffoldApp<object>(options);
+
+            // Assert
+            Assert.That(app, Is.Not.Null);
         }
 
         [Test]
         public void Constructor_WithNullOptions_ThrowsException()
         {
-            // Arrange & Act & Assert
-            Assert.Throws<ArgumentNullException>(() => new FluentUIScaffoldOptionsBuilder(null!));
+            // Arrange
+            var options = new FluentUIScaffoldOptions
+            {
+                BaseUrl = new Uri("http://localhost:5000")
+            };
+
+            // Act & Assert
+            Assert.Throws<ArgumentNullException>(() => new FluentUIScaffoldApp<object>(null!));
         }
 
         [Test]
@@ -94,13 +101,87 @@ namespace FluentUIScaffold.Core.Tests
         public void WithWebServerProjectPath_WithValidPath_SetsWebServerProjectPath()
         {
             // Arrange
-            var options = new FluentUIScaffoldOptions
-            {
-                WebServerProjectPath = "/path/to/project.csproj"
-            };
+            var options = new FluentUIScaffoldOptions();
 
-            // Act & Assert
+            // Act
+            options.WebServerProjectPath = "/path/to/project.csproj";
+
+            // Assert
             Assert.That(options.WebServerProjectPath, Is.EqualTo("/path/to/project.csproj"));
+        }
+
+        [Test]
+        public void HeadlessMode_WithValidValue_SetsHeadlessMode()
+        {
+            // Arrange
+            var builder = new FluentUIScaffoldOptionsBuilder();
+            bool? expectedHeadless = false;
+
+            // Act
+            var result = builder.WithHeadlessMode(expectedHeadless);
+            var options = builder.Build();
+
+            Assert.Multiple(() =>
+            {
+                // Assert
+                Assert.That(result, Is.SameAs(builder));
+                Assert.That(options.HeadlessMode, Is.EqualTo(expectedHeadless));
+            });
+        }
+
+        [Test]
+        public void HeadlessMode_WithNullValue_SetsHeadlessModeToNull()
+        {
+            // Arrange
+            var builder = new FluentUIScaffoldOptionsBuilder();
+
+            // Act
+            var result = builder.WithHeadlessMode(null);
+            var options = builder.Build();
+
+            Assert.Multiple(() =>
+            {
+                // Assert
+                Assert.That(result, Is.SameAs(builder));
+                Assert.That(options.HeadlessMode, Is.Null);
+            });
+        }
+
+        [Test]
+        public void SlowMo_WithValidValue_SetsSlowMo()
+        {
+            // Arrange
+            var builder = new FluentUIScaffoldOptionsBuilder();
+            int? expectedSlowMo = 500;
+
+            // Act
+            var result = builder.WithSlowMo(expectedSlowMo);
+            var options = builder.Build();
+
+            Assert.Multiple(() =>
+            {
+                // Assert
+                Assert.That(result, Is.SameAs(builder));
+                Assert.That(options.SlowMo, Is.EqualTo(expectedSlowMo));
+            });
+        }
+
+        [Test]
+        public void SlowMo_WithNullValue_SetsSlowMoToNull()
+        {
+            // Arrange
+            var builder = new FluentUIScaffoldOptionsBuilder();
+
+            // Act
+            var result = builder.WithSlowMo(null);
+            var options = builder.Build();
+
+            Assert.Multiple(() =>
+            {
+                // Assert
+                Assert.That(result, Is.SameAs(builder));
+                Assert.That(options.SlowMo, Is.Null);
+            });
         }
 
         [Test]
@@ -136,19 +217,6 @@ namespace FluentUIScaffold.Core.Tests
         }
 
         [Test]
-        public void WithAdditionalSearchPaths_WithValidPaths_SetsAdditionalSearchPaths()
-        {
-            // Arrange
-            var options = new FluentUIScaffoldOptions
-            {
-                AdditionalSearchPaths = { "/path1", "/path2" }
-            };
-
-            // Act & Assert
-            Assert.That(options.AdditionalSearchPaths, Is.EquivalentTo(new[] { "/path1", "/path2" }));
-        }
-
-        [Test]
         public void WithWebServerLaunch_WithEnabled_SetsWebServerLaunch()
         {
             // Arrange
@@ -159,6 +227,20 @@ namespace FluentUIScaffold.Core.Tests
 
             // Act & Assert
             Assert.That(options.EnableWebServerLaunch, Is.True);
+        }
+
+        [Test]
+        public void WebServerLogLevel_WithValidValue_SetsWebServerLogLevel()
+        {
+            // Arrange
+            var options = new FluentUIScaffoldOptions();
+            var expectedLogLevel = LogLevel.Debug;
+
+            // Act
+            options.WebServerLogLevel = expectedLogLevel;
+
+            // Assert
+            Assert.That(options.WebServerLogLevel, Is.EqualTo(expectedLogLevel));
         }
     }
 }

@@ -32,8 +32,7 @@ public class PlaywrightAdvancedFeatures
         if (string.IsNullOrEmpty(urlPattern))
             throw new ArgumentException("URL pattern cannot be null or empty.", nameof(urlPattern));
 
-        if (handler == null)
-            throw new ArgumentNullException(nameof(handler));
+        ArgumentNullException.ThrowIfNull(handler);
 
         _page.RouteAsync(urlPattern, async route =>
         {

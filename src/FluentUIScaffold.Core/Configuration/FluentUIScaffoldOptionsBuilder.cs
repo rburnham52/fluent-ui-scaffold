@@ -86,6 +86,33 @@ namespace FluentUIScaffold.Core.Configuration
         }
 
         /// <summary>
+        /// Sets whether to run the browser in headless mode.
+        /// When not set, the framework will determine headless mode automatically based on debug mode and CI environment.
+        /// </summary>
+        /// <param name="headless">True for headless mode, false for visible browser, null for automatic determination</param>
+        /// <returns>The current builder instance for method chaining</returns>
+        public FluentUIScaffoldOptionsBuilder WithHeadlessMode(bool? headless)
+        {
+            _options.HeadlessMode = headless;
+            return this;
+        }
+
+        /// <summary>
+        /// Sets the SlowMo value for browser operations in milliseconds.
+        /// When not set, the framework will determine SlowMo automatically based on debug mode.
+        /// </summary>
+        /// <param name="slowMo">SlowMo value in milliseconds, null for automatic determination</param>
+        /// <returns>The current builder instance for method chaining</returns>
+        public FluentUIScaffoldOptionsBuilder WithSlowMo(int? slowMo)
+        {
+            if (slowMo.HasValue && slowMo.Value < 0)
+                throw new FluentUIScaffoldValidationException("SlowMo value must be non-negative", nameof(slowMo));
+
+            _options.SlowMo = slowMo;
+            return this;
+        }
+
+        /// <summary>
         /// Sets the path to the ASP.NET Core project for web server launching.
         /// </summary>
         /// <param name="projectPath">The path to the project</param>
@@ -125,21 +152,6 @@ namespace FluentUIScaffold.Core.Configuration
         }
 
         /// <summary>
-        /// Sets additional search paths for project detection.
-        /// </summary>
-        /// <param name="searchPaths">The additional search paths</param>
-        /// <returns>The current builder instance for method chaining</returns>
-        public FluentUIScaffoldOptionsBuilder WithAdditionalSearchPaths(IEnumerable<string> searchPaths)
-        {
-            if (searchPaths == null)
-                throw new FluentUIScaffoldValidationException("Search paths cannot be null", nameof(searchPaths));
-
-            _options.AdditionalSearchPaths.Clear();
-            _options.AdditionalSearchPaths.AddRange(searchPaths);
-            return this;
-        }
-
-        /// <summary>
         /// Sets whether to enable web server launching.
         /// </summary>
         /// <param name="enabled">True to enable web server launching, false otherwise</param>
@@ -147,6 +159,17 @@ namespace FluentUIScaffold.Core.Configuration
         public FluentUIScaffoldOptionsBuilder WithWebServerLaunch(bool enabled = true)
         {
             _options.EnableWebServerLaunch = enabled;
+            return this;
+        }
+
+        /// <summary>
+        /// Sets the log level for web server launcher operations.
+        /// </summary>
+        /// <param name="logLevel">The log level for web server operations</param>
+        /// <returns>The current builder instance for method chaining</returns>
+        public FluentUIScaffoldOptionsBuilder WithWebServerLogLevel(LogLevel logLevel)
+        {
+            _options.WebServerLogLevel = logLevel;
             return this;
         }
 

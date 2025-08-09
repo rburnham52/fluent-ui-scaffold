@@ -57,12 +57,15 @@ namespace FluentUIScaffold.Core.Tests
             var projectPath = "/path/to/project.csproj";
 
             // Act
-            var config = _factory.CreateConfiguration(baseUrl, ServerType.AspNetCore, projectPath);
+            var config = ServerLauncherFactory.CreateConfiguration(baseUrl, ServerType.AspNetCore, projectPath);
 
-            // Assert
-            Assert.That(config.BaseUrl, Is.EqualTo(baseUrl));
-            Assert.That(config.ServerType, Is.EqualTo(ServerType.AspNetCore));
-            Assert.That(config.ProjectPath, Is.EqualTo(projectPath));
+            Assert.Multiple(() =>
+            {
+                // Assert
+                Assert.That(config.BaseUrl, Is.EqualTo(baseUrl));
+                Assert.That(config.ServerType, Is.EqualTo(ServerType.AspNetCore));
+                Assert.That(config.ProjectPath, Is.EqualTo(projectPath));
+            });
         }
 
         [Test]

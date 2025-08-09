@@ -1,9 +1,13 @@
 using System;
 using System.Threading.Tasks;
 
+using FluentUIScaffold.Core;
 using FluentUIScaffold.Core.Configuration;
 
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+using SampleApp.Tests.Pages;
+
 
 namespace SampleApp.Tests.Examples
 {
@@ -14,39 +18,83 @@ namespace SampleApp.Tests.Examples
     [TestClass]
     public class RegistrationLoginIntegrationTests
     {
-        [TestMethod]
-        public async Task Can_Complete_Registration_And_Login_Flow()
-        {
-            // Arrange
-            var options = new FluentUIScaffoldOptions
-            {
-                BaseUrl = new Uri("http://localhost:5000"),
-                DefaultWaitTimeout = TimeSpan.FromSeconds(30),
-                EnableDebugMode = false
-            };
+        private FluentUIScaffoldApp<WebApp>? _app;
+        private RegistrationPage? _registrationPage;
+        private LoginPage? _loginPage;
 
-            // Act & Assert
-            // This test would normally complete a registration and login flow, but for now we'll just verify the options are set correctly
-            Assert.AreEqual(new Uri("http://localhost:5000"), options.BaseUrl);
-            Assert.AreEqual(TimeSpan.FromSeconds(30), options.DefaultWaitTimeout);
-            Assert.IsFalse(options.EnableDebugMode);
+        [TestInitialize]
+        public async Task Setup()
+        {
+            // Arrange - Set up the application and page objects
+            var options = new FluentUIScaffoldOptionsBuilder()
+                .WithBaseUrl(TestConfiguration.BaseUri)
+                .WithDefaultWaitTimeout(TimeSpan.FromSeconds(30))
+                .WithDebugMode(false)
+                .Build();
+
+            _app = new FluentUIScaffoldApp<WebApp>(options);
+            await _app.InitializeAsync();
+
+            // Create page objects
+            _registrationPage = new RegistrationPage(_app.ServiceProvider);
+            _loginPage = new LoginPage(_app.ServiceProvider, TestConfiguration.BaseUri);
+        }
+
+        [TestCleanup]
+        public void Cleanup()
+        {
+            _app?.Dispose();
         }
 
         [TestMethod]
-        public async Task Can_Handle_Integration_Validation()
+        public async Task CompleteRegistrationAndLoginFlow_WithValidData_CompletesBothFlowsSuccessfully()
         {
             // Arrange
-            var options = new FluentUIScaffoldOptions
-            {
-                BaseUrl = new Uri("http://localhost:5000"),
-                DefaultWaitTimeout = TimeSpan.FromSeconds(60), // Longer timeout for integration
-                EnableDebugMode = false
-            };
+            await _registrationPage!.NavigateToRegistrationAsync();
 
-            // Act & Assert
-            // This test would normally handle integration validation, but for now we'll just verify the options are set correctly
-            Assert.AreEqual(TimeSpan.FromSeconds(60), options.DefaultWaitTimeout);
-            Assert.IsFalse(options.EnableDebugMode);
+            // Act - Complete registration flow
+            _registrationPage
+                .CompleteRegistration("integration@example.com", "password123", "Integration", "User")
+                .VerifySuccessfulRegistration();
+
+            // Act - Complete login flow with the same credentials
+            _loginPage!.CompleteLogin("integration@example.com", "password123")
+                .VerifyLoginSuccess("Login successful!");
+
+            // Assert - Verify both flows completed successfully
+            var successMessage = _loginPage.GetSuccessMessage();
+            Assert.IsTrue(successMessage.Contains("Login successful!"), "Login should be successful after registration");
+
+            // Verify form is cleared after registration
+            _registrationPage.VerifyFormIsCleared();
+        }
+
+        [TestMethod]
+        public async Task HandleIntegrationValidation_WithInvalidData_ShowsAppropriateValidationErrors()
+        {
+            // Arrange
+            await _registrationPage!.NavigateToRegistrationAsync();
+
+            // Act & Assert - Test validation scenarios in sequence
+            _registrationPage
+                // Test empty fields validation
+                .TestEmptyFieldsValidation()
+                // Test invalid email validation
+                .TestInvalidEmailValidation("not-an-email", "password123", "John", "Doe")
+                // Test short password validation
+                .TestShortPasswordValidation("valid@email.com", "123", "John", "Doe")
+                // Test successful registration after validation errors
+                .CompleteRegistration("valid@email.com", "password123", "John", "Doe")
+                .VerifySuccessfulRegistration();
+
+            // Now test login with invalid credentials
+            _loginPage!.FillLoginForm("invalid@email.com", "wrongpassword")
+                .SubmitLogin()
+                .VerifyLoginError("Invalid credentials");
+
+            // Assert - Verify error message is shown
+            var errorMessage = _loginPage.GetErrorMessage();
+            Assert.IsTrue(errorMessage.Contains("Invalid credentials"), "Should show error for invalid credentials");
         }
     }
 }

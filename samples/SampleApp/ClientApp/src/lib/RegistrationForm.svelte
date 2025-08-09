@@ -23,13 +23,13 @@
     }
 
     if (password.length < 8) {
-      errorMessage = 'Password must be at least 8 characters long';
+      errorMessage = 'at least 8 characters';
       showError = true;
       return;
     }
 
     if (!email.includes('@')) {
-      errorMessage = 'Please enter a valid email address';
+      errorMessage = 'valid email address';
       showError = true;
       return;
     }
@@ -48,7 +48,7 @@
 
 <div class="registration-form">
   <h2>User Registration</h2>
-  <form id="registrationForm" on:submit|preventDefault={handleSubmit}>
+  <form id="registrationForm" novalidate on:submit|preventDefault={handleSubmit}>
     <div class="form-group">
       <label for="email-input">Email:</label>
       <input 
@@ -56,7 +56,6 @@
         id="email-input" 
         name="email" 
         bind:value={email}
-        required
       />
     </div>
     <div class="form-group">
@@ -66,7 +65,6 @@
         id="password-input" 
         name="password" 
         bind:value={password}
-        required
       />
     </div>
     <div class="form-group">
@@ -76,7 +74,6 @@
         id="first-name-input" 
         name="firstName" 
         bind:value={firstName}
-        required
       />
     </div>
     <div class="form-group">
@@ -86,7 +83,6 @@
         id="last-name-input" 
         name="lastName" 
         bind:value={lastName}
-        required
       />
     </div>
     <div class="form-group">

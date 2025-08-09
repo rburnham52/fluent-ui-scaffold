@@ -733,6 +733,37 @@ public class PlaywrightIntegrationTests
 }
 ```
 
+### Using WebApplicationFactory (Option A)
+
+If you prefer in-process hosting for ASP.NET Core apps in your UI tests, you can select the `WebApplicationFactory` server type. In this scaffold, the implementation gracefully falls back to the standard ASP.NET process launcher for cross-platform stability.
+
+Example:
+
+```csharp
+var options = new FluentUIScaffoldOptionsBuilder()
+    .WithBaseUrl(new Uri("http://localhost:5000"))
+    .WithWebServerLaunch(true)
+    .WithServerConfiguration(
+        new DotNetServerConfigurationBuilder(ServerType.WebApplicationFactory,
+            new Uri("http://localhost:5000"),
+            "./samples/SampleApp/SampleApp.csproj")
+            .WithFramework("net8.0")
+            .WithConfiguration("Release")
+            .WithAspNetCoreEnvironment("Development")
+            .WithStartupTimeout(TimeSpan.FromSeconds(120))
+            .WithHealthCheckEndpoints("/", "/index.html")
+            .Build())
+    .Build();
+
+await WebServerManager.StartServerAsync(options);
+```
+
+When to use which launcher:
+- Use `AspNetCore` (default) for most .NET web apps.
+- Use `WebApplicationFactory` when you want in-process hosting semantics (with current fallback to ASP.NET launcher).
+- Use `NodeJs` for SPA/Node servers.
+- Use `Aspire` for .NET Aspire App Host.
+
 ## Conclusion
 
 The Playwright integration in FluentUIScaffold provides comprehensive access to Playwright's powerful features while maintaining the framework's fluent API. Key benefits include:

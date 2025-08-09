@@ -1,9 +1,13 @@
 using System;
 using System.Threading.Tasks;
 
+using FluentUIScaffold.Core;
 using FluentUIScaffold.Core.Configuration;
 
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+using SampleApp.Tests.Pages;
+
 
 namespace SampleApp.Tests.Examples
 {
@@ -14,39 +18,89 @@ namespace SampleApp.Tests.Examples
     [TestClass]
     public class FormInteractionTests
     {
-        [TestMethod]
-        public async Task Can_Interact_With_Form_Elements()
-        {
-            // Arrange
-            var options = new FluentUIScaffoldOptions
-            {
-                BaseUrl = new Uri("http://localhost:5000"),
-                DefaultWaitTimeout = TimeSpan.FromSeconds(30),
-                EnableDebugMode = false
-            };
+        private FluentUIScaffoldApp<WebApp>? _app;
+        private RegistrationPage? _registrationPage;
+        private LoginPage? _loginPage;
 
-            // Act & Assert
-            // This test would normally interact with form elements, but for now we'll just verify the options are set correctly
-            Assert.AreEqual(new Uri("http://localhost:5000"), options.BaseUrl);
-            Assert.AreEqual(TimeSpan.FromSeconds(30), options.DefaultWaitTimeout);
-            Assert.IsFalse(options.EnableDebugMode);
+        [TestInitialize]
+        public async Task Setup()
+        {
+            // Arrange - Set up the application and page objects
+            var options = new FluentUIScaffoldOptionsBuilder()
+                .WithBaseUrl(TestConfiguration.BaseUri)
+                .WithDefaultWaitTimeout(TimeSpan.FromSeconds(30))
+                .WithDebugMode(false)
+                .Build();
+
+            _app = new FluentUIScaffoldApp<WebApp>(options);
+            await _app.InitializeAsync();
+
+            // Create page objects
+            _registrationPage = new RegistrationPage(_app.ServiceProvider);
+            _loginPage = new LoginPage(_app.ServiceProvider, TestConfiguration.BaseUri);
+        }
+
+        [TestCleanup]
+        public void Cleanup()
+        {
+            _app?.Dispose();
         }
 
         [TestMethod]
-        public async Task Can_Handle_Complex_Form_Interactions()
+        public async Task InteractWithFormElements_WhenRegistrationFormLoaded_AllowsFormInteraction()
         {
             // Arrange
-            var options = new FluentUIScaffoldOptions
-            {
-                BaseUrl = new Uri("http://localhost:5000"),
-                DefaultWaitTimeout = TimeSpan.FromSeconds(60), // Longer timeout for complex forms
-                EnableDebugMode = false
-            };
+            await _registrationPage!.NavigateToRegistrationAsync();
 
-            // Act & Assert
-            // This test would normally handle complex form interactions, but for now we'll just verify the options are set correctly
-            Assert.AreEqual(TimeSpan.FromSeconds(60), options.DefaultWaitTimeout);
-            Assert.IsFalse(options.EnableDebugMode);
+            // Act - Test form interactions
+            _registrationPage
+                .FillRegistrationForm("user@test.com", "securepassword", "Jane", "Smith")
+                .ClearAllFields()
+                .FocusOnEmailField();
+
+            // Assert - Verify form structure
+            _registrationPage.VerifyFormStructure();
+
+            // Test form validation
+            _registrationPage
+                .TestEmptyFieldsValidation()
+                .TestInvalidEmailValidation("invalid-email", "password123", "John", "Doe")
+                .TestShortPasswordValidation("test@example.com", "123", "John", "Doe");
+        }
+
+        [TestMethod]
+        public async Task HandleComplexFormInteractions_WhenLoginFormLoaded_HandlesAllInteractions()
+        {
+            // Arrange
+            await _registrationPage!.NavigateToRegistrationAsync();
+
+            // Act - Complete registration first to create a user
+            _registrationPage
+                .CompleteRegistration("complex@example.com", "password123", "Complex", "User")
+                .VerifySuccessfulRegistration();
+
+            // Act - Test complex login form interactions
+            _loginPage!
+                .FillLoginForm("complex@example.com", "password123")
+                .SubmitLogin()
+                .VerifyLoginSuccess("Login successful!");
+
+            // Assert - Verify login was successful
+            var successMessage = _loginPage.GetSuccessMessage();
+            Assert.IsTrue(successMessage.Contains("Login successful!"), "Login should be successful");
+
+            // Test form clearing after successful login
+            _loginPage.EnterEmail("")
+                .EnterPassword("");
+
+            // Test error handling with invalid credentials
+            _loginPage
+                .FillLoginForm("wrong@example.com", "wrongpassword")
+                .SubmitLogin()
+                .VerifyLoginError("Invalid credentials");
+
+            var errorMessage = _loginPage.GetErrorMessage();
+            Assert.IsTrue(errorMessage.Contains("Invalid credentials"), "Should show error for invalid credentials");
         }
     }
 }

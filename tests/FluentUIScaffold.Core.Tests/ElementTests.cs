@@ -38,12 +38,15 @@ public class ElementTests
             TimeSpan.FromSeconds(5), WaitStrategy.Clickable, "Test",
             TimeSpan.FromMilliseconds(100), null, new Dictionary<string, string>());
 
-        // Assert
-        Assert.That(element.Selector, Is.EqualTo("#test"));
-        Assert.That(element.Description, Is.EqualTo("Test"));
-        Assert.That(element.Timeout, Is.EqualTo(TimeSpan.FromSeconds(5)));
-        Assert.That(element.WaitStrategy, Is.EqualTo(WaitStrategy.Clickable));
-        Assert.That(element.RetryInterval, Is.EqualTo(TimeSpan.FromMilliseconds(100)));
+        Assert.Multiple(() =>
+        {
+            // Assert
+            Assert.That(element.Selector, Is.EqualTo("#test"));
+            Assert.That(element.Description, Is.EqualTo("Test"));
+            Assert.That(element.Timeout, Is.EqualTo(TimeSpan.FromSeconds(5)));
+            Assert.That(element.WaitStrategy, Is.EqualTo(WaitStrategy.Clickable));
+            Assert.That(element.RetryInterval, Is.EqualTo(TimeSpan.FromMilliseconds(100)));
+        });
     }
 
     [Test]

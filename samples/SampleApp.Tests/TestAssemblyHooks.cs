@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
 
@@ -19,7 +20,7 @@ namespace SampleApp.Tests
         [AssemblyInitialize]
         public static void AssemblyInitialize(TestContext context)
         {
-            // Enable web server startup for testing
+            // Start web server via WebServerManager to match tests
             StartServerAsync().Wait();
             Console.WriteLine("Web server started successfully.");
         }
@@ -27,41 +28,76 @@ namespace SampleApp.Tests
         [AssemblyCleanup]
         public static void AssemblyCleanup()
         {
-            // Stop the web server after all tests in the assembly have run
             WebServerManager.StopServer();
             Console.WriteLine("Web server stopped.");
         }
 
         private static async Task StartServerAsync()
         {
-            // Get the absolute path to the SampleApp project
             var projectRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
             var projectPath = Path.Combine(projectRoot, "samples", "SampleApp", "SampleApp.csproj");
             var workingDirectory = Path.Combine(projectRoot, "samples", "SampleApp");
 
+            // SPA assets are built into wwwroot during Release build via MSBuild target
+
+            // For ASP.NET Core applications
             var options = new FluentUIScaffoldOptions
             {
-                BaseUrl = new Uri("http://localhost:5000"),
+                BaseUrl = TestConfiguration.BaseUri,
                 EnableWebServerLaunch = true,
-                EnableProjectDetection = true,
-                AdditionalSearchPaths = { "samples" },
-                ServerConfiguration = new ServerConfiguration
-                {
-                    ProjectPath = projectPath,
-                    WorkingDirectory = workingDirectory,
-                    BaseUrl = new Uri("http://localhost:5000"),
-                    ServerType = ServerType.AspNetCore,
-                    EnvironmentVariables =
-                    {
-                        ["ASPNETCORE_ENVIRONMENT"] = "Development",
-                        ["ASPNETCORE_HOSTINGSTARTUPASSEMBLIES"] = "Microsoft.AspNetCore.SpaProxy"
-                    },
-                    EnableSpaProxy = true,
-                    StartupTimeout = TimeSpan.FromSeconds(90)
-                }
+                WebServerLogLevel = LogLevel.Information, // Control launcher log level,
+                HeadlessMode = true,
+                DefaultWaitTimeout = TimeSpan.FromSeconds(30),
+                ServerConfiguration = ServerConfiguration.CreateDotNetServer(
+                    TestConfiguration.BaseUri,
+                    projectPath
+                )
+                    .WithFramework("net8.0")
+                    .WithConfiguration("Release")
+                    .WithSpaProxy(false)
+                    .WithAspNetCoreEnvironment("Development")
+                    .WithAspNetCoreHostingStartupAssemblies("")
+                    .WithHealthCheckEndpoints("/", "/index.html")
+                    .WithStartupTimeout(TimeSpan.FromSeconds(120))
+                    .WithProcessName("SampleApp")
+                    .Build()
             };
+
+            // For Aspire applications, just change the builder:
+            /*
+            var aspireProjectPath = Path.Combine(projectRoot, "samples", "SampleApp", "SampleApp.AppHost.csproj");
+            options.ServerConfiguration = ServerConfiguration.CreateAspireServer(
+                new Uri("http://localhost:5000"),
+                aspireProjectPath
+            )
+                .WithFramework("net8.0")
+                .WithConfiguration("Release")
+                .WithStartupTimeout(TimeSpan.FromSeconds(120))
+                .WithAspireDashboardOtlpEndpoint("https://localhost:21097")
+                .WithAspireResourceServiceEndpoint("https://localhost:22268")
+                .WithAspNetCoreEnvironment("Development")
+                .WithDotNetEnvironment("Development")
+                .Build();
+            */
+
+            // For Node.js applications:
+            /*
+            var nodeProjectPath = Path.Combine(projectRoot, "samples", "NodeApp", "package.json");
+            options.ServerConfiguration = ServerConfiguration.CreateNodeJsServer(
+                new Uri("http://localhost:3000"),
+                nodeProjectPath
+            )
+                .WithNpmScript("dev") // Use "dev" script instead of "start"
+                .WithNodeEnvironment("development")
+                .WithHealthCheckEndpoints("/", "/health", "/api/status")
+                .WithEnvironmentVariable("DEBUG", "app:*") // Add custom environment variable
+                .WithStartupTimeout(TimeSpan.FromSeconds(90))
+                .Build();
+            */
 
             await WebServerManager.StartServerAsync(options);
         }
+
+        // No additional build steps here; MSBuild handles SPA build/copy for Release
     }
 }

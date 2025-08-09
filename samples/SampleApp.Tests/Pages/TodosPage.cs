@@ -31,31 +31,47 @@ namespace SampleApp.Tests.Pages
 
         public TodosPage AddTodo(string todoText)
         {
-            Driver.Type("#todo-input", todoText);
-            Driver.Click("#add-todo-button");
+            // Ensure nav is present then go to todos
+            if (!Driver.IsVisible(".todos-section"))
+            {
+                if (!Driver.IsVisible("nav"))
+                {
+                    Driver.NavigateToUrl(TestConfiguration.BaseUri);
+                    Driver.WaitForElementToBeVisible("nav");
+                }
+                Driver.Click("nav button[data-testid='nav-todos']");
+                Driver.WaitForElementToBeVisible(".todos-section");
+            }
+            Driver.WaitForElementToBeVisible("[data-testid='new-todo-input']");
+            Driver.Type("[data-testid='new-todo-input']", todoText);
+            Driver.Click("[data-testid='add-todo-btn']");
+            // Wait for at least one todo item to appear
+            Driver.WaitForElementToBeVisible("[data-testid='todo-item']");
             return this;
         }
 
         public TodosPage CompleteTodo(int index)
         {
-            Driver.Click($"#todo-{index}-checkbox");
+            Driver.Click($"[data-testid='todo-item']:nth-of-type({index + 1}) [data-testid='todo-checkbox']");
             return this;
         }
 
         public TodosPage DeleteTodo(int index)
         {
-            Driver.Click($"#todo-{index}-delete");
+            Driver.Click($"[data-testid='todo-item']:nth-of-type({index + 1}) [data-testid='delete-todo-btn']");
             return this;
         }
 
         public string GetTodoText(int index)
         {
-            return Driver.GetText($"#todo-{index}-text");
+            // Ensure list has at least index+1 items
+            Driver.WaitForElementToBeVisible("[data-testid='todo-item']");
+            return Driver.GetText($"[data-testid='todo-item']:nth-of-type({index + 1}) [data-testid='todo-text']");
         }
 
         public bool IsTodoCompleted(int index)
         {
-            return Driver.IsVisible($"#todo-{index}-completed");
+            return Driver.IsVisible($"[data-testid='todo-item']:nth-of-type({index + 1}).completed");
         }
     }
 }
