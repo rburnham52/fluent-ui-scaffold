@@ -60,30 +60,7 @@ namespace FluentUIScaffold.Core.Configuration
             return this;
         }
 
-        /// <summary>
-        /// Sets the default timeout for UI operations in debug mode.
-        /// </summary>
-        /// <param name="timeout">The timeout duration</param>
-        /// <returns>The current builder instance for method chaining</returns>
-        public FluentUIScaffoldOptionsBuilder WithDefaultWaitTimeoutDebug(TimeSpan timeout)
-        {
-            if (timeout <= TimeSpan.Zero)
-                throw new FluentUIScaffoldValidationException("Default wait timeout debug must be greater than zero", nameof(timeout));
-
-            _options.DefaultWaitTimeoutDebug = timeout;
-            return this;
-        }
-
-        /// <summary>
-        /// Sets whether to enable debug mode.
-        /// </summary>
-        /// <param name="enabled">True to enable debug mode, false otherwise</param>
-        /// <returns>The current builder instance for method chaining</returns>
-        public FluentUIScaffoldOptionsBuilder WithDebugMode(bool enabled = true)
-        {
-            _options.EnableDebugMode = enabled;
-            return this;
-        }
+        // Removed debug-mode-specific timeout in favor of a single DefaultWaitTimeout
 
         /// <summary>
         /// Sets whether to run the browser in headless mode.
@@ -140,38 +117,7 @@ namespace FluentUIScaffold.Core.Configuration
             return this;
         }
 
-        /// <summary>
-        /// Sets whether to enable project detection.
-        /// </summary>
-        /// <param name="enabled">True to enable project detection, false otherwise</param>
-        /// <returns>The current builder instance for method chaining</returns>
-        public FluentUIScaffoldOptionsBuilder WithProjectDetection(bool enabled = true)
-        {
-            _options.EnableProjectDetection = enabled;
-            return this;
-        }
-
-        /// <summary>
-        /// Sets whether to enable web server launching.
-        /// </summary>
-        /// <param name="enabled">True to enable web server launching, false otherwise</param>
-        /// <returns>The current builder instance for method chaining</returns>
-        public FluentUIScaffoldOptionsBuilder WithWebServerLaunch(bool enabled = true)
-        {
-            _options.EnableWebServerLaunch = enabled;
-            return this;
-        }
-
-        /// <summary>
-        /// Sets the log level for web server launcher operations.
-        /// </summary>
-        /// <param name="logLevel">The log level for web server operations</param>
-        /// <returns>The current builder instance for method chaining</returns>
-        public FluentUIScaffoldOptionsBuilder WithWebServerLogLevel(LogLevel logLevel)
-        {
-            _options.WebServerLogLevel = logLevel;
-            return this;
-        }
+        // Removed project detection and web server launch toggles to simplify configuration
 
         /// <summary>
         /// Builds and returns the configured FluentUIScaffoldOptions.
@@ -199,6 +145,17 @@ namespace FluentUIScaffold.Core.Configuration
                     $"Configuration validation failed: {string.Join("; ", errors)}",
                     "Configuration");
             }
+        }
+
+        /// <summary>
+        /// Explicitly requests a specific driver type to be used by the framework.
+        /// </summary>
+        /// <typeparam name="TDriver">The driver type to request.</typeparam>
+        /// <returns>The current builder instance for method chaining</returns>
+        public FluentUIScaffoldOptionsBuilder WithDriver<TDriver>() where TDriver : class
+        {
+            _options.RequestedDriverType = typeof(TDriver);
+            return this;
         }
     }
 }

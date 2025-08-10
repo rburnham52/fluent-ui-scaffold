@@ -57,12 +57,15 @@ public class MyFirstTest
     [TestInitialize]
     public void Setup()
     {
+        // Register the UI framework plugin explicitly (typically once per test assembly)
+        FluentUIScaffold.Playwright.FluentUIScaffoldPlaywrightBuilder.UsePlaywright();
+
         _fluentUI = FluentUIScaffoldBuilder.Web(options =>
         {
             options.BaseUrl = new Uri("https://your-app.com");
             options.DefaultWaitTimeout = TimeSpan.FromSeconds(60);
-            options.WithHeadlessMode(true);  // Explicit headless control
-            options.WebServerProjectPath = "./path/to/your/project.csproj";
+            options.WithHeadlessMode(true);  // Optional: explicit override
+            options.WebServerProjectPath = "./path/to/your/project.csproj"; // Optional
         });
     }
 
@@ -95,9 +98,7 @@ public async Task Setup()
     var options = new FluentUIScaffoldOptionsBuilder()
         .WithBaseUrl(new Uri("https://your-app.com"))
         .WithDefaultWaitTimeout(TimeSpan.FromSeconds(30))
-        .WithHeadlessMode(true)  // Explicit headless control
-        .WithWebServerLaunch(true)
-        .WithWebServerLogLevel(LogLevel.Information) // Control launcher logging
+        .WithHeadlessMode(true)  // Optional: explicit headless control
         .WithServerConfiguration(
             ServerConfiguration.CreateDotNetServer(
                 new Uri("https://your-app.com"),
@@ -107,6 +108,7 @@ public async Task Setup()
             .WithConfiguration("Debug")
             .WithSpaProxy(true)
             .WithAspNetCoreEnvironment("Development")
+            .WithStartupTimeout(TimeSpan.FromSeconds(120))
             .Build()
         )
         .Build();
@@ -135,7 +137,6 @@ Example with shared options:
 // In your test assembly hooks (WebServerManager uses these options)
 var options = new FluentUIScaffoldOptionsBuilder()
     .WithBaseUrl(new Uri("http://localhost:5000"))
-    .WithWebServerLaunch(true)
     .WithServerConfiguration(ServerConfiguration.CreateDotNetServer(...))
     .Build();
 
@@ -199,7 +200,6 @@ Use this when you want in-process hosting in tests. In this scaffold, the WebApp
 ```csharp
 var options = new FluentUIScaffoldOptionsBuilder()
     .WithBaseUrl(new Uri("http://localhost:5000"))
-    .WithWebServerLaunch(true)
     .WithServerConfiguration(
         // Use ServerType.WebApplicationFactory via DotNet builder
         new DotNetServerConfigurationBuilder(ServerType.WebApplicationFactory,
@@ -224,22 +224,9 @@ Launcher selection
 
 #### Log Level Control
 
-You can control the verbosity of web server launcher logs using the `WithWebServerLogLevel` option:
+Note: per-option web server log level has been removed; launcher output is managed by the chosen server launcher.
 
-```csharp
-// Show only errors and warnings
-.WithWebServerLogLevel(LogLevel.Warning)
-
-// Show detailed information (default)
-.WithWebServerLogLevel(LogLevel.Information)
-
-// Show debug information for troubleshooting
-.WithWebServerLogLevel(LogLevel.Debug)
-```
-
-This ensures that launcher logs appear in your test results and can be controlled based on your needs.
-
-### 4. Debug Mode
+### 4. Headless and SlowMo Defaults
 
 For easier debugging during development, debug mode automatically:
 - Disables headless mode to show the browser window
@@ -254,7 +241,8 @@ public async Task Setup()
     var options = new FluentUIScaffoldOptionsBuilder()
         .WithBaseUrl(new Uri("https://your-app.com"))
         .WithDefaultWaitTimeout(TimeSpan.FromSeconds(30))
-        .WithDebugMode(true)  // Automatically sets HeadlessMode = false, SlowMo = 1000
+        .WithHeadlessMode(false) // Optional override
+        .WithSlowMo(250)         // Optional override
         .Build();
 
     _fluentUI = new FluentUIScaffoldApp<WebApp>(options);
@@ -262,20 +250,7 @@ public async Task Setup()
 }
 ```
 
-**Debug Mode vs Normal Mode:**
-
-| Setting | Normal Mode | Debug Mode |
-|---------|-------------|------------|
-| Headless | `HeadlessMode` property (default: true) | Always `false` |
-| SlowMo | `FrameworkOptions["SlowMo"]` or `0` | Always `1000ms` |
-| Browser Window | Hidden (if headless) | Visible |
-| Interaction Speed | Normal | Slowed down for visibility |
-
-**Best Practices:**
-- Debug mode automatically activates when you run tests in debug mode (F5 in Visual Studio, or when a debugger is attached)
-- For CI/CD environments where no debugger is attached, it remains disabled by default
-- You can explicitly set `DebugMode = true` for manual control
-- You can also set `HeadlessMode = false` and `FrameworkOptions["SlowMo"] = 1000` manually for more control
+Defaults: when a debugger is attached, drivers default to headless disabled and a slight SlowMo (e.g., 250ms). In CI/non-debug, default is headless and 0ms SlowMo unless overridden.
 
 For easier debugging during development, debug mode automatically:
 - Disables headless mode to show the browser window
@@ -290,12 +265,8 @@ public async Task Setup()
     var options = new FluentUIScaffoldOptions
     {
         BaseUrl = new Uri("https://your-app.com"),
-        DefaultWaitTimeout = TimeSpan.FromSeconds(30),
-        LogLevel = LogLevel.Information,
-        // DebugMode automatically enables when debugger is attached
-        // You can also explicitly set it: DebugMode = true
-        // When DebugMode is true, HeadlessMode is automatically set to false
-        // and SlowMo is set to 1000ms
+        DefaultWaitTimeout = TimeSpan.FromSeconds(30)
+        // HeadlessMode/SlowMo can be overridden via the builder if needed
     };
 
     _fluentUI = new FluentUIScaffoldApp<WebApp>(options);
@@ -303,20 +274,7 @@ public async Task Setup()
 }
 ```
 
-**Debug Mode vs Normal Mode:**
-
-| Setting | Normal Mode | Debug Mode |
-|---------|-------------|------------|
-| Headless | `HeadlessMode` property (default: true) | Always `false` |
-| SlowMo | `FrameworkOptions["SlowMo"]` or `0` | Always `1000ms` |
-| Browser Window | Hidden (if headless) | Visible |
-| Interaction Speed | Normal | Slowed down for visibility |
-
-**Best Practices:**
-- Debug mode automatically activates when you run tests in debug mode (F5 in Visual Studio, or when a debugger is attached)
-- For CI/CD environments where no debugger is attached, it remains disabled by default
-- You can explicitly set `DebugMode = true` for manual control
-- You can also set `HeadlessMode = false` and `FrameworkOptions["SlowMo"] = 1000` manually for more control
+See defaults note above; the old DebugMode option has been removed.
 
 ### 5. Create Your First Page Object
 using FluentUIScaffold.Core;
@@ -434,7 +392,7 @@ var fluentUI = FluentUIScaffoldBuilder.Web(options =>
 });
 ```
 
-### Debug Mode
+### Visibility and Interaction Speed During Development
 
 When running tests during development, you can enable debug mode to see the browser and slow down interactions:
 
@@ -445,7 +403,8 @@ var fluentUI = FluentUIScaffoldBuilder.Web(options =>
     options.WithServerConfiguration(ServerConfiguration.CreateAspNetCore(
         new Uri("https://localhost:5001"), 
         "./path/to/your/project.csproj"));
-    options.WithDebugMode(true); // This automatically sets HeadlessMode = false, SlowMo = 1000
+    // When debugging, rely on defaults (headless off + slight SlowMo) or override:
+    options.WithHeadlessMode(false).WithSlowMo(250);
 });
 ```
 
@@ -501,7 +460,7 @@ var options = new FluentUIScaffoldOptionsBuilder()
     .WithBaseUrl(new Uri("https://your-app.com"))
     .WithDefaultWaitTimeout(TimeSpan.FromSeconds(60))
     .WithHeadlessMode(true)  // Explicit headless control
-    .WithDebugMode(false)    // Debug mode with automatic headless/SlowMo
+    // DebugMode has been removed; use explicit HeadlessMode/SlowMo
     .WithServerConfiguration(ServerConfiguration.CreateAspNetCore(
         new Uri("https://your-app.com"), 
         "./path/to/your/project.csproj"))
@@ -516,7 +475,7 @@ var options = new FluentUIScaffoldOptionsBuilder()
     .WithBaseUrl(new Uri("https://your-app.com"))
     .WithHeadlessMode(false)  // Force visible browser
     .WithSlowMo(1000)         // Custom SlowMo delay
-    .WithDebugMode(true)       // Automatically sets HeadlessMode = false, SlowMo = 1000
+    // DebugMode has been removed; use explicit HeadlessMode/SlowMo
     .Build();
 ```
 

@@ -17,8 +17,7 @@ namespace FluentUIScaffold.Core.Tests
             var options = new FluentUIScaffoldOptions
             {
                 BaseUrl = new Uri("http://localhost:5000"),
-                DefaultWaitTimeout = TimeSpan.FromSeconds(30),
-                EnableDebugMode = false
+                DefaultWaitTimeout = TimeSpan.FromSeconds(30)
             };
 
             Assert.Multiple(() =>
@@ -27,7 +26,7 @@ namespace FluentUIScaffold.Core.Tests
                 // This test would require a running web server, so we'll just verify the options are set correctly
                 Assert.That(options.BaseUrl, Is.EqualTo(new Uri("http://localhost:5000")));
                 Assert.That(options.DefaultWaitTimeout, Is.EqualTo(TimeSpan.FromSeconds(30)));
-                Assert.That(options.EnableDebugMode, Is.False);
+                // Debug mode removed; rely on Headless/SlowMo if needed
             });
         }
 

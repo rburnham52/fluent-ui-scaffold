@@ -464,7 +464,7 @@ public async Task Can_Handle_Playwright_Errors()
 
 ## Debugging Features
 
-### Debug Mode
+### Headless and SlowMo Defaults
 
 The framework provides a convenient debug mode that automatically configures Playwright for easier debugging:
 
@@ -494,7 +494,7 @@ public async Task Can_Use_Debug_Mode()
 }
 ```
 
-**Debug Mode Features:**
+Defaults while debugging: headless disabled and slight SlowMo (e.g., 250ms). In CI/non-debug, headless with 0ms SlowMo unless overridden via options.
 - **Visible Browser**: Automatically disables headless mode to show the browser window
 - **SlowMo**: Sets SlowMo to 1000ms to slow down interactions for better visibility
 - **Enhanced Logging**: Provides detailed logging of browser actions
@@ -742,7 +742,7 @@ Example:
 ```csharp
 var options = new FluentUIScaffoldOptionsBuilder()
     .WithBaseUrl(new Uri("http://localhost:5000"))
-    .WithWebServerLaunch(true)
+    // Web server launch flag removed; configure ServerConfiguration explicitly
     .WithServerConfiguration(
         new DotNetServerConfigurationBuilder(ServerType.WebApplicationFactory,
             new Uri("http://localhost:5000"),

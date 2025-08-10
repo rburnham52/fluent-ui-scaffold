@@ -59,57 +59,11 @@ public class PlaywrightDriver : IUIDriver, IDisposable
         var browserType = GetBrowserType();
 
         // Determine headless mode and SlowMo with explicit control and sensible defaults
-        bool isHeadless;
-        int slowMo;
-
-        // Determine headless mode: explicit setting takes precedence, then automatic logic
-        if (_options.HeadlessMode.HasValue)
-        {
-            // Use explicit headless setting
-            isHeadless = _options.HeadlessMode.Value;
-            _logger?.LogInformation("Using explicit headless mode setting: {Headless}", isHeadless);
-        }
-        else
-        {
-            // Automatic determination based on debug mode and CI environment
-            if (_options.EnableDebugMode)
-            {
-                // Debug mode: non-headless for easier debugging
-                isHeadless = false;
-                _logger?.LogInformation("Debug mode enabled: automatically setting headless mode to false");
-            }
-            else
-            {
-                // Normal mode: use headless mode in CI environments, visible in development
-                isHeadless = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("CI"));
-                _logger?.LogInformation("Automatic headless mode determination: {Headless} (CI: {IsCI})",
-                    isHeadless, !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("CI")));
-            }
-        }
-
-        // Determine SlowMo: explicit setting takes precedence, then automatic logic
-        if (_options.SlowMo.HasValue)
-        {
-            // Use explicit SlowMo setting
-            slowMo = _options.SlowMo.Value;
-            _logger?.LogInformation("Using explicit SlowMo setting: {SlowMo}ms", slowMo);
-        }
-        else
-        {
-            // Automatic determination based on debug mode
-            if (_options.EnableDebugMode)
-            {
-                // Debug mode: use SlowMo for easier debugging
-                slowMo = 1000; // Default SlowMo for debugging
-                _logger?.LogInformation("Debug mode enabled: automatically setting SlowMo to {SlowMo}ms", slowMo);
-            }
-            else
-            {
-                // Normal mode: no SlowMo for faster execution
-                slowMo = 0;
-                _logger?.LogInformation("Normal mode: setting SlowMo to 0ms for faster execution");
-            }
-        }
+        // Spec: default to non-headless with slight SlowMo while debugger is attached
+        var debuggerAttached = System.Diagnostics.Debugger.IsAttached;
+        bool isHeadless = _options.HeadlessMode ?? !debuggerAttached;
+        int slowMo = _options.SlowMo ?? (debuggerAttached ? 250 : 0);
+        _logger?.LogInformation("Launch Headless={Headless}, SlowMo={SlowMo}ms (DebuggerAttached={Debugger})", isHeadless, slowMo, debuggerAttached);
 
         var browserOptions = new BrowserTypeLaunchOptions
         {

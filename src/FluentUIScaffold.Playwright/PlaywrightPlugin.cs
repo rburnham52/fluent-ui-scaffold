@@ -61,10 +61,6 @@ public class PlaywrightPlugin : IUITestingFrameworkPlugin
         // Register IUIDriver with PlaywrightDriver implementation
         services.AddTransient<IUIDriver, PlaywrightDriver>();
 
-        // Register FluentUIScaffoldOptions if not already registered
-        if (!services.Any(s => s.ServiceType == typeof(FluentUIScaffoldOptions)))
-        {
-            services.AddSingleton<FluentUIScaffoldOptions>(provider => new FluentUIScaffoldOptions());
-        }
+        // Options are provided by the core builder; do not inject defaults here.
     }
 }

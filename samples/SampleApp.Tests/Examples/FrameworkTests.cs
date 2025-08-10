@@ -22,7 +22,6 @@ namespace SampleApp.Tests.Examples
             var options = new FluentUIScaffoldOptionsBuilder()
                 .WithBaseUrl(TestConfiguration.BaseUri)
                 .WithDefaultWaitTimeout(TimeSpan.FromSeconds(30))
-                .WithDebugMode(false)
                 .Build();
 
             using var app = new FluentUIScaffoldApp<WebApp>(options);
@@ -34,37 +33,21 @@ namespace SampleApp.Tests.Examples
         }
 
         [TestMethod]
-        public async Task DebugModeConfiguration_WhenDebugModeEnabled_SetsCorrectOptions()
-        {
-            // Arrange & Act
-            var options = new FluentUIScaffoldOptionsBuilder()
-                .WithBaseUrl(TestConfiguration.BaseUri)
-                .WithDefaultWaitTimeout(TimeSpan.FromSeconds(30))
-                .WithDebugMode(true)
-                .Build();
-
-            // Assert
-            Assert.IsTrue(options.EnableDebugMode, "Debug mode should be enabled");
-            Assert.AreEqual(TestConfiguration.BaseUri, options.BaseUrl, "Base URL should be set correctly");
-            Assert.AreEqual(TimeSpan.FromSeconds(30), options.DefaultWaitTimeout, "Default timeout should be set correctly");
-        }
-
-        [TestMethod]
         public async Task OptionsBuilder_WhenChainedMethodsUsed_BuildsCorrectOptions()
         {
             // Arrange & Act
             var options = new FluentUIScaffoldOptionsBuilder()
                 .WithBaseUrl(TestConfiguration.BaseUri)
                 .WithDefaultWaitTimeout(TimeSpan.FromSeconds(60))
-                .WithDebugMode(true)
-                .WithDefaultWaitTimeoutDebug(TimeSpan.FromSeconds(120))
+                .WithHeadlessMode(false)
+                .WithSlowMo(250)
                 .Build();
 
             // Assert
             Assert.AreEqual(TestConfiguration.BaseUri, options.BaseUrl);
             Assert.AreEqual(TimeSpan.FromSeconds(60), options.DefaultWaitTimeout);
-            Assert.AreEqual(TimeSpan.FromSeconds(120), options.DefaultWaitTimeoutDebug);
-            Assert.IsTrue(options.EnableDebugMode);
+            Assert.AreEqual(false, options.HeadlessMode);
+            Assert.AreEqual(250, options.SlowMo);
         }
 
         [TestMethod]
@@ -74,7 +57,6 @@ namespace SampleApp.Tests.Examples
             var options = new FluentUIScaffoldOptionsBuilder()
                 .WithBaseUrl(TestConfiguration.BaseUri)
                 .WithDefaultWaitTimeout(TimeSpan.FromSeconds(30))
-                .WithDebugMode(false)
                 .Build();
 
             using var app = new FluentUIScaffoldApp<WebApp>(options);
@@ -98,7 +80,6 @@ namespace SampleApp.Tests.Examples
             var options = new FluentUIScaffoldOptionsBuilder()
                 .WithBaseUrl(TestConfiguration.BaseUri)
                 .WithDefaultWaitTimeout(TimeSpan.FromSeconds(5)) // Shorter timeout for this test
-                .WithDebugMode(false)
                 .Build();
 
             using var app = new FluentUIScaffoldApp<WebApp>(options);
