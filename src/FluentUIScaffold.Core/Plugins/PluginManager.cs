@@ -147,14 +147,42 @@ namespace FluentUIScaffold.Core.Plugins
 
             if (_plugins.Count == 0)
             {
-                var message = "No UI testing framework plugins are configured. Please register a plugin (e.g., PlaywrightPlugin, SeleniumPlugin) before creating a driver.";
-                _logger.LogError(message);
-                throw new FluentUIScaffoldPluginException(message);
+                // Last-chance: if plugins exist in the global registry, bring them in now
+                try
+                {
+                    var globallyRegistered = PluginRegistry.GetAll();
+                    foreach (var plugin in globallyRegistered)
+                    {
+                        try { RegisterPlugin(plugin); } catch { }
+                    }
+                }
+                catch { }
+
+                if (_plugins.Count == 0)
+                {
+                    var message = "No UI testing framework plugins are configured. Please register a plugin (e.g., PlaywrightPlugin, SeleniumPlugin) before creating a driver.";
+                    _logger.LogError(message);
+                    throw new FluentUIScaffoldPluginException(message);
+                }
             }
 
             var failedPlugins = new List<string>();
 
-            foreach (var plugin in _plugins)
+            // If a driver type is requested, prefer plugins that can handle it
+            IEnumerable<IUITestingFrameworkPlugin> orderedPlugins = _plugins;
+            if (options.RequestedDriverType != null)
+            {
+                var requestedType = options.RequestedDriverType;
+                orderedPlugins = _plugins
+                    .OrderByDescending(p =>
+                    {
+                        try { return p.CanHandle(requestedType!); }
+                        catch { return false; }
+                    })
+                    .ThenBy(p => p.GetType().Name);
+            }
+
+            foreach (var plugin in orderedPlugins)
             {
                 try
                 {

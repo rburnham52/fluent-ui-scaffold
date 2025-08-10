@@ -28,7 +28,6 @@ namespace SampleApp.Tests.Examples
             var options = new FluentUIScaffoldOptionsBuilder()
                 .WithBaseUrl(TestConfiguration.BaseUri)
                 .WithDefaultWaitTimeout(TimeSpan.FromSeconds(30))
-                .WithDebugMode(false)
                 .Build();
 
             _app = new FluentUIScaffoldApp<WebApp>(options);

@@ -16,6 +16,37 @@ using Microsoft.Extensions.Logging;
 namespace FluentUIScaffold.Core
 {
     /// <summary>
+    /// Static builder entry points and helpers for configuring FluentUIScaffold.
+    /// </summary>
+    public static partial class FluentUIScaffoldBuilder
+    {
+        /// <summary>
+        /// New overload: configure with options builder.
+        /// </summary>
+        public static FluentUIScaffoldApp<TApp> Web<TApp>(Action<FluentUIScaffoldOptionsBuilder> configure, Action<FrameworkOptions>? configureFramework = null) where TApp : class
+        {
+            var builder = new FluentUIScaffoldOptionsBuilder();
+            configure?.Invoke(builder);
+            var options = builder.Build();
+
+            // Create app
+            return new FluentUIScaffoldApp<TApp>(options);
+        }
+
+        /// <summary>
+        /// Registers a plugin instance globally.
+        /// </summary>
+        public static void UsePlugin(IUITestingFrameworkPlugin plugin) => PluginRegistry.Register(plugin);
+
+        /// <summary>
+        /// Registers a plugin type globally.
+        /// </summary>
+        public static void UsePlugin<TPlugin>() where TPlugin : IUITestingFrameworkPlugin, new() => PluginRegistry.Register<TPlugin>();
+
+        // Plugin discovery is explicit via UsePlugin/UsePlugin<T>; no implicit discovery here.
+    }
+
+    /// <summary>
     /// Main entry point for the FluentUIScaffold testing framework.
     /// Provides a fluent API for configuring and executing UI tests.
     /// </summary>
@@ -211,115 +242,54 @@ namespace FluentUIScaffold.Core
                 return loggerFactory.CreateLogger("FluentUIScaffold");
             });
 
-            // Register PluginManager
-            services.AddSingleton<PluginManager>();
+            // Build a single PluginManager instance and register plugins
+            var unifiedPluginManager = new PluginManager();
 
-            // Auto-discover and register plugins
-            AutoDiscoverPlugins(services);
+            try { Console.WriteLine($"PluginRegistry count before seeding: {PluginRegistry.GetAll().Count}"); } catch { }
+            // Seed plugins from global registry only (explicit registration required)
+            SeedPluginsFromRegistry(services, unifiedPluginManager);
+            try { Console.WriteLine($"PluginManager count after seeding: {unifiedPluginManager.GetPlugins().Count}"); } catch { }
+
+            // Register PluginManager singleton instance
+            services.AddSingleton(unifiedPluginManager);
 
             // Auto-discover and register pages
             AutoDiscoverPages(services, options);
         }
 
+        // Plugin auto-discovery removed. Plugins must be registered via PluginRegistry.
+
         /// <summary>
-        /// Auto-discovers and registers plugins from loaded assemblies.
+        /// Registers plugins that were explicitly added to the global registry before DI build.
         /// </summary>
-        /// <param name="services">The service collection</param>
-        private static void AutoDiscoverPlugins(IServiceCollection services)
+        private static void SeedPluginsFromRegistry(IServiceCollection services, PluginManager pluginManager)
         {
-            var pluginManager = new PluginManager();
-            var successfulPlugins = new List<IUITestingFrameworkPlugin>();
+            var fromRegistry = PluginRegistry.GetAll();
+            if (fromRegistry.Count == 0)
+            {
+                return;
+            }
 
-            // Discover plugins from all loaded assemblies
-            var assemblies = AppDomain.CurrentDomain.GetAssemblies();
-            foreach (var assembly in assemblies)
+            foreach (var plugin in fromRegistry)
             {
                 try
                 {
-                    // Skip test assemblies to avoid test plugins, but allow sample test assemblies
-                    var assemblyName = assembly.GetName().Name ?? "";
-                    if (assemblyName.Contains("Test") && !assemblyName.Contains("Sample"))
-                    {
-                        continue;
-                    }
-
-                    pluginManager.DiscoverPlugins(assembly);
-                }
-                catch (Exception ex)
-                {
-                    // Log warning but continue with other assemblies
-                    Console.WriteLine($"Warning: Failed to discover plugins in assembly {assembly.GetName().Name}: {ex.Message}");
-                }
-            }
-
-            // Try to explicitly load Playwright plugin if not found
-            try
-            {
-                var playwrightAssembly = assemblies.FirstOrDefault(a => a.GetName().Name?.Contains("Playwright") == true);
-                if (playwrightAssembly != null)
-                {
-                    pluginManager.DiscoverPlugins(playwrightAssembly);
-                }
-            }
-            catch (Exception ex)
-            {
-                // Log warning but continue
-            }
-
-            // Register discovered plugins with DI
-            var plugins = pluginManager.GetPlugins();
-
-            // Clear the plugin manager to rebuild it with only successful plugins
-            pluginManager = new PluginManager();
-
-            foreach (var plugin in plugins)
-            {
-                try
-                {
-                    // Skip plugins that are likely test plugins
-                    if (plugin.GetType().Name.Contains("Test") || plugin.GetType().Name.Contains("Mock"))
-                    {
-                        continue;
-                    }
-
-                    services.AddSingleton(plugin.GetType(), plugin);
-                    plugin.ConfigureServices(services);
                     pluginManager.RegisterPlugin(plugin);
-                    successfulPlugins.Add(plugin);
-                }
-                catch (Exception ex)
-                {
-                    // Log warning but continue with other plugins
-                }
-            }
-
-            // If no plugins were successfully registered, try to use MockPlugin for testing scenarios
-            if (successfulPlugins.Count == 0)
-            {
-                try
-                {
-                    // Try to load MockPlugin for testing scenarios
-                    var mockPluginType = Type.GetType("FluentUIScaffold.Core.Tests.Mocks.MockPlugin, FluentUIScaffold.Core.Tests");
-                    if (mockPluginType != null)
+                    services.AddSingleton(plugin.GetType(), plugin);
+                    try
                     {
-                        var mockPlugin = Activator.CreateInstance(mockPluginType) as IUITestingFrameworkPlugin;
-                        if (mockPlugin != null)
-                        {
-                            services.AddSingleton(mockPluginType, mockPlugin);
-                            mockPlugin.ConfigureServices(services);
-                            pluginManager.RegisterPlugin(mockPlugin);
-                            successfulPlugins.Add(mockPlugin);
-                            Console.WriteLine("MockPlugin loaded for testing purposes.");
-                        }
+                        plugin.ConfigureServices(services);
+                    }
+                    catch
+                    {
+                        // Allow plugin to participate even if DI wiring throws; driver creation may still succeed
                     }
                 }
-                catch (Exception ex)
+                catch
                 {
-                    Console.WriteLine($"Warning: No UI testing framework plugins were found. Please ensure you have a proper plugin installed (e.g., FluentUIScaffold.Playwright). MockPlugin loading failed: {ex.Message}");
+                    // ignore registry plugin failures
                 }
             }
-
-            services.AddSingleton(pluginManager);
         }
 
         /// <summary>

@@ -32,7 +32,8 @@ namespace SampleApp.Tests.Examples
             var options = new FluentUIScaffoldOptionsBuilder()
                 .WithBaseUrl(TestConfiguration.BaseUri)
                 .WithDefaultWaitTimeout(TimeSpan.FromSeconds(30))
-                .WithDebugMode(true) // Enable debug mode for this test
+                .WithHeadlessMode(false)
+                .WithSlowMo(250)
                 .Build();
 
             _app = new FluentUIScaffoldApp<WebApp>(options);
@@ -77,8 +78,9 @@ namespace SampleApp.Tests.Examples
 
             var debugOptions = new FluentUIScaffoldOptionsBuilder()
                 .WithBaseUrl(TestConfiguration.BaseUri)
-                .WithDefaultWaitTimeoutDebug(TimeSpan.FromSeconds(60)) // Longer timeout for debug mode
-                .WithDebugMode(true)
+                .WithDefaultWaitTimeout(TimeSpan.FromSeconds(60))
+                .WithHeadlessMode(false)
+                .WithSlowMo(250)
                 .Build();
 
             using var debugApp = new FluentUIScaffoldApp<WebApp>(debugOptions);
@@ -92,8 +94,7 @@ namespace SampleApp.Tests.Examples
             var logAfter = debugLogOutput.ToString();
 
             // Assert - Verify debug mode uses the debug timeout
-            Assert.IsTrue(debugOptions.EnableDebugMode, "Debug mode should be enabled");
-            Assert.AreEqual(TimeSpan.FromSeconds(60), debugOptions.DefaultWaitTimeoutDebug, "Debug timeout should be set");
+            Assert.AreEqual(TimeSpan.FromSeconds(60), debugOptions.DefaultWaitTimeout, "Timeout should be set");
 
             // Verify that debug timeout produced appropriate logging
             var debugLogs = logAfter;
@@ -102,7 +103,7 @@ namespace SampleApp.Tests.Examples
                 debugLogs = logAfter.Replace(logBefore, string.Empty);
             }
             // Relaxed until logging sink is wired: assert on configured timeout instead of captured logs
-            Assert.AreEqual(TimeSpan.FromSeconds(60), debugOptions.DefaultWaitTimeoutDebug, "Debug timeout should be set");
+            Assert.AreEqual(TimeSpan.FromSeconds(60), debugOptions.DefaultWaitTimeout, "Timeout should be set");
 
             // Verify interactions work with debug timeout
             var initialCount = debugHomePage.GetCounterValue();
@@ -121,7 +122,8 @@ namespace SampleApp.Tests.Examples
             // Arrange - Test with debug mode enabled
             var debugOptions = new FluentUIScaffoldOptionsBuilder()
                 .WithBaseUrl(TestConfiguration.BaseUri)
-                .WithDebugMode(true)
+                .WithHeadlessMode(false)
+                .WithSlowMo(250)
                 .Build();
 
             using var debugApp = new FluentUIScaffoldApp<WebApp>(debugOptions);
@@ -135,7 +137,6 @@ namespace SampleApp.Tests.Examples
             // Arrange - Test with debug mode disabled
             var normalOptions = new FluentUIScaffoldOptionsBuilder()
                 .WithBaseUrl(TestConfiguration.BaseUri)
-                .WithDebugMode(false)
                 .Build();
 
             using var normalApp = new FluentUIScaffoldApp<WebApp>(normalOptions);
@@ -151,8 +152,7 @@ namespace SampleApp.Tests.Examples
 
             // Note: In a real implementation, we would capture and compare the actual log outputs
             // to verify that debug mode produces more detailed logging than normal mode
-            Assert.IsTrue(debugOptions.EnableDebugMode, "Debug mode should be enabled for detailed logging");
-            Assert.IsFalse(normalOptions.EnableDebugMode, "Normal mode should have debug disabled");
+            Assert.AreEqual(false, debugOptions.HeadlessMode);
         }
     }
 }

@@ -2,8 +2,6 @@
 using System;
 using System.Collections.Generic;
 
-using Microsoft.Extensions.Logging;
-
 namespace FluentUIScaffold.Core.Configuration
 {
     /// <summary>
@@ -20,16 +18,6 @@ namespace FluentUIScaffold.Core.Configuration
         /// Gets or sets the default wait timeout for element operations.
         /// </summary>
         public TimeSpan DefaultWaitTimeout { get; set; } = TimeSpan.FromSeconds(30);
-
-        /// <summary>
-        /// Gets or sets the default wait timeout for element operations in debug mode.
-        /// </summary>
-        public TimeSpan DefaultWaitTimeoutDebug { get; set; } = TimeSpan.FromSeconds(60);
-
-        /// <summary>
-        /// Gets or sets whether to enable debug mode.
-        /// </summary>
-        public bool EnableDebugMode { get; set; } = false;
 
         /// <summary>
         /// Gets or sets whether to run the browser in headless mode.
@@ -54,18 +42,9 @@ namespace FluentUIScaffold.Core.Configuration
         public ServerConfiguration? ServerConfiguration { get; set; }
 
         /// <summary>
-        /// Gets or sets whether to enable project detection.
+        /// Gets or sets the explicitly requested driver type.
+        /// When set, the plugin selection will prefer plugins that can handle this driver type.
         /// </summary>
-        public bool EnableProjectDetection { get; set; } = true;
-
-        /// <summary>
-        /// Gets or sets whether to enable web server launching.
-        /// </summary>
-        public bool EnableWebServerLaunch { get; set; } = false;
-
-        /// <summary>
-        /// Gets or sets the log level for web server launcher operations.
-        /// </summary>
-        public LogLevel WebServerLogLevel { get; set; } = LogLevel.Information;
+        public Type? RequestedDriverType { get; set; }
     }
 }

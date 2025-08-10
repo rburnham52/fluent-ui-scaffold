@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Flexible Server Startup Framework is a comprehensive solution for launching web servers in test scenarios. It provides a flexible, extensible architecture that supports multiple server types, automatic project detection, and configurable startup options.
+The Flexible Server Startup Framework is a comprehensive solution for launching web servers in test scenarios. It provides a flexible, extensible architecture that supports multiple server types and configurable startup options.
 
 ## Architecture
 
@@ -10,7 +10,7 @@ The Flexible Server Startup Framework is a comprehensive solution for launching 
 
 1. **`WebServerManager`** - The main orchestrator that manages server lifecycle
 2. **`IServerLauncher`** - Strategy interface for different server types
-3. **`IProjectDetector`** - Strategy interface for project detection
+3. Removed: automatic project detection
 4. **`ServerLauncherFactory`** - Factory for creating and managing launchers and detectors
 5. **`ServerConfiguration`** - Configuration class for server startup parameters
 
@@ -38,7 +38,7 @@ var options = new FluentUIScaffoldOptions
 {
     BaseUrl = new Uri("http://localhost:5000"),
     EnableWebServerLaunch = true,
-    EnableProjectDetection = true,
+        // Project detection is not used; specify ServerConfiguration or WebServerProjectPath explicitly
     ServerType = "aspnetcore"
 };
 
@@ -82,7 +82,7 @@ public class TestAssemblyHooks
         {
             BaseUrl = new Uri("http://localhost:5000"),
             EnableWebServerLaunch = true,
-            EnableProjectDetection = true,
+            // Project detection removed in favor of explicit configuration
             ServerType = "aspnetcore"
         };
 
@@ -150,7 +150,7 @@ factory.RegisterDetector(new CustomProjectDetector());
 
 - `BaseUrl` - The base URL for the web server
 - `EnableWebServerLaunch` - Whether to launch a web server
-- `EnableProjectDetection` - Whether to use automatic project detection
+Removed: `EnableProjectDetection` (explicit configuration is required)
 - `ServerType` - The type of server to launch
 - `AdditionalSearchPaths` - Additional paths to search for projects
 - `ServerConfiguration` - Explicit server configuration

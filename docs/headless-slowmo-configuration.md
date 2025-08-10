@@ -29,14 +29,14 @@ When `HeadlessMode` and `SlowMo` are not explicitly set (`null`), the framework 
 ### Headless Mode Logic
 
 1. **Explicit Setting**: If `HeadlessMode` is set, use that value
-2. **Debug Mode**: If `EnableDebugMode` is `true`, automatically set `HeadlessMode = false`
+2. Defaults when debugging: if a debugger is attached, drivers default to `HeadlessMode = false`
 3. **CI Environment**: If `CI` environment variable is set, use headless mode
 4. **Development**: Otherwise, use visible browser for easier debugging
 
 ### SlowMo Logic
 
 1. **Explicit Setting**: If `SlowMo` is set, use that value
-2. **Debug Mode**: If `EnableDebugMode` is `true`, automatically set `SlowMo = 1000`
+2. Defaults when debugging: if a debugger is attached, drivers default to a slight `SlowMo` (e.g., `250ms`)
 3. **Normal Mode**: Otherwise, set `SlowMo = 0` for fastest execution
 
 ## Usage Examples
@@ -62,12 +62,12 @@ var options = new FluentUIScaffoldOptionsBuilder()
     .Build();
 ```
 
-### Debug Mode (Automatic Non-Headless + SlowMo)
+### Defaults While Debugging (Automatic Non-Headless + SlowMo)
 
 ```csharp
 var options = new FluentUIScaffoldOptionsBuilder()
     .WithBaseUrl(new Uri("http://localhost:5000"))
-    .WithDebugMode(true)     // Automatically sets HeadlessMode = false, SlowMo = 1000
+    .WithHeadlessMode(false).WithSlowMo(250) // Optional explicit override during debugging
     .Build();
 ```
 
@@ -105,7 +105,7 @@ The framework respects the `CI` environment variable for automatic headless mode
 // Let the framework handle it automatically
 var options = new FluentUIScaffoldOptionsBuilder()
     .WithBaseUrl(new Uri("http://localhost:5000"))
-    .WithDebugMode(true)  // Non-headless + SlowMo for debugging
+    .WithHeadlessMode(false).WithSlowMo(250)
     .Build();
 ```
 

@@ -29,9 +29,8 @@ namespace SampleApp.Tests.Examples
             var options = new FluentUIScaffoldOptionsBuilder()
                 .WithBaseUrl(TestConfiguration.BaseUri)
                 .WithDefaultWaitTimeout(TimeSpan.FromSeconds(30))
-                .WithDebugMode(false)
-                .WithWebServerLaunch(true)
-                .WithWebServerLogLevel(LogLevel.Information)
+                .WithHeadlessMode(false)
+                .WithSlowMo(250)
                 .WithServerConfiguration(
                     ServerConfiguration.CreateDotNetServer(
                         TestConfiguration.BaseUri,

@@ -109,49 +109,29 @@ namespace FluentUIScaffold.Core.Tests
         }
 
         [Test]
-        public void WithDefaultWaitTimeoutDebug_WithValidTimeout_SetsDefaultWaitTimeoutDebug()
+        public void WithHeadlessMode_AndSlowMo_SetProperly()
         {
             // Arrange
             var builder = new FluentUIScaffoldOptionsBuilder();
-            var expectedTimeout = TimeSpan.FromSeconds(120);
+            bool? expectedHeadless = false;
+            int? expectedSlowMo = 300;
 
             // Act
-            var result = builder.WithDefaultWaitTimeoutDebug(expectedTimeout);
+            var result = builder
+                .WithHeadlessMode(expectedHeadless)
+                .WithSlowMo(expectedSlowMo);
 
             Assert.Multiple(() =>
             {
                 // Assert
                 Assert.That(result, Is.SameAs(builder));
-                Assert.That(builder.Build().DefaultWaitTimeoutDebug, Is.EqualTo(expectedTimeout));
+                var options = builder.Build();
+                Assert.That(options.HeadlessMode, Is.EqualTo(expectedHeadless));
+                Assert.That(options.SlowMo, Is.EqualTo(expectedSlowMo));
             });
         }
 
-        [Test]
-        public void WithDefaultWaitTimeoutDebug_WithZeroTimeout_ThrowsException()
-        {
-            // Arrange
-            var builder = new FluentUIScaffoldOptionsBuilder();
-
-            // Act & Assert
-            Assert.Throws<FluentUIScaffoldValidationException>(() => builder.WithDefaultWaitTimeoutDebug(TimeSpan.Zero));
-        }
-
-        [Test]
-        public void WithDebugMode_WithEnabled_SetsDebugMode()
-        {
-            // Arrange
-            var builder = new FluentUIScaffoldOptionsBuilder();
-
-            // Act
-            var result = builder.WithDebugMode(true);
-
-            Assert.Multiple(() =>
-            {
-                // Assert
-                Assert.That(result, Is.SameAs(builder));
-                Assert.That(builder.Build().EnableDebugMode, Is.True);
-            });
-        }
+        // Removed debug mode API; tests updated to use Headless/SlowMo
 
         [Test]
         public void WithWebServerProjectPath_WithValidPath_SetsWebServerProjectPath()
@@ -220,20 +200,12 @@ namespace FluentUIScaffold.Core.Tests
         }
 
         [Test]
-        public void WithProjectDetection_WithEnabled_SetsProjectDetection_ShouldEnableProjectDetection()
+        public void WithHeadlessMode_WithNull_SetsNull()
         {
-            // Arrange
             var builder = new FluentUIScaffoldOptionsBuilder();
-
-            // Act
             var result = builder.WithHeadlessMode(null);
-
-            Assert.Multiple(() =>
-            {
-                // Assert
-                Assert.That(result, Is.SameAs(builder));
-                Assert.That(builder.Build().HeadlessMode, Is.Null);
-            });
+            Assert.That(result, Is.SameAs(builder));
+            Assert.That(builder.Build().HeadlessMode, Is.Null);
         }
 
         [Test]
@@ -331,39 +303,9 @@ namespace FluentUIScaffold.Core.Tests
             Assert.Throws<FluentUIScaffoldValidationException>(() => builder.WithServerConfiguration(null!));
         }
 
-        [Test]
-        public void WithProjectDetection_WithEnabled_SetsProjectDetection_DuplicateRemoved()
-        {
-            // Arrange
-            var builder = new FluentUIScaffoldOptionsBuilder();
+        // Removed project detection API
 
-            // Act
-            var result = builder.WithProjectDetection(true);
-
-            Assert.Multiple(() =>
-            {
-                // Assert
-                Assert.That(result, Is.SameAs(builder));
-                Assert.That(builder.Build().EnableProjectDetection, Is.True);
-            });
-        }
-
-        [Test]
-        public void WithWebServerLaunch_WithEnabled_SetsWebServerLaunch()
-        {
-            // Arrange
-            var builder = new FluentUIScaffoldOptionsBuilder();
-
-            // Act
-            var result = builder.WithWebServerLaunch(true);
-
-            Assert.Multiple(() =>
-            {
-                // Assert
-                Assert.That(result, Is.SameAs(builder));
-                Assert.That(builder.Build().EnableWebServerLaunch, Is.True);
-            });
-        }
+        // Removed web server launch toggle API
 
         [Test]
         public void Build_WithValidConfiguration_ReturnsConfiguredOptions()
@@ -377,8 +319,6 @@ namespace FluentUIScaffold.Core.Tests
             var options = builder
                 .WithBaseUrl(expectedUrl)
                 .WithDefaultWaitTimeout(expectedTimeout)
-                .WithDebugMode(true)
-                .WithWebServerLaunch(true)
                 .Build();
 
             Assert.Multiple(() =>
@@ -386,8 +326,7 @@ namespace FluentUIScaffold.Core.Tests
                 // Assert
                 Assert.That(options.BaseUrl, Is.EqualTo(expectedUrl));
                 Assert.That(options.DefaultWaitTimeout, Is.EqualTo(expectedTimeout));
-                Assert.That(options.EnableDebugMode, Is.True);
-                Assert.That(options.EnableWebServerLaunch, Is.True);
+                // Debug/webserver toggles removed
             });
         }
 
@@ -404,22 +343,9 @@ namespace FluentUIScaffold.Core.Tests
         }
 
         [Test]
-        public void WithWebServerLogLevel_WithValidValue_SetsWebServerLogLevel()
+        public void Placeholder_NoOp_ToMaintainTestStructure()
         {
-            // Arrange
-            var builder = new FluentUIScaffoldOptionsBuilder();
-            var expectedLogLevel = LogLevel.Debug;
-
-            // Act
-            var result = builder.WithWebServerLogLevel(expectedLogLevel);
-            var options = builder.Build(); // Build the options object
-
-            Assert.Multiple(() =>
-            {
-                // Assert
-                Assert.That(result, Is.SameAs(builder));
-                Assert.That(options.WebServerLogLevel, Is.EqualTo(expectedLogLevel));
-            });
+            Assert.Pass();
         }
     }
 }

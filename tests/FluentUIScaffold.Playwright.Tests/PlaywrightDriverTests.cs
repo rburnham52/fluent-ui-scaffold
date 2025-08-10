@@ -40,8 +40,7 @@ namespace FluentUIScaffold.Playwright.Tests
             var options = new FluentUIScaffoldOptions
             {
                 BaseUrl = new Uri("http://localhost:5000"),
-                DefaultWaitTimeout = TimeSpan.FromSeconds(30),
-                EnableDebugMode = false
+                DefaultWaitTimeout = TimeSpan.FromSeconds(30)
             };
 
             // Act

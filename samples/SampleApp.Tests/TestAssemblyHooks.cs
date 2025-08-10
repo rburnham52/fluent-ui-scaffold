@@ -3,7 +3,9 @@ using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
 
+using FluentUIScaffold.Core;
 using FluentUIScaffold.Core.Configuration;
+using FluentUIScaffold.Playwright;
 
 using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -20,6 +22,10 @@ namespace SampleApp.Tests
         [AssemblyInitialize]
         public static void AssemblyInitialize(TestContext context)
         {
+            // Explicitly register the Playwright plugin for all tests (single registration)
+            FluentUIScaffoldPlaywrightBuilder.UsePlaywright();
+            Console.WriteLine($"Registered plugins: {FluentUIScaffold.Core.Plugins.PluginRegistry.GetAll().Count}");
+
             // Start web server via WebServerManager to match tests
             StartServerAsync().Wait();
             Console.WriteLine("Web server started successfully.");
@@ -44,8 +50,6 @@ namespace SampleApp.Tests
             var options = new FluentUIScaffoldOptions
             {
                 BaseUrl = TestConfiguration.BaseUri,
-                EnableWebServerLaunch = true,
-                WebServerLogLevel = LogLevel.Information, // Control launcher log level,
                 HeadlessMode = true,
                 DefaultWaitTimeout = TimeSpan.FromSeconds(30),
                 ServerConfiguration = ServerConfiguration.CreateDotNetServer(

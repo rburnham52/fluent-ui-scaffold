@@ -21,6 +21,13 @@ namespace FluentUIScaffold.Core.Tests
     [TestFixture]
     public class PluginManagerTests
     {
+        [SetUp]
+        public void TestSetup()
+        {
+            // Ensure tests start without globally registered plugins
+            PluginRegistry.ClearForTests();
+        }
+
         [Test]
         public void Constructor_WithLogger_CreatesInstance()
         {

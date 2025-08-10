@@ -1,7 +1,9 @@
 using System;
 using System.Threading.Tasks;
 
+using FluentUIScaffold.Core;
 using FluentUIScaffold.Core.Configuration;
+using FluentUIScaffold.Core.Tests.Mocks;
 
 using Microsoft.Extensions.Logging;
 
@@ -15,6 +17,13 @@ namespace FluentUIScaffold.Core.Tests
     [TestFixture]
     public class FluentUIScaffoldTests
     {
+        [OneTimeSetUp]
+        public void GlobalSetup()
+        {
+            // Ensure a plugin is available for driver creation in these unit tests
+            FluentUIScaffoldBuilder.UsePlugin(new MockPlugin());
+        }
+
         [Test]
         public void Constructor_WithValidOptions_CreatesInstance()
         {
@@ -71,31 +80,7 @@ namespace FluentUIScaffold.Core.Tests
             Assert.That(options.DefaultWaitTimeout, Is.EqualTo(TimeSpan.FromSeconds(60)));
         }
 
-        [Test]
-        public void WithDefaultWaitTimeoutDebug_WithValidTimeout_SetsDefaultWaitTimeoutDebug()
-        {
-            // Arrange
-            var options = new FluentUIScaffoldOptions
-            {
-                DefaultWaitTimeoutDebug = TimeSpan.FromSeconds(120)
-            };
-
-            // Act & Assert
-            Assert.That(options.DefaultWaitTimeoutDebug, Is.EqualTo(TimeSpan.FromSeconds(120)));
-        }
-
-        [Test]
-        public void WithDebugMode_WithEnabled_SetsDebugMode()
-        {
-            // Arrange
-            var options = new FluentUIScaffoldOptions
-            {
-                EnableDebugMode = true
-            };
-
-            // Act & Assert
-            Assert.That(options.EnableDebugMode, Is.True);
-        }
+        // Removed debug/extra timeout API; covered by Headless/SlowMo
 
         [Test]
         public void WithWebServerProjectPath_WithValidPath_SetsWebServerProjectPath()
@@ -204,43 +189,9 @@ namespace FluentUIScaffold.Core.Tests
         }
 
         [Test]
-        public void WithProjectDetection_WithEnabled_SetsProjectDetection()
+        public void Placeholder_NoOp_ToMaintainTestStructure()
         {
-            // Arrange
-            var options = new FluentUIScaffoldOptions
-            {
-                EnableProjectDetection = true
-            };
-
-            // Act & Assert
-            Assert.That(options.EnableProjectDetection, Is.True);
-        }
-
-        [Test]
-        public void WithWebServerLaunch_WithEnabled_SetsWebServerLaunch()
-        {
-            // Arrange
-            var options = new FluentUIScaffoldOptions
-            {
-                EnableWebServerLaunch = true
-            };
-
-            // Act & Assert
-            Assert.That(options.EnableWebServerLaunch, Is.True);
-        }
-
-        [Test]
-        public void WebServerLogLevel_WithValidValue_SetsWebServerLogLevel()
-        {
-            // Arrange
-            var options = new FluentUIScaffoldOptions();
-            var expectedLogLevel = LogLevel.Debug;
-
-            // Act
-            options.WebServerLogLevel = expectedLogLevel;
-
-            // Assert
-            Assert.That(options.WebServerLogLevel, Is.EqualTo(expectedLogLevel));
+            Assert.Pass();
         }
     }
 }

@@ -89,14 +89,11 @@ public class FluentUIScaffoldOptions
 {
     public Uri? BaseUrl { get; set; }
     public TimeSpan DefaultWaitTimeout { get; set; } = TimeSpan.FromSeconds(30);
-    public TimeSpan DefaultWaitTimeoutDebug { get; set; } = TimeSpan.FromSeconds(120);
-    public bool EnableDebugMode { get; set; } = false;
     public bool? HeadlessMode { get; set; } = null;  // null = automatic determination
     public int? SlowMo { get; set; } = null;         // null = automatic determination
     public string? WebServerProjectPath { get; set; }
-    public bool EnableProjectDetection { get; set; } = false;
-    public bool EnableWebServerLaunch { get; set; } = false;
     public ServerConfiguration? ServerConfiguration { get; set; }
+    public Type? RequestedDriverType { get; set; }
 }
 ```
 ```
@@ -107,14 +104,11 @@ public class FluentUIScaffoldOptions
 |----------|------|---------|-------------|
 | `BaseUrl` | `Uri?` | `null` | Base URL for the application |
 | `DefaultWaitTimeout` | `TimeSpan` | `30s` | Default timeout for element operations |
-| `DefaultWaitTimeoutDebug` | `TimeSpan` | `120s` | Default timeout when debug mode is enabled |
-| `EnableDebugMode` | `bool` | `false` | Enable debug mode (auto-detected when debugger attached) |
+| `RequestedDriverType` | `Type?` | `null` | Preferred driver type for plugin selection |
 | `HeadlessMode` | `bool?` | `null` | Explicit headless control (null = automatic) |
 | `SlowMo` | `int?` | `null` | Explicit SlowMo control in milliseconds (null = automatic) |
 | `WebServerProjectPath` | `string?` | `null` | Path to web server project file |
-| `EnableProjectDetection` | `bool` | `false` | Enable automatic project detection |
-| `EnableWebServerLaunch` | `bool` | `false` | Enable automatic web server launching |
-| `WebServerLogLevel` | `LogLevel` | `LogLevel.Information` | Control log level for web server launcher operations |
+|  |  |  |  |
 | `ServerConfiguration` | `ServerConfiguration?` | `null` | Server configuration for launching web servers |
 
 ### FluentUIScaffoldOptionsBuilder
@@ -126,15 +120,11 @@ public class FluentUIScaffoldOptionsBuilder
 {
     public FluentUIScaffoldOptionsBuilder WithBaseUrl(Uri baseUrl)
     public FluentUIScaffoldOptionsBuilder WithDefaultWaitTimeout(TimeSpan timeout)
-    public FluentUIScaffoldOptionsBuilder WithDefaultWaitTimeoutDebug(TimeSpan timeout)
-    public FluentUIScaffoldOptionsBuilder WithDebugMode(bool enabled = true)
     public FluentUIScaffoldOptionsBuilder WithHeadlessMode(bool? headless)
     public FluentUIScaffoldOptionsBuilder WithSlowMo(int? slowMo)
     public FluentUIScaffoldOptionsBuilder WithWebServerProjectPath(string projectPath)
     public FluentUIScaffoldOptionsBuilder WithServerConfiguration(ServerConfiguration serverConfiguration)
-    public FluentUIScaffoldOptionsBuilder WithProjectDetection(bool enabled = true)
-    public FluentUIScaffoldOptionsBuilder WithWebServerLaunch(bool enabled = true)
-    public FluentUIScaffoldOptionsBuilder WithWebServerLogLevel(LogLevel logLevel)
+    public FluentUIScaffoldOptionsBuilder WithDriver<TDriver>() where TDriver : class
     public FluentUIScaffoldOptions Build()
 }
 ```
@@ -145,15 +135,12 @@ public class FluentUIScaffoldOptionsBuilder
 |--------|-------------|------------|---------|
 | `WithBaseUrl` | Sets the base URL for the application | `Uri baseUrl` | `FluentUIScaffoldOptionsBuilder` |
 | `WithDefaultWaitTimeout` | Sets the default timeout for element operations | `TimeSpan timeout` | `FluentUIScaffoldOptionsBuilder` |
-| `WithDefaultWaitTimeoutDebug` | Sets the default timeout when debug mode is enabled | `TimeSpan timeout` | `FluentUIScaffoldOptionsBuilder` |
-| `WithDebugMode` | Enables or disables debug mode | `bool enabled = true` | `FluentUIScaffoldOptionsBuilder` |
+| `WithDriver<TDriver>` | Requests a specific driver type for plugin selection | `TDriver` type parameter | `FluentUIScaffoldOptionsBuilder` |
 | `WithHeadlessMode` | Sets explicit headless control | `bool? headless` | `FluentUIScaffoldOptionsBuilder` |
 | `WithSlowMo` | Sets explicit SlowMo control in milliseconds | `int? slowMo` | `FluentUIScaffoldOptionsBuilder` |
 | `WithWebServerProjectPath` | Sets the path to the web server project file | `string projectPath` | `FluentUIScaffoldOptionsBuilder` |
 | `WithServerConfiguration` | Sets the server configuration for launching web servers | `ServerConfiguration serverConfiguration` | `FluentUIScaffoldOptionsBuilder` |
-| `WithProjectDetection` | Enables or disables automatic project detection | `bool enabled = true` | `FluentUIScaffoldOptionsBuilder` |
-| `WithWebServerLaunch` | Enables or disables web server launching | `bool enabled = true` | `FluentUIScaffoldOptionsBuilder` |
-| `WithWebServerLogLevel` | Sets the log level for web server launcher operations | `LogLevel logLevel` | `FluentUIScaffoldOptionsBuilder` |
+|  |  |  |  |
 | `Build` | Builds and returns the configured options | None | `FluentUIScaffoldOptions` |
 
 ### WaitStrategy
