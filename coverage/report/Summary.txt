@@ -1,25 +1,25 @@
 Summary
-  Generated on: 8/11/2025 - 2:35:25 PM
-  Coverage date: 8/11/2025 - 10:56:36 AM - 8/11/2025 - 2:35:24 PM
-  Parser: MultiReport (14x Cobertura)
+  Generated on: 8/11/2025 - 10:58:31 PM
+  Coverage date: 8/11/2025 - 10:56:36 AM - 8/11/2025 - 10:58:30 PM
+  Parser: MultiReport (16x Cobertura)
   Assemblies: 2
   Classes: 51
   Files: 36
-  Line coverage: 40.7%
-  Covered lines: 1291
-  Uncovered lines: 1880
+  Line coverage: 43.3%
+  Covered lines: 1374
+  Uncovered lines: 1797
   Coverable lines: 3171
   Total lines: 6223
-  Branch coverage: 27.9% (314 of 1122)
-  Covered branches: 314
+  Branch coverage: 29.7% (334 of 1122)
+  Covered branches: 334
   Total branches: 1122
-  Method coverage: 56% (230 of 410)
-  Covered methods: 230
+  Method coverage: 58.5% (240 of 410)
+  Covered methods: 240
   Total methods: 410
 
-FluentUIScaffold.Core                                                                 37.9%
-  FluentUIScaffold.Core.Configuration.Detectors.EnvironmentBasedProjectDetector       81.4%
-  FluentUIScaffold.Core.Configuration.Detectors.GitBasedProjectDetector               63.2%
+FluentUIScaffold.Core                                                                 41.1%
+  FluentUIScaffold.Core.Configuration.Detectors.EnvironmentBasedProjectDetector       82.1%
+  FluentUIScaffold.Core.Configuration.Detectors.GitBasedProjectDetector               63.8%
   FluentUIScaffold.Core.Configuration.DotNetServerConfiguration                      100.0%
   FluentUIScaffold.Core.Configuration.DotNetServerConfigurationBuilder               100.0%
   FluentUIScaffold.Core.Configuration.FluentUIScaffoldOptions                        100.0%
@@ -36,7 +36,7 @@ FluentUIScaffold.Core                                                           
   FluentUIScaffold.Core.Configuration.ServerConfigurationBuilder                      90.9%
   FluentUIScaffold.Core.Configuration.ServerLauncherFactory                           68.4%
   FluentUIScaffold.Core.Configuration.VerificationContext                              0.0%
-  FluentUIScaffold.Core.Configuration.WebServerManager                                 0.0%
+  FluentUIScaffold.Core.Configuration.WebServerManager                                60.4%
   FluentUIScaffold.Core.Element                                                       80.9%
   FluentUIScaffold.Core.ElementBuilder                                               100.0%
   FluentUIScaffold.Core.ElementCollection                                             75.0%
