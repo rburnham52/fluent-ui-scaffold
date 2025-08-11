@@ -53,14 +53,15 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
             // Set up environment variables
             var environmentVariables = new Dictionary<string, string>(configuration.EnvironmentVariables)
             {
-                ["ASPNETCORE_ENVIRONMENT"] = environmentVariables.TryGetValue("ASPNETCORE_ENVIRONMENT", out var asp)
-                    ? asp : "Development",
-                ["ASPNETCORE_HOSTINGSTARTUPASSEMBLIES"] = environmentVariables.TryGetValue("ASPNETCORE_HOSTINGSTARTUPASSEMBLIES", out var spa)
-                    ? spa ?? string.Empty : string.Empty,
-                ["DOTNET_ENVIRONMENT"] = environmentVariables.TryGetValue("DOTNET_ENVIRONMENT", out var dotnetEnv)
-                    ? dotnetEnv : "Development",
-                ["ASPNETCORE_URLS"] = configuration.BaseUrl.ToString()
             };
+
+            environmentVariables["ASPNETCORE_ENVIRONMENT"] = environmentVariables.TryGetValue("ASPNETCORE_ENVIRONMENT", out var asp)
+                ? asp : "Development";
+            environmentVariables["ASPNETCORE_HOSTINGSTARTUPASSEMBLIES"] = environmentVariables.TryGetValue("ASPNETCORE_HOSTINGSTARTUPASSEMBLIES", out var spa)
+                ? spa ?? string.Empty : string.Empty;
+            environmentVariables["DOTNET_ENVIRONMENT"] = environmentVariables.TryGetValue("DOTNET_ENVIRONMENT", out var dotnetEnv)
+                ? dotnetEnv : "Development";
+            environmentVariables["ASPNETCORE_URLS"] = configuration.BaseUrl.ToString();
 
             // Start the process
             var startInfo = new ProcessStartInfo
