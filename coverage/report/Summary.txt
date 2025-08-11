@@ -1,0 +1,73 @@
+Summary
+  Generated on: 8/11/2025 - 8:40:29 AM
+  Coverage date: 8/11/2025 - 8:39:56 AM - 8/11/2025 - 8:40:28 AM
+  Parser: MultiReport (8x Cobertura)
+  Assemblies: 2
+  Classes: 51
+  Files: 36
+  Line coverage: 33.2%
+  Covered lines: 1043
+  Uncovered lines: 2097
+  Coverable lines: 3140
+  Total lines: 6191
+  Branch coverage: 20.7% (226 of 1090)
+  Covered branches: 226
+  Total branches: 1090
+  Method coverage: 51.5% (211 of 409)
+  Covered methods: 211
+  Total methods: 409
+
+FluentUIScaffold.Core                                                                 29.0%
+  FluentUIScaffold.Core.Configuration.Detectors.EnvironmentBasedProjectDetector        0.0%
+  FluentUIScaffold.Core.Configuration.Detectors.GitBasedProjectDetector                0.0%
+  FluentUIScaffold.Core.Configuration.DotNetServerConfiguration                      100.0%
+  FluentUIScaffold.Core.Configuration.DotNetServerConfigurationBuilder                94.8%
+  FluentUIScaffold.Core.Configuration.FluentUIScaffoldOptions                        100.0%
+  FluentUIScaffold.Core.Configuration.FluentUIScaffoldOptionsBuilder                  78.0%
+  FluentUIScaffold.Core.Configuration.Launchers.AspireServerLauncher                   0.0%
+  FluentUIScaffold.Core.Configuration.Launchers.AspNetCoreServerLauncher               0.0%
+  FluentUIScaffold.Core.Configuration.Launchers.AspNetServerLauncher                  15.0%
+  FluentUIScaffold.Core.Configuration.Launchers.NodeJsServerLauncher                  10.2%
+  FluentUIScaffold.Core.Configuration.Launchers.PortProcessFinder                      0.0%
+  FluentUIScaffold.Core.Configuration.Launchers.WebApplicationFactoryServerLauncher   47.3%
+  FluentUIScaffold.Core.Configuration.NodeJsServerConfigurationBuilder                65.3%
+  FluentUIScaffold.Core.Configuration.ProjectDetectionContext                         85.7%
+  FluentUIScaffold.Core.Configuration.ServerConfiguration                             96.7%
+  FluentUIScaffold.Core.Configuration.ServerConfigurationBuilder                      81.8%
+  FluentUIScaffold.Core.Configuration.ServerLauncherFactory                           68.4%
+  FluentUIScaffold.Core.Configuration.VerificationContext                              0.0%
+  FluentUIScaffold.Core.Configuration.WebServerManager                                 0.0%
+  FluentUIScaffold.Core.Element                                                       80.9%
+  FluentUIScaffold.Core.ElementBuilder                                               100.0%
+  FluentUIScaffold.Core.ElementCollection                                             75.0%
+  FluentUIScaffold.Core.ElementFactory                                                97.8%
+  FluentUIScaffold.Core.Exceptions.ElementNotFoundException                            0.0%
+  FluentUIScaffold.Core.Exceptions.ElementTimeoutException                            15.6%
+  FluentUIScaffold.Core.Exceptions.ElementValidationException                          0.0%
+  FluentUIScaffold.Core.Exceptions.FluentUIScaffoldException                          37.5%
+  FluentUIScaffold.Core.Exceptions.FluentUIScaffoldPluginException                    75.0%
+  FluentUIScaffold.Core.Exceptions.FluentUIScaffoldValidationException                23.5%
+  FluentUIScaffold.Core.Exceptions.InvalidPageException                                0.0%
+  FluentUIScaffold.Core.Exceptions.TimeoutException                                    0.0%
+  FluentUIScaffold.Core.Exceptions.VerificationException                               0.0%
+  FluentUIScaffold.Core.FluentUIScaffoldApp<T>                                        39.8%
+  FluentUIScaffold.Core.FluentUIScaffoldBuilder                                       12.5%
+  FluentUIScaffold.Core.MobileApp                                                      0.0%
+  FluentUIScaffold.Core.Pages.BasePageComponent<T1, T2>                                0.0%
+  FluentUIScaffold.Core.Plugins.PluginManager                                         47.5%
+  FluentUIScaffold.Core.Plugins.PluginRegistry                                        50.0%
+  FluentUIScaffold.Core.WebApp                                                         0.0%
+
+FluentUIScaffold.Playwright                                                           55.1%
+  FluentUIScaffold.Playwright.FluentUIScaffoldPlaywrightBuilder                        0.0%
+  FluentUIScaffold.Playwright.PlaywrightAdvancedFeatures                              79.1%
+  FluentUIScaffold.Playwright.PlaywrightBrowserStartupException                      100.0%
+  FluentUIScaffold.Playwright.PlaywrightDriver                                        42.9%
+  FluentUIScaffold.Playwright.PlaywrightElementNotEnabledException                   100.0%
+  FluentUIScaffold.Playwright.PlaywrightElementNotFoundException                     100.0%
+  FluentUIScaffold.Playwright.PlaywrightElementNotVisibleException                   100.0%
+  FluentUIScaffold.Playwright.PlaywrightException                                    100.0%
+  FluentUIScaffold.Playwright.PlaywrightNavigationException                          100.0%
+  FluentUIScaffold.Playwright.PlaywrightPlugin                                        46.1%
+  FluentUIScaffold.Playwright.PlaywrightTimeoutException                             100.0%
+  FluentUIScaffold.Playwright.PlaywrightWaitStrategy                                  52.6%
