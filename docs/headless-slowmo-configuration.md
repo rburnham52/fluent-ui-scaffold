@@ -102,7 +102,7 @@ The framework respects the `CI` environment variable for automatic headless mode
 
 ### For Development
 ```csharp
-// Let the framework handle it automatically
+// Let the framework handle it automatically (optional explicit override shown)
 var options = new FluentUIScaffoldOptionsBuilder()
     .WithBaseUrl(new Uri("http://localhost:5000"))
     .WithHeadlessMode(false).WithSlowMo(250)

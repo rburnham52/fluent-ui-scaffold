@@ -83,16 +83,9 @@ namespace FluentUIScaffold.Core.Tests
         // Removed debug/extra timeout API; covered by Headless/SlowMo
 
         [Test]
-        public void WithWebServerProjectPath_WithValidPath_SetsWebServerProjectPath()
+        public void WebServerProjectPath_Removed_FromOptions()
         {
-            // Arrange
-            var options = new FluentUIScaffoldOptions();
-
-            // Act
-            options.WebServerProjectPath = "/path/to/project.csproj";
-
-            // Assert
-            Assert.That(options.WebServerProjectPath, Is.EqualTo("/path/to/project.csproj"));
+            Assert.Pass("Server project path removed from options; managed by WebServerManager");
         }
 
         [Test]
@@ -170,22 +163,9 @@ namespace FluentUIScaffold.Core.Tests
         }
 
         [Test]
-        public void WithServerConfiguration_WithValidConfiguration_SetsServerConfiguration()
+        public void ServerConfiguration_Removed_FromOptions()
         {
-            // Arrange
-            var serverConfig = new ServerConfiguration
-            {
-                ServerType = ServerType.AspNetCore,
-                ProjectPath = "/path/to/project.csproj"
-            };
-
-            var options = new FluentUIScaffoldOptions
-            {
-                ServerConfiguration = serverConfig
-            };
-
-            // Act & Assert
-            Assert.That(options.ServerConfiguration, Is.EqualTo(serverConfig));
+            Assert.Pass("Server configuration removed from options; managed by WebServerManager");
         }
 
         [Test]

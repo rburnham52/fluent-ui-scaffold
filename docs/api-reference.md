@@ -91,8 +91,6 @@ public class FluentUIScaffoldOptions
     public TimeSpan DefaultWaitTimeout { get; set; } = TimeSpan.FromSeconds(30);
     public bool? HeadlessMode { get; set; } = null;  // null = automatic determination
     public int? SlowMo { get; set; } = null;         // null = automatic determination
-    public string? WebServerProjectPath { get; set; }
-    public ServerConfiguration? ServerConfiguration { get; set; }
     public Type? RequestedDriverType { get; set; }
 }
 ```
@@ -107,9 +105,7 @@ public class FluentUIScaffoldOptions
 | `RequestedDriverType` | `Type?` | `null` | Preferred driver type for plugin selection |
 | `HeadlessMode` | `bool?` | `null` | Explicit headless control (null = automatic) |
 | `SlowMo` | `int?` | `null` | Explicit SlowMo control in milliseconds (null = automatic) |
-| `WebServerProjectPath` | `string?` | `null` | Path to web server project file |
 |  |  |  |  |
-| `ServerConfiguration` | `ServerConfiguration?` | `null` | Server configuration for launching web servers |
 
 ### FluentUIScaffoldOptionsBuilder
 
@@ -122,8 +118,6 @@ public class FluentUIScaffoldOptionsBuilder
     public FluentUIScaffoldOptionsBuilder WithDefaultWaitTimeout(TimeSpan timeout)
     public FluentUIScaffoldOptionsBuilder WithHeadlessMode(bool? headless)
     public FluentUIScaffoldOptionsBuilder WithSlowMo(int? slowMo)
-    public FluentUIScaffoldOptionsBuilder WithWebServerProjectPath(string projectPath)
-    public FluentUIScaffoldOptionsBuilder WithServerConfiguration(ServerConfiguration serverConfiguration)
     public FluentUIScaffoldOptionsBuilder WithDriver<TDriver>() where TDriver : class
     public FluentUIScaffoldOptions Build()
 }
@@ -138,8 +132,7 @@ public class FluentUIScaffoldOptionsBuilder
 | `WithDriver<TDriver>` | Requests a specific driver type for plugin selection | `TDriver` type parameter | `FluentUIScaffoldOptionsBuilder` |
 | `WithHeadlessMode` | Sets explicit headless control | `bool? headless` | `FluentUIScaffoldOptionsBuilder` |
 | `WithSlowMo` | Sets explicit SlowMo control in milliseconds | `int? slowMo` | `FluentUIScaffoldOptionsBuilder` |
-| `WithWebServerProjectPath` | Sets the path to the web server project file | `string projectPath` | `FluentUIScaffoldOptionsBuilder` |
-| `WithServerConfiguration` | Sets the server configuration for launching web servers | `ServerConfiguration serverConfiguration` | `FluentUIScaffoldOptionsBuilder` |
+|  |  |  |  |
 |  |  |  |  |
 | `Build` | Builds and returns the configured options | None | `FluentUIScaffoldOptions` |
 
@@ -189,9 +182,9 @@ public class ServerConfiguration
     public List<string> HealthCheckEndpoints { get; set; }
     
     // Factory methods for creating pre-configured servers
-    public static DotNetServerConfigurationBuilder CreateAspNetCore(Uri baseUrl, string projectPath)
-    public static DotNetServerConfigurationBuilder CreateAspire(Uri baseUrl, string projectPath)
-    public static NodeJsServerConfigurationBuilder CreateNodeJs(Uri baseUrl, string projectPath)
+    public static DotNetServerConfigurationBuilder CreateDotNetServer(Uri baseUrl, string projectPath)
+    public static DotNetServerConfigurationBuilder CreateAspireServer(Uri baseUrl, string projectPath)
+    public static NodeJsServerConfigurationBuilder CreateNodeJsServer(Uri baseUrl, string projectPath)
 }
 ```
 

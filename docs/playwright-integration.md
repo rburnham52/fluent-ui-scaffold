@@ -66,11 +66,9 @@ var fluentUI = FluentUIScaffoldBuilder.Web(options =>
     options.BaseUrl = new Uri("https://your-app.com");
     options.DefaultTimeout = TimeSpan.FromSeconds(30);
     
-    // Playwright-specific options
-    options.FrameworkSpecificOptions["Headless"] = false;
-    options.FrameworkSpecificOptions["SlowMo"] = 1000;
-    options.FrameworkSpecificOptions["ViewportWidth"] = 1280;
-    options.FrameworkSpecificOptions["ViewportHeight"] = 720;
+    // Framework runtime options
+    options.HeadlessMode = false;
+    options.SlowMo = 1000;
 });
 
 // Get Playwright driver
@@ -174,18 +172,8 @@ public async Task Can_Configure_Browser_Settings()
     // Arrange
     var fluentUI = FluentUIScaffoldBuilder.Web(options =>
     {
-        // Set viewport size
-        options.FrameworkSpecificOptions["ViewportWidth"] = 1920;
-        options.FrameworkSpecificOptions["ViewportHeight"] = 1080;
-        
-        // Set user agent
-        options.FrameworkSpecificOptions["UserAgent"] = "Custom User Agent";
-        
-        // Set geolocation
-        options.FrameworkSpecificOptions["Geolocation"] = new { Latitude = 40.7128, Longitude = -74.0060 };
-        
-        // Set permissions
-        options.FrameworkSpecificOptions["Permissions"] = new[] { "geolocation", "notifications" };
+        // Currently, viewport, user agent, permissions are not exposed via core options.
+        // Keep to Playwright defaults or extend PlaywrightDriver if needed.
     });
     
     var playwrightDriver = fluentUI.Framework<PlaywrightDriver>();
@@ -249,17 +237,7 @@ public async Task Can_Use_Playwright_Wait_Strategies()
 public async Task Can_Use_Different_Browsers()
 {
     // Arrange
-    var fluentUI = FluentUIScaffoldBuilder.Web(options =>
-    {
-        // Use Chromium
-        options.FrameworkSpecificOptions["BrowserType"] = "Chromium";
-        
-        // Or use Firefox
-        // options.FrameworkSpecificOptions["BrowserType"] = "Firefox";
-        
-        // Or use WebKit
-        // options.FrameworkSpecificOptions["BrowserType"] = "WebKit";
-    });
+    var fluentUI = FluentUIScaffoldBuilder.Web();
     
     // Act
     var page = fluentUI.NavigateTo<HomePage>();
@@ -276,21 +254,7 @@ public async Task Can_Use_Different_Browsers()
 public async Task Can_Manage_Browser_Context()
 {
     // Arrange
-    var fluentUI = FluentUIScaffoldBuilder.Web(options =>
-    {
-        // Set viewport size
-        options.FrameworkSpecificOptions["ViewportWidth"] = 1280;
-        options.FrameworkSpecificOptions["ViewportHeight"] = 720;
-        
-        // Set user agent
-        options.FrameworkSpecificOptions["UserAgent"] = "Custom User Agent";
-        
-        // Set locale
-        options.FrameworkSpecificOptions["Locale"] = "en-US";
-        
-        // Set timezone
-        options.FrameworkSpecificOptions["Timezone"] = "America/New_York";
-    });
+    var fluentUI = FluentUIScaffoldBuilder.Web();
     
     // Act
     var page = fluentUI.NavigateTo<LocalizedPage>();
@@ -309,14 +273,7 @@ public async Task Can_Manage_Browser_Context()
 public async Task Can_Emulate_Mobile_Devices()
 {
     // Arrange
-    var fluentUI = FluentUIScaffoldBuilder.Web(options =>
-    {
-        // Emulate iPhone
-        options.FrameworkSpecificOptions["Device"] = "iPhone 12";
-        
-        // Or emulate Android
-        // options.FrameworkSpecificOptions["Device"] = "Galaxy S21";
-    });
+    var fluentUI = FluentUIScaffoldBuilder.Web();
     
     // Act
     var page = fluentUI.NavigateTo<MobilePage>();
@@ -333,18 +290,7 @@ public async Task Can_Emulate_Mobile_Devices()
 public async Task Can_Configure_Custom_Mobile_Settings()
 {
     // Arrange
-    var fluentUI = FluentUIScaffoldBuilder.Web(options =>
-    {
-        // Custom viewport
-        options.FrameworkSpecificOptions["ViewportWidth"] = 375;
-        options.FrameworkSpecificOptions["ViewportHeight"] = 667;
-        
-        // Custom user agent
-        options.FrameworkSpecificOptions["UserAgent"] = "Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1";
-        
-        // Touch support
-        options.FrameworkSpecificOptions["HasTouch"] = true;
-    });
+    var fluentUI = FluentUIScaffoldBuilder.Web();
     
     // Act
     var page = fluentUI.NavigateTo<TouchPage>();
@@ -363,17 +309,7 @@ public async Task Can_Configure_Custom_Mobile_Settings()
 public async Task Can_Simulate_Network_Conditions()
 {
     // Arrange
-    var fluentUI = FluentUIScaffoldBuilder.Web(options =>
-    {
-        // Slow 3G
-        options.FrameworkSpecificOptions["NetworkConditions"] = new
-        {
-            Offline = false,
-            DownloadSpeed = 780 * 1024, // 780 Kbps
-            UploadSpeed = 330 * 1024,   // 330 Kbps
-            Latency = 200               // 200ms
-        };
-    });
+    var fluentUI = FluentUIScaffoldBuilder.Web();
     
     // Act
     var page = fluentUI.NavigateTo<PerformancePage>();
@@ -476,11 +412,7 @@ public async Task Can_Use_Debug_Mode()
     var options = new FluentUIScaffoldOptions
     {
         BaseUrl = new Uri("https://your-app.com"),
-        // DebugMode automatically enables when debugger is attached
-        // You can also explicitly set it: DebugMode = true
-        // When DebugMode is true:
-        // - HeadlessMode is automatically set to false
-        // - SlowMo is automatically set to 1000ms
+        // When a debugger is attached, PlaywrightDriver defaults to non-headless and slight SlowMo
     };
 
     var fluentUI = new FluentUIScaffoldApp<WebApp>(options);
@@ -507,12 +439,8 @@ Defaults while debugging: headless disabled and slight SlowMo (e.g., 250ms). In 
 var options = new FluentUIScaffoldOptions
 {
     BaseUrl = new Uri("https://your-app.com"),
-    HeadlessMode = false, // Manual control
-    FrameworkOptions = 
-    {
-        ["SlowMo"] = 1000, // Manual SlowMo setting
-        ["Devtools"] = true // Additional debug features
-    }
+    HeadlessMode = false,
+    SlowMo = 1000
 };
 ```
 
@@ -740,22 +668,17 @@ If you prefer in-process hosting for ASP.NET Core apps in your UI tests, you can
 Example:
 
 ```csharp
-var options = new FluentUIScaffoldOptionsBuilder()
-    .WithBaseUrl(new Uri("http://localhost:5000"))
-    // Web server launch flag removed; configure ServerConfiguration explicitly
-    .WithServerConfiguration(
-        new DotNetServerConfigurationBuilder(ServerType.WebApplicationFactory,
-            new Uri("http://localhost:5000"),
-            "./samples/SampleApp/SampleApp.csproj")
-            .WithFramework("net8.0")
-            .WithConfiguration("Release")
-            .WithAspNetCoreEnvironment("Development")
-            .WithStartupTimeout(TimeSpan.FromSeconds(120))
-            .WithHealthCheckEndpoints("/", "/index.html")
-            .Build())
+var serverConfig = new DotNetServerConfigurationBuilder(ServerType.WebApplicationFactory,
+        new Uri("http://localhost:5000"),
+        "./samples/SampleApp/SampleApp.csproj")
+    .WithFramework("net8.0")
+    .WithConfiguration("Release")
+    .WithAspNetCoreEnvironment("Development")
+    .WithStartupTimeout(TimeSpan.FromSeconds(120))
+    .WithHealthCheckEndpoints("/", "/index.html")
     .Build();
 
-await WebServerManager.StartServerAsync(options);
+await WebServerManager.StartServerAsync(serverConfig);
 ```
 
 When to use which launcher:

@@ -73,8 +73,8 @@ namespace FluentUIScaffold.Core
         /// <param name="options">The configuration options</param>
         public FluentUIScaffoldApp(FluentUIScaffoldOptions options)
         {
-            // Use shared options if available, otherwise use the provided options
-            _options = SharedOptionsManager.GetOrCreateSharedOptions(options ?? throw new ArgumentNullException(nameof(options)));
+            // Use the provided options directly. Server lifecycle is managed externally via WebServerManager.
+            _options = options ?? throw new ArgumentNullException(nameof(options));
 
             // Build service collection with auto-discovery
             var services = new ServiceCollection();

@@ -25,26 +25,15 @@ namespace SampleApp.Tests.Examples
         /// </summary>
         protected BDDStepDefinitionsBase()
         {
-            // Create options that will be shared between WebServerManager and FluentUIScaffoldApp
+            // Create framework options; server lifecycle is handled by WebServerManager
             var options = new FluentUIScaffoldOptionsBuilder()
                 .WithBaseUrl(TestConfiguration.BaseUri)
                 .WithDefaultWaitTimeout(TimeSpan.FromSeconds(30))
                 .WithHeadlessMode(false)
                 .WithSlowMo(250)
-                .WithServerConfiguration(
-                    ServerConfiguration.CreateDotNetServer(
-                        TestConfiguration.BaseUri,
-                        "../../../SampleApp.Web/SampleApp.Web.csproj"
-                    )
-                    .WithFramework("net8.0")
-                    .WithConfiguration("Debug")
-                    .WithSpaProxy(true)
-                    .WithAspNetCoreEnvironment("Development")
-                    .Build()
-                )
                 .Build();
 
-            // The FluentUIScaffoldApp will use shared options if WebServerManager has already set them
+            // FluentUIScaffoldApp uses only framework options; server is managed separately
             FluentUi = new FluentUIScaffoldApp<WebApp>(options);
         }
 

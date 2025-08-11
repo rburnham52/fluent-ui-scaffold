@@ -89,35 +89,7 @@ namespace FluentUIScaffold.Core.Configuration
             return this;
         }
 
-        /// <summary>
-        /// Sets the path to the ASP.NET Core project for web server launching.
-        /// </summary>
-        /// <param name="projectPath">The path to the project</param>
-        /// <returns>The current builder instance for method chaining</returns>
-        public FluentUIScaffoldOptionsBuilder WithWebServerProjectPath(string projectPath)
-        {
-            if (string.IsNullOrEmpty(projectPath))
-                throw new FluentUIScaffoldValidationException("Web server project path cannot be null or empty", nameof(projectPath));
-
-            _options.WebServerProjectPath = projectPath;
-            return this;
-        }
-
-        /// <summary>
-        /// Sets the server configuration for web server launching.
-        /// </summary>
-        /// <param name="serverConfiguration">The server configuration</param>
-        /// <returns>The current builder instance for method chaining</returns>
-        public FluentUIScaffoldOptionsBuilder WithServerConfiguration(ServerConfiguration serverConfiguration)
-        {
-            if (serverConfiguration == null)
-                throw new FluentUIScaffoldValidationException("Server configuration cannot be null", nameof(serverConfiguration));
-
-            _options.ServerConfiguration = serverConfiguration;
-            return this;
-        }
-
-        // Removed project detection and web server launch toggles to simplify configuration
+        // Server configuration is handled exclusively by WebServerManager; no server-related APIs here
 
         /// <summary>
         /// Builds and returns the configured FluentUIScaffoldOptions.
