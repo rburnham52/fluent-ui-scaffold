@@ -39,10 +39,9 @@ namespace FluentUIScaffold.Core.Configuration
         /// <summary>
         /// Gets or creates the singleton instance of WebServerManager.
         /// </summary>
-        /// <param name="options">The configuration options.</param>
         /// <param name="logger">Optional logger.</param>
         /// <returns>The singleton instance.</returns>
-        public static WebServerManager GetInstance(FluentUIScaffoldOptions options, ILogger? logger = null)
+        public static WebServerManager GetInstance(ILogger? logger = null)
         {
             lock (_lockObject)
             {
@@ -57,15 +56,16 @@ namespace FluentUIScaffold.Core.Configuration
         /// <summary>
         /// Starts the web server using flexible configuration and automatic project detection.
         /// </summary>
-        /// <param name="options">The configuration options.</param>
+        /// <param name="serverConfig">The server configuration to use for startup.</param>
         /// <returns>A task that completes when the server is ready.</returns>
-        public static async Task StartServerAsync(FluentUIScaffoldOptions options)
+        public static async Task StartServerAsync(ServerConfiguration serverConfig)
         {
-            // Set shared options for consistency with FluentUIScaffoldApp
-            SharedOptionsManager.SetSharedOptions(options);
+            if (serverConfig == null) throw new ArgumentNullException(nameof(serverConfig));
+
+            // No shared state: server lifecycle is decoupled from framework options
 
             // Initialize a cross-process mutex to avoid multiple runners racing to start/stop the same server
-            var port = options.BaseUrl?.Port ?? 5000;
+            var port = serverConfig.BaseUrl?.Port ?? 5000;
             var mutexName = $"FluentUIScaffold_WebServer_{port}"; // cross-platform safe name
             bool createdNew;
             _startupMutex = new System.Threading.Mutex(initiallyOwned: false, name: mutexName, createdNew: out _);
@@ -85,7 +85,7 @@ namespace FluentUIScaffold.Core.Configuration
             WebServerManager? instance = null;
             try
             {
-                instance = GetInstance(options);
+                instance = GetInstance();
 
                 // Try to acquire ownership to start the server. If another process owns it, wait until the server is up.
                 var acquired = _startupMutex!.WaitOne(TimeSpan.FromSeconds(1));
@@ -128,7 +128,7 @@ namespace FluentUIScaffold.Core.Configuration
                     return;
                 }
 
-                await instance.StartServerInternalAsync(options);
+                await instance.StartServerInternalAsync(serverConfig);
 
                 lock (_lockObject)
                 {
@@ -180,8 +180,7 @@ namespace FluentUIScaffold.Core.Configuration
                 }
             }
 
-            // Clear shared options when server stops
-            SharedOptionsManager.ClearSharedOptions();
+            // Nothing to clear; no shared state maintained
         }
 
         /// <summary>
@@ -196,37 +195,13 @@ namespace FluentUIScaffold.Core.Configuration
             }
         }
 
-        private async Task StartServerInternalAsync(FluentUIScaffoldOptions options)
+        private async Task StartServerInternalAsync(ServerConfiguration serverConfig)
         {
-            // Determine server configuration
-            var serverConfig = await DetermineServerConfigurationAsync(options);
-
             // Get the appropriate launcher
             _currentLauncher = _factory.GetLauncher(serverConfig);
 
             // Launch the server
             await _currentLauncher.LaunchAsync(serverConfig);
-        }
-
-        private async Task<ServerConfiguration> DetermineServerConfigurationAsync(FluentUIScaffoldOptions options)
-        {
-            // If explicit server configuration is provided, use it
-            if (options.ServerConfiguration != null)
-            {
-                _logger?.LogInformation("Using explicit server configuration");
-                return options.ServerConfiguration;
-            }
-
-            // If explicit project path is provided, create configuration from it
-            if (!string.IsNullOrEmpty(options.WebServerProjectPath))
-            {
-                _logger?.LogInformation("Using explicit project path: {ProjectPath}", options.WebServerProjectPath);
-                return ServerConfiguration.CreateDotNetServer(options.BaseUrl!, options.WebServerProjectPath).Build();
-            }
-
-            throw new InvalidOperationException(
-                "No server configuration provided. " +
-                "Please provide either ServerConfiguration or WebServerProjectPath.");
         }
 
 

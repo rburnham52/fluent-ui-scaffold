@@ -32,16 +32,6 @@ namespace FluentUIScaffold.Core.Configuration
         public int? SlowMo { get; set; } = null;
 
         /// <summary>
-        /// Gets or sets the path to the web server project.
-        /// </summary>
-        public string? WebServerProjectPath { get; set; }
-
-        /// <summary>
-        /// Gets or sets the server configuration for web server launching.
-        /// </summary>
-        public ServerConfiguration? ServerConfiguration { get; set; }
-
-        /// <summary>
         /// Gets or sets the explicitly requested driver type.
         /// When set, the plugin selection will prefer plugins that can handle this driver type.
         /// </summary>

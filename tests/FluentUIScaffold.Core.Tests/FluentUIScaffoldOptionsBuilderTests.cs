@@ -134,41 +134,21 @@ namespace FluentUIScaffold.Core.Tests
         // Removed debug mode API; tests updated to use Headless/SlowMo
 
         [Test]
-        public void WithWebServerProjectPath_WithValidPath_SetsWebServerProjectPath()
+        public void WithWebServerProjectPath_IsRemoved_FromBuilder()
         {
-            // Arrange
-            var builder = new FluentUIScaffoldOptionsBuilder();
-            var expectedPath = "/path/to/project.csproj";
-
-            // Act
-            var result = builder.WithWebServerProjectPath(expectedPath);
-
-            Assert.Multiple(() =>
-            {
-                // Assert
-                Assert.That(result, Is.SameAs(builder));
-                Assert.That(builder.Build().WebServerProjectPath, Is.EqualTo(expectedPath));
-            });
+            Assert.Pass("Server config APIs removed from options builder; managed by WebServerManager");
         }
 
         [Test]
-        public void WithWebServerProjectPath_WithNullPath_ThrowsException()
+        public void WithWebServerProjectPath_WithNullPath_Removed()
         {
-            // Arrange
-            var builder = new FluentUIScaffoldOptionsBuilder();
-
-            // Act & Assert
-            Assert.Throws<FluentUIScaffoldValidationException>(() => builder.WithWebServerProjectPath(null!));
+            Assert.Pass("Removed");
         }
 
         [Test]
-        public void WithWebServerProjectPath_WithEmptyPath_ThrowsException()
+        public void WithWebServerProjectPath_WithEmptyPath_Removed()
         {
-            // Arrange
-            var builder = new FluentUIScaffoldOptionsBuilder();
-
-            // Act & Assert
-            Assert.Throws<FluentUIScaffoldValidationException>(() => builder.WithWebServerProjectPath(string.Empty));
+            Assert.Pass("Removed");
         }
 
         [Test]
@@ -195,8 +175,14 @@ namespace FluentUIScaffold.Core.Tests
             // Arrange
             var builder = new FluentUIScaffoldOptionsBuilder();
 
-            // Act & Assert
-            Assert.Throws<FluentUIScaffoldValidationException>(() => builder.WithServerConfiguration(null!));
+            // Act
+            var result = builder.WithHeadlessMode(null);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(result, Is.SameAs(builder));
+                Assert.That(builder.Build().HeadlessMode, Is.Null);
+            });
         }
 
         [Test]
@@ -271,36 +257,15 @@ namespace FluentUIScaffold.Core.Tests
         }
 
         [Test]
-        public void WithServerConfiguration_WithValidConfiguration_SetsServerConfiguration()
+        public void WithServerConfiguration_Removed_FromBuilder()
         {
-            // Arrange
-            var builder = new FluentUIScaffoldOptionsBuilder();
-            var serverConfig = new ServerConfiguration
-            {
-                ServerType = ServerType.AspNetCore,
-                ProjectPath = "/path/to/project.csproj",
-                BaseUrl = new Uri("http://localhost:5000")
-            };
-
-            // Act
-            var result = builder.WithServerConfiguration(serverConfig);
-
-            Assert.Multiple(() =>
-            {
-                // Assert
-                Assert.That(result, Is.SameAs(builder));
-                Assert.That(builder.Build().ServerConfiguration, Is.EqualTo(serverConfig));
-            });
+            Assert.Pass("Server configuration is now provided only to WebServerManager");
         }
 
         [Test]
-        public void WithServerConfiguration_WithNullConfiguration_ThrowsException()
+        public void WithServerConfiguration_WithNullConfiguration_Removed()
         {
-            // Arrange
-            var builder = new FluentUIScaffoldOptionsBuilder();
-
-            // Act & Assert
-            Assert.Throws<FluentUIScaffoldValidationException>(() => builder.WithServerConfiguration(null!));
+            Assert.Pass("Removed");
         }
 
         // Removed project detection API

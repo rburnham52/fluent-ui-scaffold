@@ -31,42 +31,33 @@ The Flexible Server Startup Framework is a comprehensive solution for launching 
 
 ## Usage Examples
 
-### Basic Usage with Automatic Project Detection
+### Basic Usage
 
 ```csharp
-var options = new FluentUIScaffoldOptions
-{
-    BaseUrl = new Uri("http://localhost:5000"),
-    EnableWebServerLaunch = true,
-        // Project detection is not used; specify ServerConfiguration or WebServerProjectPath explicitly
-    ServerType = "aspnetcore"
-};
+var serverConfig = ServerConfiguration.CreateDotNetServer(
+        new Uri("http://localhost:5000"),
+        "/path/to/project.csproj")
+    .WithFramework("net8.0")
+    .WithConfiguration("Release")
+    .WithHealthCheckEndpoints("/", "/index.html")
+    .Build();
 
-await WebServerManager.StartServerAsync(options);
+await WebServerManager.StartServerAsync(serverConfig);
 ```
 
 ### Explicit Configuration
 
 ```csharp
-var options = new FluentUIScaffoldOptions
-{
-    BaseUrl = new Uri("http://localhost:5000"),
-    EnableWebServerLaunch = true,
-    ServerConfiguration = new ServerConfiguration
-    {
-        ProjectPath = "/path/to/project.csproj",
-        WorkingDirectory = "/path/to/project",
-        ServerType = "aspnetcore",
-        EnableSpaProxy = true,
-        StartupTimeout = TimeSpan.FromSeconds(90),
-        EnvironmentVariables =
-        {
-            ["ASPNETCORE_ENVIRONMENT"] = "Development"
-        }
-    }
-};
+var serverConfig = ServerConfiguration.CreateDotNetServer(
+        new Uri("http://localhost:5000"),
+        "/path/to/project.csproj")
+    .WithConfiguration("Release")
+    .WithSpaProxy(true)
+    .WithAspNetCoreEnvironment("Development")
+    .WithStartupTimeout(TimeSpan.FromSeconds(90))
+    .Build();
 
-await WebServerManager.StartServerAsync(options);
+await WebServerManager.StartServerAsync(serverConfig);
 ```
 
 ### MSTest Integration
@@ -78,15 +69,15 @@ public class TestAssemblyHooks
     [AssemblyInitialize]
     public static void AssemblyInitialize(TestContext context)
     {
-        var options = new FluentUIScaffoldOptions
-        {
-            BaseUrl = new Uri("http://localhost:5000"),
-            EnableWebServerLaunch = true,
-            // Project detection removed in favor of explicit configuration
-            ServerType = "aspnetcore"
-        };
+        var serverConfig = ServerConfiguration.CreateDotNetServer(
+                new Uri("http://localhost:5000"),
+                "./path/to/project.csproj")
+            .WithFramework("net8.0")
+            .WithConfiguration("Release")
+            .WithAspNetCoreEnvironment("Development")
+            .Build();
 
-        WebServerManager.StartServerAsync(options).Wait();
+        WebServerManager.StartServerAsync(serverConfig).Wait();
     }
 
     [AssemblyCleanup]
@@ -102,7 +93,7 @@ public class TestAssemblyHooks
 ### ASP.NET Core Application
 
 ```csharp
-var config = ServerConfiguration.CreateAspNetCore(
+var config = ServerConfiguration.CreateDotNetServer(
     new Uri("http://localhost:5000"),
     "/path/to/project.csproj"
 );
@@ -111,7 +102,7 @@ var config = ServerConfiguration.CreateAspNetCore(
 ### Aspire App Host Application
 
 ```csharp
-var config = ServerConfiguration.CreateAspire(
+var config = ServerConfiguration.CreateAspireServer(
     new Uri("http://localhost:5000"),
     "/path/to/apphost.csproj"
 );
@@ -148,12 +139,8 @@ factory.RegisterDetector(new CustomProjectDetector());
 
 ### FluentUIScaffoldOptions
 
-- `BaseUrl` - The base URL for the web server
-- `EnableWebServerLaunch` - Whether to launch a web server
-Removed: `EnableProjectDetection` (explicit configuration is required)
-- `ServerType` - The type of server to launch
-- `AdditionalSearchPaths` - Additional paths to search for projects
-- `ServerConfiguration` - Explicit server configuration
+- `BaseUrl` - The base URL the tests will use
+- `DefaultWaitTimeout`, `HeadlessMode`, `SlowMo`, `RequestedDriverType` – framework runtime settings
 
 ### ServerConfiguration
 
@@ -220,12 +207,12 @@ Enable detailed logging:
 var loggerFactory = LoggerFactory.Create(builder =>
     builder.AddConsole().SetMinimumLevel(LogLevel.Debug));
 
-var options = new FluentUIScaffoldOptions
-{
-    // ... other options
-};
+var serverConfig = ServerConfiguration.CreateDotNetServer(
+        new Uri("http://localhost:5000"),
+        "/path/to/project.csproj")
+    .Build();
 
-await WebServerManager.StartServerAsync(options);
+await WebServerManager.StartServerAsync(serverConfig);
 ```
 
 ## Future Enhancements

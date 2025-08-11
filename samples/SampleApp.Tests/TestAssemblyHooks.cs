@@ -26,7 +26,7 @@ namespace SampleApp.Tests
             FluentUIScaffoldPlaywrightBuilder.UsePlaywright();
             Console.WriteLine($"Registered plugins: {FluentUIScaffold.Core.Plugins.PluginRegistry.GetAll().Count}");
 
-            // Start web server via WebServerManager to match tests
+            // Start web server via WebServerManager
             StartServerAsync().Wait();
             Console.WriteLine("Web server started successfully.");
         }
@@ -46,26 +46,20 @@ namespace SampleApp.Tests
 
             // SPA assets are built into wwwroot during Release build via MSBuild target
 
-            // For ASP.NET Core applications
-            var options = new FluentUIScaffoldOptions
-            {
-                BaseUrl = TestConfiguration.BaseUri,
-                HeadlessMode = true,
-                DefaultWaitTimeout = TimeSpan.FromSeconds(30),
-                ServerConfiguration = ServerConfiguration.CreateDotNetServer(
+            // For ASP.NET Core applications: build only the server configuration
+            var serverConfig = ServerConfiguration.CreateDotNetServer(
                     TestConfiguration.BaseUri,
                     projectPath
                 )
-                    .WithFramework("net8.0")
-                    .WithConfiguration("Release")
-                    .WithSpaProxy(false)
-                    .WithAspNetCoreEnvironment("Development")
-                    .WithAspNetCoreHostingStartupAssemblies("")
-                    .WithHealthCheckEndpoints("/", "/index.html")
-                    .WithStartupTimeout(TimeSpan.FromSeconds(120))
-                    .WithProcessName("SampleApp")
-                    .Build()
-            };
+                .WithFramework("net8.0")
+                .WithConfiguration("Release")
+                .WithSpaProxy(false)
+                .WithAspNetCoreEnvironment("Development")
+                .WithAspNetCoreHostingStartupAssemblies("")
+                .WithHealthCheckEndpoints("/", "/index.html")
+                .WithStartupTimeout(TimeSpan.FromSeconds(120))
+                .WithProcessName("SampleApp")
+                .Build();
 
             // For Aspire applications, just change the builder:
             /*
@@ -99,7 +93,7 @@ namespace SampleApp.Tests
                 .Build();
             */
 
-            await WebServerManager.StartServerAsync(options);
+            await WebServerManager.StartServerAsync(serverConfig);
         }
 
         // No additional build steps here; MSBuild handles SPA build/copy for Release

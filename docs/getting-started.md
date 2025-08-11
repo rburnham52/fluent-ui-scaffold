@@ -64,8 +64,7 @@ public class MyFirstTest
         {
             options.BaseUrl = new Uri("https://your-app.com");
             options.DefaultWaitTimeout = TimeSpan.FromSeconds(60);
-            options.WithHeadlessMode(true);  // Optional: explicit override
-            options.WebServerProjectPath = "./path/to/your/project.csproj"; // Optional
+            options.HeadlessMode = true;  // Optional: explicit override
         });
     }
 
@@ -95,58 +94,34 @@ For applications that need to be launched before testing, you can configure auto
 [TestInitialize]
 public async Task Setup()
 {
+    // Build server configuration and start server
+    var serverConfig = ServerConfiguration.CreateDotNetServer(
+            new Uri("https://your-app.com"),
+            "./path/to/your/project.csproj"
+        )
+        .WithFramework("net8.0")
+        .WithConfiguration("Debug")
+        .WithSpaProxy(true)
+        .WithAspNetCoreEnvironment("Development")
+        .WithStartupTimeout(TimeSpan.FromSeconds(120))
+        .Build();
+
+    await WebServerManager.StartServerAsync(serverConfig);
+
+    // Create framework options separately
     var options = new FluentUIScaffoldOptionsBuilder()
         .WithBaseUrl(new Uri("https://your-app.com"))
         .WithDefaultWaitTimeout(TimeSpan.FromSeconds(30))
-        .WithHeadlessMode(true)  // Optional: explicit headless control
-        .WithServerConfiguration(
-            ServerConfiguration.CreateDotNetServer(
-                new Uri("https://your-app.com"),
-                "./path/to/your/project.csproj"
-            )
-            .WithFramework("net8.0")
-            .WithConfiguration("Debug")
-            .WithSpaProxy(true)
-            .WithAspNetCoreEnvironment("Development")
-            .WithStartupTimeout(TimeSpan.FromSeconds(120))
-            .Build()
-        )
+        .WithHeadlessMode(true)
         .Build();
 
-    // Start the server (sets shared options for consistency)
-    await WebServerManager.StartServerAsync(options);
-
-    // Create FluentUIScaffoldApp (uses shared options automatically)
     _fluentUI = new FluentUIScaffoldApp<WebApp>(options);
     await _fluentUI.InitializeAsync();
 }
 ```
 
-#### Shared Options Pattern
-
-FluentUIScaffold uses a shared options pattern to ensure consistency between `WebServerManager` and `FluentUIScaffoldApp` instances. When `WebServerManager.StartServerAsync` is called, it sets shared options that `FluentUIScaffoldApp` will automatically use if available.
-
-This is particularly useful in scenarios where:
-- You're using Reqnroll or other BDD frameworks
-- You have multiple test classes that need consistent configuration
-- You want to ensure the web server and UI tests use the same settings
-
-Example with shared options:
-
-```csharp
-// In your test assembly hooks (WebServerManager uses these options)
-var options = new FluentUIScaffoldOptionsBuilder()
-    .WithBaseUrl(new Uri("http://localhost:5000"))
-    .WithServerConfiguration(ServerConfiguration.CreateDotNetServer(...))
-    .Build();
-
-// Start the server (sets shared options)
-await WebServerManager.StartServerAsync(options);
-
-// In your test classes (FluentUIScaffoldApp uses shared options automatically)
-using var app = new FluentUIScaffoldApp<WebApp>(options);
-await app.InitializeAsync();
-```
+// Shared options pattern has been removed. Server lifecycle is managed via WebServerManager
+// and framework runtime options are configured separately via FluentUIScaffoldOptions.
         .WithServerConfiguration(ServerConfiguration.CreateDotNetServer(
             new Uri("https://your-app.com"), 
             "path/to/your/web/app.csproj"))
@@ -163,34 +138,37 @@ The framework supports multiple server types with flexible configuration:
 
 **ASP.NET Core Server:**
 ```csharp
-.WithServerConfiguration(ServerConfiguration.CreateDotNetServer(
+var serverConfig = ServerConfiguration.CreateDotNetServer(
     new Uri("https://localhost:5001"), 
     "path/to/your/project.csproj")
     .WithAspNetCoreEnvironment("Development")
     .WithAspNetCoreUrls("https://localhost:5001")
-    .Build())
+    .Build();
+await WebServerManager.StartServerAsync(serverConfig);
 ```
 
 **Aspire App Host:**
 ```csharp
-.WithServerConfiguration(ServerConfiguration.CreateAspireServer(
+var serverConfig = ServerConfiguration.CreateAspireServer(
     new Uri("http://localhost:5000"), 
     "path/to/your/AppHost.csproj")
     .WithDotNetEnvironment("Development")
     .WithAspireDashboardOtlpEndpoint("https://localhost:21097")
     .WithAspireResourceServiceEndpoint("https://localhost:22268")
-    .Build())
+    .Build();
+await WebServerManager.StartServerAsync(serverConfig);
 ```
 
 **Node.js:**
 ```csharp
-.WithServerConfiguration(ServerConfiguration.CreateNodeJsServer(
+var serverConfig = ServerConfiguration.CreateNodeJsServer(
     new Uri("http://localhost:3000"),
     "path/to/your/package.json")
     .WithNpmScript("start")
     .WithNodeEnvironment("development")
     .WithStartupTimeout(TimeSpan.FromSeconds(90))
-    .Build())
+    .Build();
+await WebServerManager.StartServerAsync(serverConfig);
 ```
 
 **WebApplicationFactory (Option A):**
@@ -198,21 +176,16 @@ The framework supports multiple server types with flexible configuration:
 Use this when you want in-process hosting in tests. In this scaffold, the WebApplicationFactory launcher gracefully falls back to the standard ASP.NET process launcher for cross-platform stability. You still declare the server type through the builder:
 
 ```csharp
-var options = new FluentUIScaffoldOptionsBuilder()
-    .WithBaseUrl(new Uri("http://localhost:5000"))
-    .WithServerConfiguration(
-        // Use ServerType.WebApplicationFactory via DotNet builder
-        new DotNetServerConfigurationBuilder(ServerType.WebApplicationFactory,
-            new Uri("http://localhost:5000"),
-            "./samples/SampleApp/SampleApp.csproj")
-            .WithFramework("net8.0")
-            .WithConfiguration("Release")
-            .WithAspNetCoreEnvironment("Development")
-            .WithStartupTimeout(TimeSpan.FromSeconds(120))
-            .Build())
+var serverConfig = new DotNetServerConfigurationBuilder(ServerType.WebApplicationFactory,
+        new Uri("http://localhost:5000"),
+        "./samples/SampleApp/SampleApp.csproj")
+    .WithFramework("net8.0")
+    .WithConfiguration("Release")
+    .WithAspNetCoreEnvironment("Development")
+    .WithStartupTimeout(TimeSpan.FromSeconds(120))
     .Build();
 
-await WebServerManager.StartServerAsync(options);
+await WebServerManager.StartServerAsync(serverConfig);
 ```
 
 Launcher selection
