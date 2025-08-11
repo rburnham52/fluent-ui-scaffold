@@ -1,27 +1,27 @@
 Summary
-  Generated on: 8/11/2025 - 11:40:19 AM
-  Coverage date: 8/11/2025 - 10:56:36 AM - 8/11/2025 - 11:40:18 AM
-  Parser: MultiReport (12x Cobertura)
+  Generated on: 8/11/2025 - 2:35:25 PM
+  Coverage date: 8/11/2025 - 10:56:36 AM - 8/11/2025 - 2:35:24 PM
+  Parser: MultiReport (14x Cobertura)
   Assemblies: 2
   Classes: 51
   Files: 36
-  Line coverage: 40.4%
-  Covered lines: 1283
-  Uncovered lines: 1888
+  Line coverage: 40.7%
+  Covered lines: 1291
+  Uncovered lines: 1880
   Coverable lines: 3171
   Total lines: 6223
   Branch coverage: 27.9% (314 of 1122)
   Covered branches: 314
   Total branches: 1122
-  Method coverage: 55.6% (228 of 410)
-  Covered methods: 228
+  Method coverage: 56% (230 of 410)
+  Covered methods: 230
   Total methods: 410
 
-FluentUIScaffold.Core                                                                 37.6%
+FluentUIScaffold.Core                                                                 37.9%
   FluentUIScaffold.Core.Configuration.Detectors.EnvironmentBasedProjectDetector       81.4%
   FluentUIScaffold.Core.Configuration.Detectors.GitBasedProjectDetector               63.2%
   FluentUIScaffold.Core.Configuration.DotNetServerConfiguration                      100.0%
-  FluentUIScaffold.Core.Configuration.DotNetServerConfigurationBuilder                94.8%
+  FluentUIScaffold.Core.Configuration.DotNetServerConfigurationBuilder               100.0%
   FluentUIScaffold.Core.Configuration.FluentUIScaffoldOptions                        100.0%
   FluentUIScaffold.Core.Configuration.FluentUIScaffoldOptionsBuilder                  78.0%
   FluentUIScaffold.Core.Configuration.Launchers.AspireServerLauncher                   0.0%
@@ -33,7 +33,7 @@ FluentUIScaffold.Core                                                           
   FluentUIScaffold.Core.Configuration.NodeJsServerConfigurationBuilder                65.3%
   FluentUIScaffold.Core.Configuration.ProjectDetectionContext                        100.0%
   FluentUIScaffold.Core.Configuration.ServerConfiguration                             96.7%
-  FluentUIScaffold.Core.Configuration.ServerConfigurationBuilder                      81.8%
+  FluentUIScaffold.Core.Configuration.ServerConfigurationBuilder                      90.9%
   FluentUIScaffold.Core.Configuration.ServerLauncherFactory                           68.4%
   FluentUIScaffold.Core.Configuration.VerificationContext                              0.0%
   FluentUIScaffold.Core.Configuration.WebServerManager                                 0.0%
