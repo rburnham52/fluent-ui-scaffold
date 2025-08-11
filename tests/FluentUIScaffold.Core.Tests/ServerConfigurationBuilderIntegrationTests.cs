@@ -18,7 +18,7 @@ namespace FluentUIScaffold.Core.Tests
         {
             var launcherType = typeof(FluentUIScaffold.Core.Configuration.Launchers.AspNetServerLauncher);
             var method = launcherType.GetMethod("BuildCommandArguments", BindingFlags.NonPublic | BindingFlags.Static);
-            Assert.NotNull(method, "Could not reflect BuildCommandArguments on AspNetServerLauncher");
+            Assert.That(method, Is.Not.Null, "Could not reflect BuildCommandArguments on AspNetServerLauncher");
             var result = method!.Invoke(null, new object[] { config });
             return (string)result!;
         }
@@ -27,7 +27,7 @@ namespace FluentUIScaffold.Core.Tests
         {
             var launcherType = typeof(FluentUIScaffold.Core.Configuration.Launchers.AspNetServerLauncher);
             var method = launcherType.GetMethod("SetServerSpecificEnvironmentVariables", BindingFlags.NonPublic | BindingFlags.Static);
-            Assert.NotNull(method, "Could not reflect SetServerSpecificEnvironmentVariables on AspNetServerLauncher");
+            Assert.That(method, Is.Not.Null, "Could not reflect SetServerSpecificEnvironmentVariables on AspNetServerLauncher");
             method!.Invoke(null, new object[] { startInfo, config });
         }
 
@@ -53,9 +53,9 @@ namespace FluentUIScaffold.Core.Tests
             var projectPath = "/path/to/MyApp.csproj";
 
             var builderSnippet = @"ServerConfiguration
-    .CreateDotNetServer(new Uri(\"http://localhost:5055\"), \"/path/to/MyApp.csproj\")
-    .WithFramework(\"net9.0\")
-    .WithConfiguration(\"Debug\")";
+    .CreateDotNetServer(new Uri(""http://localhost:5055""), ""/path/to/MyApp.csproj"")
+    .WithFramework(""net9.0"")
+    .WithConfiguration(""Debug"")";
 
             var config = ServerConfiguration
                 .CreateDotNetServer(baseUrl, projectPath)
@@ -84,9 +84,9 @@ namespace FluentUIScaffold.Core.Tests
             var projectPath = "/path/to/AspireApp.AppHost.csproj";
 
             var builderSnippet = @"ServerConfiguration
-    .CreateAspireServer(new Uri(\"http://localhost:6066\"), \"/path/to/AspireApp.AppHost.csproj\")
-    .WithFramework(\"net9.0\")
-    .WithConfiguration(\"Release\")";
+    .CreateAspireServer(new Uri(""http://localhost:6066""), ""/path/to/AspireApp.AppHost.csproj"")
+    .WithFramework(""net9.0"")
+    .WithConfiguration(""Release"")";
 
             var config = ServerConfiguration
                 .CreateAspireServer(baseUrl, projectPath)
@@ -202,7 +202,7 @@ namespace FluentUIScaffold.Core.Tests
             // Build args via reflection
             var launcherType = typeof(FluentUIScaffold.Core.Configuration.Launchers.NodeJsServerLauncher);
             var method = launcherType.GetMethod("BuildCommandArguments", BindingFlags.NonPublic | BindingFlags.Static);
-            Assert.NotNull(method, "Could not reflect BuildCommandArguments on NodeJsServerLauncher");
+            Assert.That(method, Is.Not.Null, "Could not reflect BuildCommandArguments on NodeJsServerLauncher");
             var args = (string)method!.Invoke(null, new object[] { config })!;
 
             TestContext.WriteLine("=== Node.js (npm run) ===");
