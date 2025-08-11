@@ -8,8 +8,8 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
         {
             var arguments = new List<string> { "run" };
 
-            var frameworkIndex = configuration.Arguments.IndexOf("--framework");
-            var configurationIndex = configuration.Arguments.IndexOf("--configuration");
+            var frameworkIndex = configuration.Arguments.LastIndexOf("--framework");
+            var configurationIndex = configuration.Arguments.LastIndexOf("--configuration");
 
             if (frameworkIndex >= 0 && frameworkIndex + 1 < configuration.Arguments.Count)
             {

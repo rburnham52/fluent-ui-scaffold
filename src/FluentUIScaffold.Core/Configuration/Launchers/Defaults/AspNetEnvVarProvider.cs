@@ -11,7 +11,7 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
                 targetEnvironment[kv.Key] = kv.Value;
             }
 
-            if (configuration.BaseUrl != null && configuration.ServerType == ServerType.AspNetCore)
+            if (configuration.BaseUrl != null)
             {
                 targetEnvironment["ASPNETCORE_URLS"] = configuration.BaseUrl.ToString();
             }
