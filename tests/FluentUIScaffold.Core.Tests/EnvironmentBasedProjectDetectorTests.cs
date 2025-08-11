@@ -11,6 +11,12 @@ namespace FluentUIScaffold.Core.Tests
     [TestFixture]
     public class EnvironmentBasedProjectDetectorTests
     {
+        private static System.IO.DirectoryInfo CreateTempDir()
+        {
+            var path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "fuis_" + System.Guid.NewGuid().ToString("N"));
+            System.IO.Directory.CreateDirectory(path);
+            return new System.IO.DirectoryInfo(path);
+        }
         [Test]
         public void DetectProjectPath_FromEnvironmentVariable_ReturnsPath()
         {
@@ -44,7 +50,7 @@ namespace FluentUIScaffold.Core.Tests
         [Test]
         public void DetectProjectPath_FromConfigFile_ReturnsPath()
         {
-            var tempDir = Directory.CreateTempSubdirectory();
+            var tempDir = CreateTempDir();
             var projectPath = Path.Combine(tempDir.FullName, "MyApp.csproj");
             File.WriteAllText(projectPath, "<Project></Project>");
 
@@ -68,7 +74,7 @@ namespace FluentUIScaffold.Core.Tests
         [Test]
         public void DetectProjectPath_FromAdditionalPaths_ReturnsPath()
         {
-            var tempDir = Directory.CreateTempSubdirectory();
+            var tempDir = CreateTempDir();
             var projectPath = Path.Combine(tempDir.FullName, "WebApp.csproj");
             File.WriteAllText(projectPath, "<Project></Project>");
 

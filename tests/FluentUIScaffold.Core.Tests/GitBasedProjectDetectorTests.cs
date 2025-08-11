@@ -11,10 +11,16 @@ namespace FluentUIScaffold.Core.Tests
     [TestFixture]
     public class GitBasedProjectDetectorTests
     {
+        private static System.IO.DirectoryInfo CreateTempDir()
+        {
+            var path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "fuis_" + System.Guid.NewGuid().ToString("N"));
+            System.IO.Directory.CreateDirectory(path);
+            return new System.IO.DirectoryInfo(path);
+        }
         [Test]
         public void DetectProjectPath_InGitRepo_FindsProjectInSrc()
         {
-            var repoRoot = Directory.CreateTempSubdirectory();
+            var repoRoot = CreateTempDir();
             Directory.CreateDirectory(Path.Combine(repoRoot.FullName, ".git"));
             var srcDir = Path.Combine(repoRoot.FullName, "src");
             Directory.CreateDirectory(srcDir);
@@ -37,7 +43,7 @@ namespace FluentUIScaffold.Core.Tests
         [Test]
         public void DetectProjectPath_NoGit_FallsBackToDirectorySearch()
         {
-            var root = Directory.CreateTempSubdirectory();
+            var root = CreateTempDir();
             var pkg = Path.Combine(root.FullName, "package.json");
             File.WriteAllText(pkg, "{ } ");
 
