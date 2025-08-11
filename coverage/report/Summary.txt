@@ -1,23 +1,23 @@
 Summary
-  Generated on: 8/11/2025 - 11:18:48 PM
-  Coverage date: 8/11/2025 - 10:56:36 AM - 8/11/2025 - 11:18:46 PM
-  Parser: MultiReport (24x Cobertura)
+  Generated on: 8/11/2025 - 11:31:25 PM
+  Coverage date: 8/11/2025 - 10:56:36 AM - 8/11/2025 - 11:31:23 PM
+  Parser: MultiReport (28x Cobertura)
   Assemblies: 2
   Classes: 51
   Files: 36
-  Line coverage: 49.0%
-  Covered lines: 1556
-  Uncovered lines: 1615
+  Line coverage: 51.3%
+  Covered lines: 1627
+  Uncovered lines: 1544
   Coverable lines: 3171
   Total lines: 6223
-  Branch coverage: 33.7% (379 of 1122)
-  Covered branches: 379
+  Branch coverage: 36.2% (407 of 1122)
+  Covered branches: 407
   Total branches: 1122
-  Method coverage: 65.3% (268 of 410)
-  Covered methods: 268
+  Method coverage: 65.8% (270 of 410)
+  Covered methods: 270
   Total methods: 410
 
-FluentUIScaffold.Core                                                                 47.9%
+FluentUIScaffold.Core                                                                 50.5%
   FluentUIScaffold.Core.Configuration.Detectors.EnvironmentBasedProjectDetector       82.1%
   FluentUIScaffold.Core.Configuration.Detectors.GitBasedProjectDetector               63.8%
   FluentUIScaffold.Core.Configuration.DotNetServerConfiguration                      100.0%
@@ -26,8 +26,8 @@ FluentUIScaffold.Core                                                           
   FluentUIScaffold.Core.Configuration.FluentUIScaffoldOptionsBuilder                  78.0%
   FluentUIScaffold.Core.Configuration.Launchers.AspireServerLauncher                  17.5%
   FluentUIScaffold.Core.Configuration.Launchers.AspNetCoreServerLauncher              18.0%
-  FluentUIScaffold.Core.Configuration.Launchers.AspNetServerLauncher                  15.4%
-  FluentUIScaffold.Core.Configuration.Launchers.NodeJsServerLauncher                  10.2%
+  FluentUIScaffold.Core.Configuration.Launchers.AspNetServerLauncher                  32.9%
+  FluentUIScaffold.Core.Configuration.Launchers.NodeJsServerLauncher                  26.7%
   FluentUIScaffold.Core.Configuration.Launchers.PortProcessFinder                     23.3%
   FluentUIScaffold.Core.Configuration.Launchers.WebApplicationFactoryServerLauncher   47.3%
   FluentUIScaffold.Core.Configuration.NodeJsServerConfigurationBuilder                65.3%

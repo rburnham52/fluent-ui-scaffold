@@ -70,7 +70,7 @@ set +x
 reportgenerator \
   -reports:"$COVERAGE_DIR"/**/coverage.cobertura.xml \
   -targetdir:"$REPORT_DIR" \
-  -reporttypes:Html;TextSummary
+  -reporttypes:'Html;TextSummary'
 
 # Threshold check (90%) using first cobertura file
 COVERAGE_VALUE=$(grep -o 'line-rate="[^"]*"' "$COVERAGE_DIR"/**/coverage.cobertura.xml | head -1 | sed 's/line-rate="//' | sed 's/"//')

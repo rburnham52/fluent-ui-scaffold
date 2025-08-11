@@ -52,7 +52,7 @@ if (Test-Path "tests/FluentUIScaffold.Playwright.Tests/FluentUIScaffold.Playwrig
 reportgenerator `
     -reports:"$coverageDir/**/coverage.cobertura.xml" `
     -targetdir:"$reportDir" `
-    -reporttypes:Html;TextSummary
+    -reporttypes:"Html;TextSummary"
 
 # Threshold check (90%)
 $xml = Get-ChildItem $coverageDir -Recurse -Filter coverage.cobertura.xml | Select-Object -First 1
