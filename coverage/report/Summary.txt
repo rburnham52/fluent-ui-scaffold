@@ -1,55 +1,55 @@
 Summary
-  Generated on: 8/11/2025 - 11:09:03 PM
-  Coverage date: 8/11/2025 - 10:56:36 AM - 8/11/2025 - 11:09:02 PM
-  Parser: MultiReport (18x Cobertura)
+  Generated on: 8/11/2025 - 11:18:48 PM
+  Coverage date: 8/11/2025 - 10:56:36 AM - 8/11/2025 - 11:18:46 PM
+  Parser: MultiReport (24x Cobertura)
   Assemblies: 2
   Classes: 51
   Files: 36
-  Line coverage: 43.3%
-  Covered lines: 1374
-  Uncovered lines: 1797
+  Line coverage: 49.0%
+  Covered lines: 1556
+  Uncovered lines: 1615
   Coverable lines: 3171
   Total lines: 6223
-  Branch coverage: 29.7% (334 of 1122)
-  Covered branches: 334
+  Branch coverage: 33.7% (379 of 1122)
+  Covered branches: 379
   Total branches: 1122
-  Method coverage: 58.5% (240 of 410)
-  Covered methods: 240
+  Method coverage: 65.3% (268 of 410)
+  Covered methods: 268
   Total methods: 410
 
-FluentUIScaffold.Core                                                                 41.1%
+FluentUIScaffold.Core                                                                 47.9%
   FluentUIScaffold.Core.Configuration.Detectors.EnvironmentBasedProjectDetector       82.1%
   FluentUIScaffold.Core.Configuration.Detectors.GitBasedProjectDetector               63.8%
   FluentUIScaffold.Core.Configuration.DotNetServerConfiguration                      100.0%
   FluentUIScaffold.Core.Configuration.DotNetServerConfigurationBuilder               100.0%
   FluentUIScaffold.Core.Configuration.FluentUIScaffoldOptions                        100.0%
   FluentUIScaffold.Core.Configuration.FluentUIScaffoldOptionsBuilder                  78.0%
-  FluentUIScaffold.Core.Configuration.Launchers.AspireServerLauncher                   0.0%
-  FluentUIScaffold.Core.Configuration.Launchers.AspNetCoreServerLauncher               1.2%
+  FluentUIScaffold.Core.Configuration.Launchers.AspireServerLauncher                  17.5%
+  FluentUIScaffold.Core.Configuration.Launchers.AspNetCoreServerLauncher              18.0%
   FluentUIScaffold.Core.Configuration.Launchers.AspNetServerLauncher                  15.4%
   FluentUIScaffold.Core.Configuration.Launchers.NodeJsServerLauncher                  10.2%
-  FluentUIScaffold.Core.Configuration.Launchers.PortProcessFinder                      0.0%
+  FluentUIScaffold.Core.Configuration.Launchers.PortProcessFinder                     23.3%
   FluentUIScaffold.Core.Configuration.Launchers.WebApplicationFactoryServerLauncher   47.3%
   FluentUIScaffold.Core.Configuration.NodeJsServerConfigurationBuilder                65.3%
   FluentUIScaffold.Core.Configuration.ProjectDetectionContext                        100.0%
   FluentUIScaffold.Core.Configuration.ServerConfiguration                             96.7%
   FluentUIScaffold.Core.Configuration.ServerConfigurationBuilder                      90.9%
   FluentUIScaffold.Core.Configuration.ServerLauncherFactory                           68.4%
-  FluentUIScaffold.Core.Configuration.VerificationContext                              0.0%
+  FluentUIScaffold.Core.Configuration.VerificationContext                             77.6%
   FluentUIScaffold.Core.Configuration.WebServerManager                                60.4%
   FluentUIScaffold.Core.Element                                                       80.9%
   FluentUIScaffold.Core.ElementBuilder                                               100.0%
   FluentUIScaffold.Core.ElementCollection                                             75.0%
   FluentUIScaffold.Core.ElementFactory                                                97.8%
-  FluentUIScaffold.Core.Exceptions.ElementNotFoundException                            0.0%
-  FluentUIScaffold.Core.Exceptions.ElementTimeoutException                            15.6%
-  FluentUIScaffold.Core.Exceptions.ElementValidationException                          0.0%
-  FluentUIScaffold.Core.Exceptions.FluentUIScaffoldException                          37.5%
-  FluentUIScaffold.Core.Exceptions.FluentUIScaffoldPluginException                    75.0%
-  FluentUIScaffold.Core.Exceptions.FluentUIScaffoldValidationException                23.5%
-  FluentUIScaffold.Core.Exceptions.InvalidPageException                                0.0%
-  FluentUIScaffold.Core.Exceptions.TimeoutException                                    0.0%
-  FluentUIScaffold.Core.Exceptions.VerificationException                               0.0%
+  FluentUIScaffold.Core.Exceptions.ElementNotFoundException                           25.0%
+  FluentUIScaffold.Core.Exceptions.ElementTimeoutException                            46.8%
+  FluentUIScaffold.Core.Exceptions.ElementValidationException                         48.0%
+  FluentUIScaffold.Core.Exceptions.FluentUIScaffoldException                          50.0%
+  FluentUIScaffold.Core.Exceptions.FluentUIScaffoldPluginException                    87.5%
+  FluentUIScaffold.Core.Exceptions.FluentUIScaffoldValidationException                64.7%
+  FluentUIScaffold.Core.Exceptions.InvalidPageException                               25.0%
+  FluentUIScaffold.Core.Exceptions.TimeoutException                                   25.0%
+  FluentUIScaffold.Core.Exceptions.VerificationException                             100.0%
   FluentUIScaffold.Core.FluentUIScaffoldApp<T>                                        39.8%
   FluentUIScaffold.Core.FluentUIScaffoldBuilder                                       12.5%
   FluentUIScaffold.Core.MobileApp                                                      0.0%
