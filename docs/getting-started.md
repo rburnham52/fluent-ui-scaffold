@@ -120,18 +120,6 @@ public async Task Setup()
 }
 ```
 
-// Shared options pattern has been removed. Server lifecycle is managed via WebServerManager
-// and framework runtime options are configured separately via FluentUIScaffoldOptions.
-        .WithServerConfiguration(ServerConfiguration.CreateDotNetServer(
-            new Uri("https://your-app.com"), 
-            "path/to/your/web/app.csproj"))
-        .Build();
-
-    _fluentUI = new FluentUIScaffoldApp<WebApp>(options);
-    await _fluentUI.InitializeAsync(); // This will launch the web server if enabled
-}
-```
-
 #### Server Configuration Options
 
 The framework supports multiple server types with flexible configuration:
@@ -868,4 +856,4 @@ options.WebServerProjectPath = "./path/to/your/project.csproj";
 
 - **Issues**: [GitHub Issues](https://github.com/your-org/fluent-ui-scaffold/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/your-org/fluent-ui-scaffold/discussions)
-- **Documentation**: [API Reference](api-reference.md) 
+- **Documentation**: [API Reference](api-reference.md)

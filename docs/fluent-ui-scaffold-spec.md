@@ -24,16 +24,11 @@ FluentUIScaffold<MobileApp> FluentUIScaffold = FluentUIScaffold.Mobile<MobileApp
 ```csharp
 public class FluentUIScaffoldOptions
 {
-    public string BaseUrl { get; set; }
-    public TimeSpan DefaultTimeout { get; set; } = TimeSpan.FromSeconds(30);
-    public TimeSpan DefaultRetryInterval { get; set; } = TimeSpan.FromMilliseconds(500);
-    public WaitStrategy DefaultWaitStrategy { get; set; } = WaitStrategy.Smart;
-    public PageValidationStrategy PageValidationStrategy { get; set; } = PageValidationStrategy.Configurable;
-    public LogLevel LogLevel { get; set; } = LogLevel.Information;
-    public bool CaptureScreenshotsOnFailure { get; set; } = true;
-    public bool CaptureDOMStateOnFailure { get; set; } = true;
-    public string ScreenshotPath { get; set; } = "./screenshots";
-    public Dictionary<string, object> FrameworkSpecificOptions { get; set; } = new();
+    public Uri? BaseUrl { get; set; }
+    public TimeSpan DefaultWaitTimeout { get; set; } = TimeSpan.FromSeconds(30);
+    public bool? HeadlessMode { get; set; } = null; // null = automatic (debugger/CI)
+    public int? SlowMo { get; set; } = null;        // null = automatic (debugger/CI)
+    public Type? RequestedDriverType { get; set; }
 }
 ```
 
@@ -56,15 +51,10 @@ public interface IUITestingFrameworkPlugin
 ### Plugin Registration
 
 ```csharp
-// Automatic discovery via reflection
-[assembly: UITestingFrameworkPlugin(typeof(PlaywrightPlugin))]
-[assembly: UITestingFrameworkPlugin(typeof(SeleniumPlugin))]
-
-// Manual registration
-FluentUIScaffold<WebApp>(options => {
-    options.RegisterPlugin<PlaywrightPlugin>();
-    options.RegisterPlugin<SeleniumPlugin>();
-});
+// Explicit registration (recommended)
+FluentUIScaffoldBuilder.UsePlugin(new PlaywrightPlugin());
+// or
+FluentUIScaffoldBuilder.UsePlugin<SeleniumPlugin>();
 ```
 
 ### Built-in Plugins
@@ -100,51 +90,27 @@ public class SeleniumPlugin : IUITestingFrameworkPlugin
 ### Base Page Component
 
 ```csharp
-public abstract class BasePageComponent<TApp> : IPageComponent<TApp>
+public abstract class BasePageComponent<TDriver, TPage> : IPageComponent<TDriver, TPage>
+    where TDriver : class, IUIDriver
+    where TPage : class, IPageComponent<TDriver, TPage>
 {
-    protected IUIDriver Driver { get; }
-    protected FluentUIScaffoldOptions Options { get; }
+    protected TDriver Driver { get; }
+    protected IServiceProvider ServiceProvider { get; }
     protected ILogger Logger { get; }
-    
-    public abstract string UrlPattern { get; }
-    public virtual bool ShouldValidateOnNavigation => true;
-    
-    protected BasePageComponent(IUIDriver driver, FluentUIScaffoldOptions options, ILogger logger)
+    protected FluentUIScaffoldOptions Options { get; }
+    public Uri UrlPattern { get; }
+
+    protected BasePageComponent(IServiceProvider services, Uri urlPattern)
     {
-        Driver = driver;
-        Options = options;
-        Logger = logger;
-        ConfigureElements();
+        ServiceProvider = services;
+        Driver = services.GetRequiredService<TDriver>();
+        Logger = services.GetRequiredService<ILogger<BasePageComponent<TDriver, TPage>>>();
+        Options = services.GetRequiredService<FluentUIScaffoldOptions>();
+        UrlPattern = urlPattern;
+        // Navigate and configure
     }
     
     protected abstract void ConfigureElements();
-    
-    // Framework-agnostic element interaction methods
-    protected virtual void Click(string selector) => Driver.Click(selector);
-    protected virtual void Type(string selector, string text) => Driver.Type(selector, text);
-    protected virtual void Select(string selector, string value) => Driver.Select(selector, value);
-    protected virtual string GetText(string selector) => Driver.GetText(selector);
-    protected virtual bool IsVisible(string selector) => Driver.IsVisible(selector);
-    protected virtual void WaitForElement(string selector) => Driver.WaitForElement(selector);
-    
-    // Navigation methods
-    public virtual TTarget NavigateTo<TTarget>() where TTarget : BasePageComponent<TApp>
-        => Driver.NavigateTo<TTarget>();
-    
-    // Page validation
-    public virtual bool IsCurrentPage() => Driver.CurrentUrl.Matches(UrlPattern);
-    public virtual void ValidateCurrentPage()
-    {
-        if (!IsCurrentPage())
-            throw new InvalidPageException($"Expected to be on page {GetType().Name}, but URL is {Driver.CurrentUrl}");
-    }
-    
-    // Framework-specific access
-    public TDriver Framework<TDriver>() where TDriver : class
-        => Driver.GetFrameworkDriver<TDriver>();
-    
-    // Verification access
-    public IVerificationContext<TApp> Verify => new VerificationContext<TApp>(Driver, Options, Logger);
 }
 ```
 
@@ -165,30 +131,27 @@ public interface IPageComponent<TApp>
 ### Driver Abstraction
 
 ```csharp
-public interface IUIDriver
+public interface IUIDriver : IDisposable
 {
-    string CurrentUrl { get; }
-    
-    // Core interactions
+    Uri? CurrentUrl { get; }
     void Click(string selector);
     void Type(string selector, string text);
-    void Select(string selector, string value);
+    void SelectOption(string selector, string value);
     string GetText(string selector);
+    string GetAttribute(string selector, string attributeName);
+    string GetValue(string selector);
     bool IsVisible(string selector);
     bool IsEnabled(string selector);
     void WaitForElement(string selector);
     void WaitForElementToBeVisible(string selector);
     void WaitForElementToBeHidden(string selector);
-    
-    // Navigation
-    void NavigateToUrl(string url);
-    TTarget NavigateTo<TTarget>() where TTarget : BasePageComponent;
-    
-    // Framework-specific access
+    void Focus(string selector);
+    void Hover(string selector);
+    void Clear(string selector);
+    string GetPageTitle();
+    void NavigateToUrl(Uri url);
+    TTarget NavigateTo<TTarget>() where TTarget : class;
     TDriver GetFrameworkDriver<TDriver>() where TDriver : class;
-    
-    // Lifecycle
-    void Dispose();
 }
 ```
 
@@ -386,12 +349,8 @@ public void Can_Add_Shift_To_Roster()
 
 ```csharp
 // Accessing Playwright-specific features
-FluentUIScaffold
-    .NavigateTo<LoginPage>()
-    .Framework<PlaywrightDriver>()
-    .InterceptNetworkRequests("/api/auth", response => {
-        // Playwright-specific network interception
-    });
+var playwright = fluentUI.Framework<PlaywrightDriver>();
+// Use playwright advanced features as needed
 
 // Accessing Selenium-specific features  
 FluentUIScaffold

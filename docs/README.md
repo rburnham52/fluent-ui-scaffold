@@ -5,7 +5,7 @@ Welcome to the documentation for the FluentUIScaffold E2E Testing Framework. Thi
 ## 📚 Documentation Index
 
 - [Getting Started Guide](getting-started.md)
-- [Initialization Pattern](new-initialization-pattern.md)
+- Initialization Pattern (coming soon)
 - [API Reference](api-reference.md)
 - [Page Object Pattern](page-object-pattern.md)
 - [Element Configuration & Wait Strategies](element-configuration.md)
