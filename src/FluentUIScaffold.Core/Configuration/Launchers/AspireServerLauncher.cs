@@ -25,7 +25,6 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
         }
 
         public string Name => "AspireServerLauncher";
-        private static readonly string[] collection = new[] { "--framework", "net8.0" };
 
         public bool CanHandle(ServerConfiguration configuration)
         {
@@ -48,24 +47,20 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
             // Kill existing processes on the port
             await KillProcessesOnPortAsync(configuration.BaseUrl.Port);
 
-            // Build command arguments
-            var arguments = AspireServerLauncher.BuildCommandArguments(configuration);
+            // Build command arguments (reuse unified .NET builder to respect framework/configuration from builder)
+            var arguments = AspNetServerLauncher_BuildCommandArguments(configuration);
 
             // Set up environment variables
             var environmentVariables = new Dictionary<string, string>(configuration.EnvironmentVariables)
             {
-                ["ASPNETCORE_ENVIRONMENT"] = "Development",
-                ["ASPNETCORE_HOSTINGSTARTUPASSEMBLIES"] = "",
-                ["DOTNET_ENVIRONMENT"] = "Development",
+                ["ASPNETCORE_ENVIRONMENT"] = environmentVariables.TryGetValue("ASPNETCORE_ENVIRONMENT", out var asp)
+                    ? asp : "Development",
+                ["ASPNETCORE_HOSTINGSTARTUPASSEMBLIES"] = environmentVariables.TryGetValue("ASPNETCORE_HOSTINGSTARTUPASSEMBLIES", out var spa)
+                    ? spa ?? string.Empty : string.Empty,
+                ["DOTNET_ENVIRONMENT"] = environmentVariables.TryGetValue("DOTNET_ENVIRONMENT", out var dotnetEnv)
+                    ? dotnetEnv : "Development",
                 ["ASPNETCORE_URLS"] = configuration.BaseUrl.ToString()
             };
-
-            // Respect explicit hosting startup assemblies setting (SPA proxy on/off)
-            if (configuration.EnvironmentVariables != null &&
-                configuration.EnvironmentVariables.TryGetValue("ASPNETCORE_HOSTINGSTARTUPASSEMBLIES", out var hostingStartupAssemblies))
-            {
-                environmentVariables["ASPNETCORE_HOSTINGSTARTUPASSEMBLIES"] = hostingStartupAssemblies ?? string.Empty;
-            }
 
             // Start the process
             var startInfo = new ProcessStartInfo
@@ -100,18 +95,18 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
             _logger?.LogInformation("Aspire server is ready at {BaseUrl}", configuration.BaseUrl);
         }
 
-        private static string BuildCommandArguments(ServerConfiguration configuration)
+        private static string AspNetServerLauncher_BuildCommandArguments(ServerConfiguration configuration)
         {
-            var arguments = new List<string> { "run" };
-
-            arguments.AddRange(collection);
-            arguments.AddRange(new[] { "--configuration", "Release" });
-            arguments.Add("--no-launch-profile");
-
-            // Add custom arguments
-            arguments.AddRange(configuration.Arguments);
-
-            return string.Join(" ", arguments);
+            var aspNetLauncher = typeof(AspNetServerLauncher);
+            var buildMethod = aspNetLauncher.GetMethod("BuildCommandArguments", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+            if (buildMethod == null)
+            {
+                // Fallback to minimal sensible defaults
+                var arguments = new List<string> { "run", "--no-launch-profile" };
+                arguments.AddRange(configuration.Arguments);
+                return string.Join(" ", arguments);
+            }
+            return (string)buildMethod.Invoke(null, new object[] { configuration });
         }
 
         private async Task WaitForServerReadyAsync(ServerConfiguration configuration)
@@ -137,17 +132,16 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
 
                         if (response.IsSuccessStatusCode)
                         {
-                            _logger?.LogInformation("Server health check passed for endpoint: {Endpoint}", endpoint);
                             return;
                         }
                     }
-                    catch (Exception ex)
+                    catch
                     {
-                        _logger?.LogDebug(ex, "Health check failed for endpoint: {Endpoint}", endpoint);
+                        // ignore and retry
                     }
                 }
 
-                await Task.Delay(2000); // Wait 2 seconds before next attempt
+                await Task.Delay(2000);
                 attempt++;
             }
 
@@ -183,19 +177,18 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
                             {
                                 var killProcess = Process.GetProcessById(pid);
                                 killProcess.Kill();
-                                _logger?.LogInformation("Killed process {PID} on port {Port}", pid, port);
                             }
-                            catch (Exception ex)
+                            catch
                             {
-                                _logger?.LogWarning(ex, "Failed to kill process {PID}", pid);
+                                // ignore kill issues in launcher
                             }
                         }
                     }
                 }
             }
-            catch (Exception ex)
+            catch
             {
-                _logger?.LogWarning(ex, "Failed to kill processes on port {Port}", port);
+                // ignore
             }
         }
 
