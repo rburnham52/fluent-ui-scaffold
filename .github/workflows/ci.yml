@@ -64,6 +64,25 @@ jobs:
         flags: ${{ matrix.target-framework }}
         name: codecov-${{ matrix.target-framework }}
 
+    - name: Generate coverage summary (framework-only)
+      run: |
+        dotnet tool install --global dotnet-reportgenerator-globaltool
+        echo "PATH=$PATH:$HOME/.dotnet/tools" >> $GITHUB_ENV
+        reportgenerator \
+          -reports:./coverage/**/coverage.cobertura.xml \
+          -targetdir:./coverage/report \
+          -reporttypes:'TextSummary;Html' \
+          -assemblyfilters:+FluentUIScaffold.Core;+FluentUIScaffold.Playwright;-*.Tests;-*Sample*
+
+    - name: Enforce coverage threshold (min 70% lines)
+      run: |
+        if [ ! -f ./coverage/report/Summary.txt ]; then echo "Summary.txt not found"; cat ./coverage; exit 1; fi
+        LINE_COV=$(grep -E "Line coverage" ./coverage/report/Summary.txt | head -n1 | sed -E 's/.*Line coverage: ([0-9]+).*/\1/')
+        echo "Line coverage summary: ${LINE_COV}%"
+        MIN_COV=70
+        if [ -z "$LINE_COV" ]; then echo "Failed to parse line coverage"; cat ./coverage/report/Summary.txt || true; exit 1; fi
+        if [ "$LINE_COV" -lt "$MIN_COV" ]; then echo "Coverage ${LINE_COV}% is below threshold ${MIN_COV}%"; exit 1; fi
+
   security:
     name: Security Analysis
     runs-on: ubuntu-latest
