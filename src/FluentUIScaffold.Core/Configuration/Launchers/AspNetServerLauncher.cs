@@ -21,6 +21,8 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
         private Process? _webServerProcess;
         private readonly HttpClient _httpClient;
         private bool _disposed;
+        private readonly ICommandBuilder _commandBuilder;
+        private readonly IEnvVarProvider _envVarProvider;
 
         public string Name => "AspNetServerLauncher";
         private static readonly string[] collection = new[] { "--framework", "net8.0" };
@@ -29,6 +31,8 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
         {
             _logger = logger;
             _httpClient = new HttpClient();
+            _commandBuilder = new AspNetCommandBuilder();
+            _envVarProvider = new AspNetEnvVarProvider();
         }
 
         public bool CanHandle(ServerConfiguration configuration)
@@ -57,7 +61,7 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
             await KillProcessesOnPortAsync(configuration.BaseUrl.Port, configuration.ProcessName);
 
             // Build the command arguments
-            var arguments = AspNetServerLauncher.BuildCommandArguments(configuration);
+            var arguments = _commandBuilder.BuildCommand(configuration);
 
             // Create the process start info
             var startInfo = new ProcessStartInfo
@@ -71,14 +75,19 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
                 CreateNoWindow = true
             };
 
-            // Set environment variables
-            foreach (var envVar in configuration.EnvironmentVariables)
+            // Apply environment variables via provider (copy to Dictionary then back)
+            var env = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (System.Collections.DictionaryEntry kv in startInfo.EnvironmentVariables)
             {
-                startInfo.EnvironmentVariables[envVar.Key] = envVar.Value;
+                var key = kv.Key?.ToString();
+                var value = kv.Value?.ToString() ?? string.Empty;
+                if (!string.IsNullOrEmpty(key)) env[key] = value;
             }
-
-            // Set server-specific environment variables
-            AspNetServerLauncher.SetServerSpecificEnvironmentVariables(startInfo, configuration);
+            _envVarProvider.Apply(env, configuration);
+            foreach (var kv in env)
+            {
+                startInfo.EnvironmentVariables[kv.Key] = kv.Value;
+            }
 
             _logger?.LogInformation("Starting {ServerType} server with command: {Command} {Arguments}",
                 configuration.ServerType, startInfo.FileName, startInfo.Arguments);
