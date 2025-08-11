@@ -1,17 +1,17 @@
 Summary
-  Generated on: 8/11/2025 - 8:40:29 AM
-  Coverage date: 8/11/2025 - 8:39:56 AM - 8/11/2025 - 8:40:28 AM
-  Parser: MultiReport (8x Cobertura)
+  Generated on: 8/11/2025 - 10:30:08 AM
+  Coverage date: 8/11/2025 - 8:39:56 AM - 8/11/2025 - 10:29:39 AM
+  Parser: MultiReport (14x Cobertura)
   Assemblies: 2
   Classes: 51
   Files: 36
   Line coverage: 33.2%
-  Covered lines: 1043
-  Uncovered lines: 2097
+  Covered lines: 1044
+  Uncovered lines: 2096
   Coverable lines: 3140
   Total lines: 6191
-  Branch coverage: 20.7% (226 of 1090)
-  Covered branches: 226
+  Branch coverage: 20.8% (227 of 1090)
+  Covered branches: 227
   Total branches: 1090
   Method coverage: 51.5% (211 of 409)
   Covered methods: 211
@@ -26,7 +26,7 @@ FluentUIScaffold.Core                                                           
   FluentUIScaffold.Core.Configuration.FluentUIScaffoldOptionsBuilder                  78.0%
   FluentUIScaffold.Core.Configuration.Launchers.AspireServerLauncher                   0.0%
   FluentUIScaffold.Core.Configuration.Launchers.AspNetCoreServerLauncher               0.0%
-  FluentUIScaffold.Core.Configuration.Launchers.AspNetServerLauncher                  15.0%
+  FluentUIScaffold.Core.Configuration.Launchers.AspNetServerLauncher                  15.4%
   FluentUIScaffold.Core.Configuration.Launchers.NodeJsServerLauncher                  10.2%
   FluentUIScaffold.Core.Configuration.Launchers.PortProcessFinder                      0.0%
   FluentUIScaffold.Core.Configuration.Launchers.WebApplicationFactoryServerLauncher   47.3%
