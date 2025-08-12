@@ -43,5 +43,18 @@ namespace FluentUIScaffold.Core.Tests
             var launcher = new AspNetCoreServerLauncher();
             Assert.That(async () => await InvokeWaitAsync(launcher, config), Throws.Exception.TypeOf<InvalidOperationException>().Or.TypeOf<TimeoutException>());
         }
+
+        [Test]
+        public async Task WaitForServerReady_TimesOut_On500Responses()
+        {
+            await using var server = await TestHttpServer.StartAsync(System.Net.HttpStatusCode.InternalServerError);
+            var baseUrl = new Uri($"http://localhost:{server.Port}");
+            var config = ServerConfiguration.CreateDotNetServer(baseUrl, "/path/to/App.csproj")
+                .WithStartupTimeout(TimeSpan.FromSeconds(3))
+                .Build();
+
+            var launcher = new AspNetCoreServerLauncher();
+            Assert.That(async () => await InvokeWaitAsync(launcher, config), Throws.Exception.TypeOf<TimeoutException>().Or.TypeOf<InvalidOperationException>());
+        }
     }
 }
