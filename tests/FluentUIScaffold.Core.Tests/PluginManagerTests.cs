@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 
 using FluentUIScaffold.Core.Configuration;
 using FluentUIScaffold.Core.Exceptions;
@@ -21,10 +22,46 @@ namespace FluentUIScaffold.Core.Tests
     [TestFixture]
     public class PluginManagerTests
     {
-        [SetUp]
-        public void TestSetup()
+        private sealed class LocalFakeDriver : IUIDriver
         {
-            // Ensure tests start without globally registered plugins
+            public Uri? CurrentUrl { get; private set; }
+            public void Click(string selector) { }
+            public void Type(string selector, string text) { }
+            public void SelectOption(string selector, string value) { }
+            public string GetText(string selector) => string.Empty;
+            public string GetAttribute(string selector, string attributeName) => string.Empty;
+            public string GetValue(string selector) => string.Empty;
+            public bool IsVisible(string selector) => true;
+            public bool IsEnabled(string selector) => true;
+            public void WaitForElement(string selector) { }
+            public void WaitForElementToBeVisible(string selector) { }
+            public void WaitForElementToBeHidden(string selector) { }
+            public void Focus(string selector) { }
+            public void Hover(string selector) { }
+            public void Clear(string selector) { }
+            public string GetPageTitle() => "";
+            public void NavigateToUrl(Uri url) { CurrentUrl = url; }
+            public TTarget NavigateTo<TTarget>() where TTarget : class => Activator.CreateInstance<TTarget>();
+            public TDriver GetFrameworkDriver<TDriver>() where TDriver : class => Activator.CreateInstance<TDriver>();
+            public void Dispose() { }
+        }
+
+        private sealed class LocalFakePlugin : IUITestingFrameworkPlugin
+        {
+            public string Name => "LocalFake";
+            public string Version => "1.0";
+            public System.Collections.Generic.IReadOnlyList<Type> SupportedDriverTypes => new[] { typeof(IUIDriver) };
+            public bool CanHandle(Type driverType) => driverType == typeof(IUIDriver);
+            public IUIDriver CreateDriver(FluentUIScaffoldOptions options) => new LocalFakeDriver();
+            public void ConfigureServices(IServiceCollection services)
+            {
+                services.AddSingleton<IUIDriver, LocalFakeDriver>();
+            }
+        }
+
+        [SetUp]
+        public void Setup()
+        {
             PluginRegistry.ClearForTests();
         }
 
@@ -186,6 +223,40 @@ namespace FluentUIScaffold.Core.Tests
             // Act & Assert
             var exception = Assert.Throws<FluentUIScaffoldPluginException>(() => pluginManager.CreateDriver(options));
             Assert.That(exception.Message, Does.Contain("No UI testing framework plugins are configured"));
+        }
+
+        [Test]
+        public void DiscoverPluginsInAssembly_Finds_LocalFakePlugin_Type()
+        {
+            var pm = new PluginManager();
+            var types = pm.DiscoverPluginsInAssembly(Assembly.GetExecutingAssembly());
+            Assert.That(types.Any(t => t == typeof(LocalFakePlugin)), Is.True);
+        }
+
+        [Test]
+        public void CreateDriver_Throws_When_No_Plugins()
+        {
+            var pm = new PluginManager();
+            var options = new FluentUIScaffoldOptions();
+            Assert.That(() => pm.CreateDriver(options), Throws.Exception);
+        }
+
+        [Test]
+        public void RegisterPlugin_Duplicate_DoesNotThrow()
+        {
+            var pm = new PluginManager();
+            var plugin = new LocalFakePlugin();
+            pm.RegisterPlugin(plugin);
+            // Duplicate registration ignored
+            Assert.DoesNotThrow(() => pm.RegisterPlugin(plugin));
+        }
+
+        [Test]
+        public void ValidatePlugins_Succeeds_For_LocalFake()
+        {
+            var pm = new PluginManager();
+            pm.RegisterPlugin(new LocalFakePlugin());
+            Assert.DoesNotThrow(() => pm.ValidatePlugins());
         }
 
         // Test plugin implementations
