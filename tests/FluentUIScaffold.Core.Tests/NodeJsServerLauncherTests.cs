@@ -57,5 +57,27 @@ namespace FluentUIScaffold.Core.Tests
             Assert.That(config.EnvironmentVariables["NODE_ENV"], Is.EqualTo("production"));
             Assert.That(config.EnvironmentVariables["PORT"], Is.EqualTo("8081"));
         }
+
+        [Test]
+        public void CanHandle_NodeJs_ReturnsTrue()
+        {
+            var launcher = new NodeJsServerLauncher();
+            var config = new ServerConfiguration { ServerType = ServerType.NodeJs };
+            Assert.That(launcher.CanHandle(config), Is.True);
+        }
+
+        [Test]
+        public void LaunchAsync_Throws_OnMissingProjectPath()
+        {
+            var launcher = new NodeJsServerLauncher();
+            var config = new ServerConfiguration
+            {
+                ServerType = ServerType.NodeJs,
+                BaseUrl = new Uri("http://localhost:7000"),
+                ProjectPath = null
+            };
+
+            Assert.That(async () => await launcher.LaunchAsync(config), Throws.ArgumentException);
+        }
     }
 }

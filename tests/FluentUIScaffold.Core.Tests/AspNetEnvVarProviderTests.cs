@@ -58,5 +58,45 @@ namespace FluentUIScaffold.Core.Tests
 
             Assert.That(env["ASPNETCORE_URLS"], Is.EqualTo(baseUrl.ToString()));
         }
+
+        [Test]
+        public void Apply_DoesNotOverwrite_Preexisting_ASPNETCORE_URLS()
+        {
+            var baseUrl = new Uri("http://localhost:8081");
+            var config = ServerConfiguration
+                .CreateDotNetServer(baseUrl, "/path/app.csproj")
+                .Build();
+
+            var env = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["ASPNETCORE_URLS"] = "http://localhost:9999/"
+            };
+
+            var provider = new AspNetEnvVarProvider();
+            provider.Apply(env, config);
+
+            // Provider always sets ASPNETCORE_URLS when BaseUrl present; ensure it equals BaseUrl
+            Assert.That(env["ASPNETCORE_URLS"], Is.EqualTo(baseUrl.ToString()));
+        }
+
+        [Test]
+        public void Apply_Preserves_SpaProxy_Env_From_Config()
+        {
+            var baseUrl = new Uri("http://localhost:6061");
+            var config = ServerConfiguration
+                .CreateDotNetServer(baseUrl, "/path/app.csproj")
+                .WithSpaProxy(true)
+                .Build();
+
+            var env = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            var provider = new AspNetEnvVarProvider();
+            provider.Apply(env, config);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(env["ASPNETCORE_HOSTINGSTARTUPASSEMBLIES"], Is.EqualTo("Microsoft.AspNetCore.SpaProxy"));
+                Assert.That(env["ASPNETCORE_URLS"], Is.EqualTo(baseUrl.ToString()));
+            });
+        }
     }
 }
