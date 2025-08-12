@@ -18,10 +18,14 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
         private readonly ILogger? _logger;
         private Process? _process;
         private bool _disposed;
+        private readonly ICommandBuilder _commandBuilder;
+        private readonly IEnvVarProvider _envVarProvider;
 
         public AspireServerLauncher(ILogger? logger = null)
         {
             _logger = logger;
+            _commandBuilder = new AspireCommandBuilder();
+            _envVarProvider = new AspNetEnvVarProvider();
         }
 
         public string Name => "AspireServerLauncher";
@@ -48,20 +52,10 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
             await KillProcessesOnPortAsync(configuration.BaseUrl.Port);
 
             // Build command arguments (reuse unified .NET builder to respect framework/configuration from builder)
-            var arguments = AspNetServerLauncher_BuildCommandArguments(configuration);
+            var arguments = _commandBuilder.BuildCommand(configuration);
 
             // Set up environment variables
-            var environmentVariables = new Dictionary<string, string>(configuration.EnvironmentVariables)
-            {
-            };
-
-            environmentVariables["ASPNETCORE_ENVIRONMENT"] = environmentVariables.TryGetValue("ASPNETCORE_ENVIRONMENT", out var asp)
-                ? asp : "Development";
-            environmentVariables["ASPNETCORE_HOSTINGSTARTUPASSEMBLIES"] = environmentVariables.TryGetValue("ASPNETCORE_HOSTINGSTARTUPASSEMBLIES", out var spa)
-                ? spa ?? string.Empty : string.Empty;
-            environmentVariables["DOTNET_ENVIRONMENT"] = environmentVariables.TryGetValue("DOTNET_ENVIRONMENT", out var dotnetEnv)
-                ? dotnetEnv : "Development";
-            environmentVariables["ASPNETCORE_URLS"] = configuration.BaseUrl.ToString();
+            var environmentVariables = new Dictionary<string, string>(configuration.EnvironmentVariables);
 
             // Start the process
             var startInfo = new ProcessStartInfo
@@ -75,10 +69,18 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
                 CreateNoWindow = true
             };
 
-            // Add environment variables
-            foreach (var envVar in environmentVariables)
+            // Apply environment variables via provider
+            var env = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (System.Collections.DictionaryEntry kv in startInfo.EnvironmentVariables)
             {
-                startInfo.EnvironmentVariables[envVar.Key] = envVar.Value;
+                var key = kv.Key?.ToString();
+                var value = kv.Value?.ToString() ?? string.Empty;
+                if (!string.IsNullOrEmpty(key)) env[key] = value;
+            }
+            _envVarProvider.Apply(env, configuration);
+            foreach (var kv in env)
+            {
+                startInfo.EnvironmentVariables[kv.Key] = kv.Value;
             }
 
             _process = new Process { StartInfo = startInfo };

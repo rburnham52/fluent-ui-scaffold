@@ -18,10 +18,14 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
         private readonly ILogger? _logger;
         private Process? _process;
         private bool _disposed;
+        private readonly ICommandBuilder _commandBuilder;
+        private readonly IEnvVarProvider _envVarProvider;
 
         public NodeJsServerLauncher(ILogger? logger = null)
         {
             _logger = logger;
+            _commandBuilder = new NodeJsCommandBuilder();
+            _envVarProvider = new AspNetEnvVarProvider();
         }
 
         public string Name => "NodeJsServerLauncher";
@@ -48,7 +52,7 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
             await KillProcessesOnPortAsync(configuration.BaseUrl.Port);
 
             // Build command arguments
-            var arguments = NodeJsServerLauncher.BuildCommandArguments(configuration);
+            var arguments = _commandBuilder.BuildCommand(configuration);
 
             // Use environment variables from configuration (set by builder defaults)
             var environmentVariables = new Dictionary<string, string>(configuration.EnvironmentVariables);
@@ -65,10 +69,18 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
                 CreateNoWindow = true
             };
 
-            // Add environment variables
-            foreach (var envVar in environmentVariables)
+            // Apply environment variables via provider
+            var env = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (System.Collections.DictionaryEntry kv in startInfo.EnvironmentVariables)
             {
-                startInfo.EnvironmentVariables[envVar.Key] = envVar.Value;
+                var key = kv.Key?.ToString();
+                var value = kv.Value?.ToString() ?? string.Empty;
+                if (!string.IsNullOrEmpty(key)) env[key] = value;
+            }
+            _envVarProvider.Apply(env, configuration);
+            foreach (var kv in env)
+            {
+                startInfo.EnvironmentVariables[kv.Key] = kv.Value;
             }
 
             _process = new Process { StartInfo = startInfo };

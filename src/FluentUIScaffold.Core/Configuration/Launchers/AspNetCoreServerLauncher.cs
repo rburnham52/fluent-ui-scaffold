@@ -19,6 +19,8 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
         private Process? _webServerProcess;
         private readonly HttpClient _httpClient;
         private bool _disposed;
+        private readonly ICommandBuilder _commandBuilder;
+        private readonly IEnvVarProvider _envVarProvider;
 
         public string Name => "AspNetCoreServerLauncher";
 
@@ -26,6 +28,8 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
         {
             _logger = logger;
             _httpClient = new HttpClient();
+            _commandBuilder = new AspNetCoreCommandBuilder();
+            _envVarProvider = new AspNetEnvVarProvider();
         }
 
         public bool CanHandle(ServerConfiguration configuration)
@@ -48,7 +52,7 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
             await KillProcessesOnPortAsync(configuration.BaseUrl.Port);
 
             // Build the command arguments
-            var arguments = AspNetCoreServerLauncher.BuildCommandArguments(configuration);
+            var arguments = _commandBuilder.BuildCommand(configuration);
 
             // Create the process start info
             var startInfo = new ProcessStartInfo
@@ -62,17 +66,18 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
                 CreateNoWindow = true
             };
 
-            // Set environment variables
-            foreach (var envVar in configuration.EnvironmentVariables)
+            // Apply environment variables via provider
+            var env = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (System.Collections.DictionaryEntry kv in startInfo.EnvironmentVariables)
             {
-                startInfo.EnvironmentVariables[envVar.Key] = envVar.Value;
+                var key = kv.Key?.ToString();
+                var value = kv.Value?.ToString() ?? string.Empty;
+                if (!string.IsNullOrEmpty(key)) env[key] = value;
             }
-
-            // Propagate SPA proxy configuration if provided via configuration environment variables
-            if (configuration.EnvironmentVariables != null &&
-                configuration.EnvironmentVariables.TryGetValue("ASPNETCORE_HOSTINGSTARTUPASSEMBLIES", out var hostingStartupAssemblies))
+            _envVarProvider.Apply(env, configuration);
+            foreach (var kv in env)
             {
-                startInfo.EnvironmentVariables["ASPNETCORE_HOSTINGSTARTUPASSEMBLIES"] = hostingStartupAssemblies ?? string.Empty;
+                startInfo.EnvironmentVariables[kv.Key] = kv.Value;
             }
 
             _logger?.LogInformation("Starting ASP.NET Core server with command: {Command} {Arguments}",
