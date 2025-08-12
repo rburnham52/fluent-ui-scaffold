@@ -1,12 +1,12 @@
+using System;
+using System.Collections.Generic;
+using System.Net.Http;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
+
 namespace FluentUIScaffold.Core.Configuration.Launchers
 {
-    using System;
-    using System.Collections.Generic;
-    using System.Net.Http;
-    using System.Threading;
-    using System.Threading.Tasks;
-    using Microsoft.Extensions.Logging;
-
     public sealed class HttpReadinessProbe : IReadinessProbe
     {
         private readonly HttpClient _httpClient;
