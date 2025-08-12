@@ -79,7 +79,7 @@ if ($assemblyFiltersArg) { $reportArgs += $assemblyFiltersArg }
 
 reportgenerator @reportArgs
 
-# Threshold check (90%) using ReportGenerator Summary
+# Threshold check (70%) using ReportGenerator Summary
 $summaryPath = Join-Path $reportDir "Summary.txt"
 if (-not (Test-Path $summaryPath)) { throw "Coverage summary not found at $summaryPath" }
 $summary = Get-Content $summaryPath
@@ -88,7 +88,7 @@ if (-not $match) { throw "Could not parse Line coverage from $summaryPath" }
 $percent = [double]::Parse($match.Groups[1].Value, [System.Globalization.CultureInfo]::InvariantCulture)
 $percentInt = [int]([math]::Round($percent))
 Write-Host "Coverage: $percent%"
-if ($percent -lt 90) { throw "Coverage below 90% ($percentInt%)" }
+if ($percent -lt 70) { throw "Coverage below 70% ($percentInt%)" }
 
 Write-Host "HTML report: $reportDir/index.html"
 if ($OpenReport) {

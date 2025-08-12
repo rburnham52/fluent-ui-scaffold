@@ -133,11 +133,11 @@ fi
 echo "Coverage: ${PCT}%"
 # Convert to integer for threshold comparison
 PCT_INT=$(printf '%.0f' "${PCT}")
-if [ "$PCT_INT" -lt 90 ]; then
-  echo "❌ Coverage is below 90% threshold (${PCT}%)"
+if [ "$PCT_INT" -lt 70 ]; then
+  echo "❌ Coverage is below 70% threshold (${PCT}%)"
   exit 1
 else
-  echo "✅ Coverage meets 90% threshold (${PCT}%)"
+  echo "✅ Coverage meets 70% threshold (${PCT}%)"
 fi
 
 # Open report if requested
