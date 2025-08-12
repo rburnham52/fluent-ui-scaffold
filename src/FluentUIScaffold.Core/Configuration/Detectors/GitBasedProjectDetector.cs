@@ -159,10 +159,22 @@ namespace FluentUIScaffold.Core.Configuration.Detectors
                     var projectExtensions = GitBasedProjectDetector.GetProjectExtensions(context.ProjectType);
                     foreach (var extension in projectExtensions)
                     {
-                        var projectPath = Path.Combine(directory, $"{context.ProjectName}.{extension}");
-                        if (File.Exists(projectPath))
+                        // Treat entries with dots as exact filenames (e.g., package.json)
+                        if (extension.Contains('.'))
                         {
-                            return projectPath;
+                            var exact = Path.Combine(directory, extension);
+                            if (File.Exists(exact))
+                            {
+                                return exact;
+                            }
+                        }
+                        else
+                        {
+                            var projectPath = Path.Combine(directory, $"{context.ProjectName}.{extension}");
+                            if (File.Exists(projectPath))
+                            {
+                                return projectPath;
+                            }
                         }
                     }
                 }
@@ -171,21 +183,41 @@ namespace FluentUIScaffold.Core.Configuration.Detectors
                 var extensions = GitBasedProjectDetector.GetProjectExtensions(context.ProjectType);
                 foreach (var extension in extensions)
                 {
-                    var projectFiles = Directory.GetFiles(directory, $"*.{extension}", SearchOption.AllDirectories);
-                    if (projectFiles.Length > 0)
+                    if (extension.Contains('.'))
                     {
-                        var projectPath = projectFiles[0]; // Take the first one found
-                        return projectPath;
+                        // Exact filename match (e.g., package.json, requirements.txt)
+                        var matches = Directory.GetFiles(directory, extension, SearchOption.AllDirectories);
+                        if (matches.Length > 0)
+                        {
+                            return matches[0];
+                        }
+                    }
+                    else
+                    {
+                        var projectFiles = Directory.GetFiles(directory, $"*.{extension}", SearchOption.AllDirectories);
+                        if (projectFiles.Length > 0)
+                        {
+                            var projectPath = projectFiles[0]; // Take the first one found
+                            return projectPath;
+                        }
                     }
                 }
 
                 // If no specific type is specified, search for common project files (recursively)
                 if (string.IsNullOrEmpty(context.ProjectType))
                 {
-                    var commonExtensions = new[] { "csproj", "fsproj", "vbproj", "package.json", "requirements.txt" };
-                    foreach (var extension in commonExtensions)
+                    var commonEntries = new[] { "csproj", "fsproj", "vbproj", "package.json", "requirements.txt" };
+                    foreach (var entry in commonEntries)
                     {
-                        var projectFiles = Directory.GetFiles(directory, $"*.{extension}", SearchOption.AllDirectories);
+                        string[] projectFiles;
+                        if (entry.Contains('.'))
+                        {
+                            projectFiles = Directory.GetFiles(directory, entry, SearchOption.AllDirectories);
+                        }
+                        else
+                        {
+                            projectFiles = Directory.GetFiles(directory, $"*.{entry}", SearchOption.AllDirectories);
+                        }
                         if (projectFiles.Length > 0)
                         {
                             var projectPath = projectFiles[0];

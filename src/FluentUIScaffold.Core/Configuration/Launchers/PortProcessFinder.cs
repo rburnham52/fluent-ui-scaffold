@@ -74,17 +74,21 @@ public static class PortProcessFinder
             return string.Empty;
 
         var lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-        var portString = $":{port}";
+        var portTokens = new[] { $":{port}", $".{port}" }; // support Linux/Windows ":port" and macOS ".port" formats
 
         var matchingLines = lines
-            .Where(line => line.Contains(portString))
+            .Where(line => portTokens.Any(tok => line.Contains(tok)))
             .Where(line =>
             {
                 // More precise matching - ensure it's actually the port number
-                // Look for patterns like ":8080 " or ":8080\t" to avoid matching 18080
-                return line.Contains($"{portString} ") ||
-                       line.Contains($"{portString}\t") ||
-                       line.EndsWith(portString);
+                foreach (var tok in portTokens)
+                {
+                    if (line.Contains($"{tok} ") || line.Contains($"{tok}\t") || line.EndsWith(tok))
+                    {
+                        return true;
+                    }
+                }
+                return false;
             })
             .ToList();
 

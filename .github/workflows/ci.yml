@@ -54,15 +54,56 @@ jobs:
         dotnet build --configuration Release --framework ${{ matrix.target-framework }}
         npx playwright@1.42.0 install chromium
 
-    - name: Test
-      run: dotnet test --no-build --verbosity normal --configuration Release --framework ${{ matrix.target-framework }} --collect:"XPlat Code Coverage" --results-directory ./coverage/ --filter "FullyQualifiedName!~SampleApp.Tests"
+    - name: Test with Coverage
+      run: |
+        dotnet test tests/FluentUIScaffold.Core.Tests/FluentUIScaffold.Core.Tests.csproj \
+          --no-build \
+          --verbosity normal \
+          --configuration Release \
+          --framework ${{ matrix.target-framework }} \
+          --settings coverlet.runsettings \
+          --collect:"XPlat Code Coverage" \
+          --results-directory ./coverage/ \
+          --logger trx
+        dotnet test tests/FluentUIScaffold.Playwright.Tests/FluentUIScaffold.Playwright.Tests.csproj \
+          --no-build \
+          --verbosity normal \
+          --configuration Release \
+          --framework ${{ matrix.target-framework }} \
+          --settings coverlet.runsettings \
+          --collect:"XPlat Code Coverage" \
+          --results-directory ./coverage/ \
+          --logger trx
 
-    - name: Upload coverage reports
-      uses: codecov/codecov-action@v4
+    - name: Generate Coverage Report
+      run: |
+        dotnet tool install --global dotnet-reportgenerator-globaltool --version 5.2.4
+        echo "PATH=$PATH:$HOME/.dotnet/tools" >> $GITHUB_ENV
+        reportgenerator \
+          -reports:./coverage/**/coverage.cobertura.xml \
+          -targetdir:./coverage/report \
+          -reporttypes:Html
+
+    - name: Check Coverage Threshold (>= 90%)
+      run: |
+        coverage=$(grep -o 'line-rate="[^"]*"' ./coverage/**/coverage.cobertura.xml | head -1 | sed 's/line-rate="//' | sed 's/"//')
+        coverage_percent=$(echo "$coverage * 100" | bc -l | cut -d. -f1)
+        echo "Coverage: ${coverage_percent}%"
+        if [ "$coverage_percent" -lt 90 ]; then
+          echo "❌ Coverage is below 90% threshold (${coverage_percent}%)"
+          exit 1
+        else
+          echo "✅ Coverage meets 90% threshold (${coverage_percent}%)"
+        fi
+
+    - name: Upload Coverage Reports
+      uses: actions/upload-artifact@v4
       with:
-        file: ./coverage/**/coverage.cobertura.xml
-        flags: ${{ matrix.target-framework }}
-        name: codecov-${{ matrix.target-framework }}
+        name: coverage-reports-${{ matrix.target-framework }}
+        path: |
+          ./coverage/**/coverage.cobertura.xml
+          ./coverage/report/
+        retention-days: 30
 
   security:
     name: Security Analysis

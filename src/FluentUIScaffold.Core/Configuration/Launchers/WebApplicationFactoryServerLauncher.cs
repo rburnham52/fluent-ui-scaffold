@@ -13,15 +13,15 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
     public sealed class WebApplicationFactoryServerLauncher : IServerLauncher
     {
         private readonly ILogger? _logger;
-        private readonly AspNetServerLauncher _fallbackLauncher;
+        private readonly IServerLauncher _fallbackLauncher;
         private bool _disposed;
 
         public string Name => "WebApplicationFactoryServerLauncher";
 
-        public WebApplicationFactoryServerLauncher(ILogger? logger = null)
+        public WebApplicationFactoryServerLauncher(ILogger? logger = null, IServerLauncher? fallbackLauncher = null)
         {
             _logger = logger;
-            _fallbackLauncher = new AspNetServerLauncher(logger);
+            _fallbackLauncher = fallbackLauncher ?? new AspNetServerLauncher(logger);
         }
 
         public bool CanHandle(ServerConfiguration configuration)

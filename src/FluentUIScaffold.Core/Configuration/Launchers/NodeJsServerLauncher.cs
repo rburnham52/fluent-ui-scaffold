@@ -18,10 +18,20 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
         private readonly ILogger? _logger;
         private Process? _process;
         private bool _disposed;
+        private readonly ICommandBuilder _commandBuilder;
+        private readonly IEnvVarProvider _envVarProvider;
+        private readonly IProcessRunner _processRunner;
+        private readonly IClock _clock;
+        private readonly IReadinessProbe _readinessProbe;
 
-        public NodeJsServerLauncher(ILogger? logger = null)
+        public NodeJsServerLauncher(ILogger? logger = null, IProcessRunner? processRunner = null, IClock? clock = null, IReadinessProbe? readinessProbe = null)
         {
             _logger = logger;
+            _commandBuilder = new NodeJsCommandBuilder();
+            _envVarProvider = new AspNetEnvVarProvider();
+            _processRunner = processRunner ?? new ProcessRunner();
+            _clock = clock ?? new SystemClock();
+            _readinessProbe = readinessProbe ?? new HttpReadinessProbe(null, _clock);
         }
 
         public string Name => "NodeJsServerLauncher";
@@ -31,29 +41,14 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
             return configuration.ServerType == ServerType.NodeJs;
         }
 
-        public async Task LaunchAsync(ServerConfiguration configuration)
+        public LaunchPlan PlanLaunch(ServerConfiguration configuration)
         {
-            if (_disposed)
-                throw new ObjectDisposedException(nameof(NodeJsServerLauncher));
-
             if (string.IsNullOrEmpty(configuration.ProjectPath))
                 throw new ArgumentException("Project path cannot be null or empty.", nameof(configuration));
-
             if (configuration.BaseUrl == null)
                 throw new ArgumentException("Base URL cannot be null.", nameof(configuration));
 
-            _logger?.LogInformation("Launching Node.js server with configuration: {ProjectPath}", configuration.ProjectPath);
-
-            // Kill existing processes on the port
-            await KillProcessesOnPortAsync(configuration.BaseUrl.Port);
-
-            // Build command arguments
-            var arguments = NodeJsServerLauncher.BuildCommandArguments(configuration);
-
-            // Use environment variables from configuration (set by builder defaults)
-            var environmentVariables = new Dictionary<string, string>(configuration.EnvironmentVariables);
-
-            // Start the process
+            var arguments = _commandBuilder.BuildCommand(configuration);
             var startInfo = new ProcessStartInfo
             {
                 FileName = "npm",
@@ -65,23 +60,41 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
                 CreateNoWindow = true
             };
 
-            // Add environment variables
-            foreach (var envVar in environmentVariables)
+            var env = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (System.Collections.DictionaryEntry kv in startInfo.EnvironmentVariables)
             {
-                startInfo.EnvironmentVariables[envVar.Key] = envVar.Value;
+                var key = kv.Key?.ToString();
+                var value = kv.Value?.ToString() ?? string.Empty;
+                if (!string.IsNullOrEmpty(key)) env[key] = value;
+            }
+            _envVarProvider.Apply(env, configuration);
+            foreach (var kv in env)
+            {
+                startInfo.EnvironmentVariables[kv.Key] = kv.Value;
             }
 
-            _process = new Process { StartInfo = startInfo };
+            return new LaunchPlan(startInfo, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2));
+        }
 
-            _logger?.LogInformation("Starting Node.js process: npm {Arguments}", arguments);
+        public async Task LaunchAsync(ServerConfiguration configuration)
+        {
+            if (_disposed)
+                throw new ObjectDisposedException(nameof(NodeJsServerLauncher));
 
-            if (!_process.Start())
-            {
-                throw new InvalidOperationException("Failed to start Node.js server process");
-            }
+            _logger?.LogInformation("Launching Node.js server with configuration: {ProjectPath}", configuration.ProjectPath);
+
+            if (configuration.BaseUrl == null)
+                throw new ArgumentException("Base URL cannot be null.", nameof(configuration));
+
+            // Kill existing processes on the port
+            await KillProcessesOnPortAsync(configuration.BaseUrl.Port);
+
+            var plan = PlanLaunch(configuration);
+            _logger?.LogInformation("Starting Node.js process: {File} {Arguments}", plan.StartInfo.FileName, plan.StartInfo.Arguments);
+            var proc = _processRunner.Start(plan.StartInfo);
 
             // Wait for server to be ready
-            await WaitForServerReadyAsync(configuration);
+            await _readinessProbe.WaitUntilReadyAsync(configuration, _logger, plan.InitialDelay, plan.PollInterval);
 
             _logger?.LogInformation("Node.js server is ready at {BaseUrl}", configuration.BaseUrl);
         }
@@ -96,45 +109,7 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
             return string.Join(" ", arguments);
         }
 
-        private async Task WaitForServerReadyAsync(ServerConfiguration configuration)
-        {
-            using var httpClient = new HttpClient();
-            httpClient.Timeout = configuration.StartupTimeout;
-
-            var healthCheckEndpoints = configuration.HealthCheckEndpoints.Count > 0
-                ? configuration.HealthCheckEndpoints
-                : new List<string> { "/", "/health" };
-
-            var maxAttempts = (int)(configuration.StartupTimeout.TotalSeconds / 2);
-            var attempt = 0;
-
-            while (attempt < maxAttempts)
-            {
-                foreach (var endpoint in healthCheckEndpoints)
-                {
-                    try
-                    {
-                        var url = new Uri(configuration.BaseUrl, endpoint);
-                        var response = await httpClient.GetAsync(url);
-
-                        if (response.IsSuccessStatusCode)
-                        {
-                            _logger?.LogInformation("Server health check passed for endpoint: {Endpoint}", endpoint);
-                            return;
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger?.LogDebug(ex, "Health check failed for endpoint: {Endpoint}", endpoint);
-                    }
-                }
-
-                await Task.Delay(2000); // Wait 2 seconds before next attempt
-                attempt++;
-            }
-
-            throw new TimeoutException($"Node.js server did not become ready within {configuration.StartupTimeout}");
-        }
+        // readiness logic centralized in HttpReadinessProbe
 
         private async Task KillProcessesOnPortAsync(int port)
         {
@@ -190,8 +165,8 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
         {
             if (!_disposed && disposing)
             {
-                _process?.Kill();
-                _process?.Dispose();
+                try { _process?.Kill(); } catch { }
+                try { _process?.Dispose(); } catch { }
                 _process = null;
                 _disposed = true;
             }

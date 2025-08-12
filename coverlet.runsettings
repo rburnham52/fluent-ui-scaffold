@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RunSettings>
+  <DataCollectionRunSettings>
+    <DataCollectors>
+      <DataCollector friendlyName="XPlat Code Coverage">
+        <Configuration>
+          <Format>cobertura</Format>
+          <Include>
+            [FluentUIScaffold.Core]FluentUIScaffold.Core.Configuration.ServerConfiguration*;
+            [FluentUIScaffold.Core]FluentUIScaffold.Core.Configuration.*ServerConfigurationBuilder;
+            [FluentUIScaffold.Core]FluentUIScaffold.Core.Configuration.Launchers.*
+          </Include>
+          <Exclude>[*.Tests]*;[*]SampleApp*</Exclude>
+        </Configuration>
+      </DataCollector>
+    </DataCollectors>
+  </DataCollectionRunSettings>
+</RunSettings>

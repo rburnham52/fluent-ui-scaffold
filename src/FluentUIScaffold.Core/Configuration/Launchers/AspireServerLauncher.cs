@@ -17,57 +17,39 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
     {
         private readonly ILogger? _logger;
         private Process? _process;
+        private IProcess? _startedProcess;
         private bool _disposed;
+        private readonly ICommandBuilder _commandBuilder;
+        private readonly IEnvVarProvider _envVarProvider;
+        private readonly IProcessRunner _processRunner;
+        private readonly IClock _clock;
+        private readonly IReadinessProbe _readinessProbe;
 
-        public AspireServerLauncher(ILogger? logger = null)
+        public AspireServerLauncher(ILogger? logger = null, IProcessRunner? processRunner = null, IClock? clock = null, IReadinessProbe? readinessProbe = null)
         {
             _logger = logger;
+            _commandBuilder = new AspireCommandBuilder();
+            _envVarProvider = new AspNetEnvVarProvider();
+            _processRunner = processRunner ?? new ProcessRunner();
+            _clock = clock ?? new SystemClock();
+            _readinessProbe = readinessProbe ?? new HttpReadinessProbe(null, _clock);
         }
 
         public string Name => "AspireServerLauncher";
-        private static readonly string[] collection = new[] { "--framework", "net8.0" };
 
         public bool CanHandle(ServerConfiguration configuration)
         {
             return configuration.ServerType == ServerType.Aspire;
         }
 
-        public async Task LaunchAsync(ServerConfiguration configuration)
+        public LaunchPlan PlanLaunch(ServerConfiguration configuration)
         {
-            if (_disposed)
-                throw new ObjectDisposedException(nameof(AspireServerLauncher));
-
             if (string.IsNullOrEmpty(configuration.ProjectPath))
                 throw new ArgumentException("Project path cannot be null or empty.", nameof(configuration));
-
             if (configuration.BaseUrl == null)
                 throw new ArgumentException("Base URL cannot be null.", nameof(configuration));
 
-            _logger?.LogInformation("Launching Aspire server with configuration: {ProjectPath}", configuration.ProjectPath);
-
-            // Kill existing processes on the port
-            await KillProcessesOnPortAsync(configuration.BaseUrl.Port);
-
-            // Build command arguments
-            var arguments = AspireServerLauncher.BuildCommandArguments(configuration);
-
-            // Set up environment variables
-            var environmentVariables = new Dictionary<string, string>(configuration.EnvironmentVariables)
-            {
-                ["ASPNETCORE_ENVIRONMENT"] = "Development",
-                ["ASPNETCORE_HOSTINGSTARTUPASSEMBLIES"] = "",
-                ["DOTNET_ENVIRONMENT"] = "Development",
-                ["ASPNETCORE_URLS"] = configuration.BaseUrl.ToString()
-            };
-
-            // Respect explicit hosting startup assemblies setting (SPA proxy on/off)
-            if (configuration.EnvironmentVariables != null &&
-                configuration.EnvironmentVariables.TryGetValue("ASPNETCORE_HOSTINGSTARTUPASSEMBLIES", out var hostingStartupAssemblies))
-            {
-                environmentVariables["ASPNETCORE_HOSTINGSTARTUPASSEMBLIES"] = hostingStartupAssemblies ?? string.Empty;
-            }
-
-            // Start the process
+            var arguments = _commandBuilder.BuildCommand(configuration);
             var startInfo = new ProcessStartInfo
             {
                 FileName = "dotnet",
@@ -79,80 +61,62 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
                 CreateNoWindow = true
             };
 
-            // Add environment variables
-            foreach (var envVar in environmentVariables)
+            // Apply environment variables via provider
+            var env = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (System.Collections.DictionaryEntry kv in startInfo.EnvironmentVariables)
             {
-                startInfo.EnvironmentVariables[envVar.Key] = envVar.Value;
+                var key = kv.Key?.ToString();
+                var value = kv.Value?.ToString() ?? string.Empty;
+                if (!string.IsNullOrEmpty(key)) env[key] = value;
+            }
+            _envVarProvider.Apply(env, configuration);
+            foreach (var kv in env)
+            {
+                startInfo.EnvironmentVariables[kv.Key] = kv.Value;
             }
 
-            _process = new Process { StartInfo = startInfo };
+            return new LaunchPlan(startInfo, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2));
+        }
 
-            _logger?.LogInformation("Starting Aspire process: dotnet {Arguments}", arguments);
+        public async Task LaunchAsync(ServerConfiguration configuration)
+        {
+            if (_disposed)
+                throw new ObjectDisposedException(nameof(AspireServerLauncher));
 
-            if (!_process.Start())
-            {
-                throw new InvalidOperationException("Failed to start Aspire server process");
-            }
+            _logger?.LogInformation("Launching Aspire server with configuration: {ProjectPath}", configuration.ProjectPath);
+
+            // Validate critical fields before any side effects
+            if (configuration.BaseUrl == null)
+                throw new ArgumentException("Base URL cannot be null.", nameof(configuration));
+
+            // Kill existing processes on the port
+            await KillProcessesOnPortAsync(configuration.BaseUrl.Port);
+
+            var plan = PlanLaunch(configuration);
+            _logger?.LogInformation("Starting Aspire process: {File} {Arguments}", plan.StartInfo.FileName, plan.StartInfo.Arguments);
+            _startedProcess = _processRunner.Start(plan.StartInfo);
 
             // Wait for server to be ready
-            await WaitForServerReadyAsync(configuration);
+            await _readinessProbe.WaitUntilReadyAsync(configuration, _logger, plan.InitialDelay, plan.PollInterval);
 
             _logger?.LogInformation("Aspire server is ready at {BaseUrl}", configuration.BaseUrl);
         }
 
-        private static string BuildCommandArguments(ServerConfiguration configuration)
+        private static string AspNetServerLauncher_BuildCommandArguments(ServerConfiguration configuration)
         {
-            var arguments = new List<string> { "run" };
-
-            arguments.AddRange(collection);
-            arguments.AddRange(new[] { "--configuration", "Release" });
-            arguments.Add("--no-launch-profile");
-
-            // Add custom arguments
-            arguments.AddRange(configuration.Arguments);
-
-            return string.Join(" ", arguments);
-        }
-
-        private async Task WaitForServerReadyAsync(ServerConfiguration configuration)
-        {
-            using var httpClient = new HttpClient();
-            httpClient.Timeout = configuration.StartupTimeout;
-
-            var healthCheckEndpoints = configuration.HealthCheckEndpoints.Count > 0
-                ? configuration.HealthCheckEndpoints
-                : new List<string> { "/", "/health" };
-
-            var maxAttempts = (int)(configuration.StartupTimeout.TotalSeconds / 2);
-            var attempt = 0;
-
-            while (attempt < maxAttempts)
+            var aspNetLauncher = typeof(AspNetServerLauncher);
+            var buildMethod = aspNetLauncher.GetMethod("BuildCommandArguments", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+            if (buildMethod == null)
             {
-                foreach (var endpoint in healthCheckEndpoints)
-                {
-                    try
-                    {
-                        var url = new Uri(configuration.BaseUrl, endpoint);
-                        var response = await httpClient.GetAsync(url);
-
-                        if (response.IsSuccessStatusCode)
-                        {
-                            _logger?.LogInformation("Server health check passed for endpoint: {Endpoint}", endpoint);
-                            return;
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger?.LogDebug(ex, "Health check failed for endpoint: {Endpoint}", endpoint);
-                    }
-                }
-
-                await Task.Delay(2000); // Wait 2 seconds before next attempt
-                attempt++;
+                // Fallback to minimal sensible defaults
+                var arguments = new List<string> { "run", "--no-launch-profile" };
+                arguments.AddRange(configuration.Arguments);
+                return string.Join(" ", arguments);
             }
-
-            throw new TimeoutException($"Aspire server did not become ready within {configuration.StartupTimeout}");
+            return (string)buildMethod.Invoke(null, new object[] { configuration });
         }
+
+        // readiness logic centralized in HttpReadinessProbe
 
         private async Task KillProcessesOnPortAsync(int port)
         {
@@ -183,19 +147,18 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
                             {
                                 var killProcess = Process.GetProcessById(pid);
                                 killProcess.Kill();
-                                _logger?.LogInformation("Killed process {PID} on port {Port}", pid, port);
                             }
-                            catch (Exception ex)
+                            catch
                             {
-                                _logger?.LogWarning(ex, "Failed to kill process {PID}", pid);
+                                // ignore kill issues in launcher
                             }
                         }
                     }
                 }
             }
-            catch (Exception ex)
+            catch
             {
-                _logger?.LogWarning(ex, "Failed to kill processes on port {Port}", port);
+                // ignore
             }
         }
 
@@ -209,9 +172,12 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
         {
             if (!_disposed && disposing)
             {
-                _process?.Kill();
-                _process?.Dispose();
+                try { _process?.Kill(); } catch { }
+                try { _process?.Dispose(); } catch { }
                 _process = null;
+                try { _startedProcess?.Kill(); } catch { }
+                try { _startedProcess?.Dispose(); } catch { }
+                _startedProcess = null;
                 _disposed = true;
             }
         }

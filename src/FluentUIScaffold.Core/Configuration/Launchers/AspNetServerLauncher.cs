@@ -21,14 +21,22 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
         private Process? _webServerProcess;
         private readonly HttpClient _httpClient;
         private bool _disposed;
+        private readonly ICommandBuilder _commandBuilder;
+        private readonly IEnvVarProvider _envVarProvider;
+        private readonly IProcessRunner _processRunner;
+        private readonly IClock _clock;
 
         public string Name => "AspNetServerLauncher";
         private static readonly string[] collection = new[] { "--framework", "net8.0" };
 
-        public AspNetServerLauncher(ILogger? logger = null)
+        public AspNetServerLauncher(ILogger? logger = null, IProcessRunner? processRunner = null, IClock? clock = null)
         {
             _logger = logger;
             _httpClient = new HttpClient();
+            _commandBuilder = new AspNetCommandBuilder();
+            _envVarProvider = new AspNetEnvVarProvider();
+            _processRunner = processRunner ?? new ProcessRunner();
+            _clock = clock ?? new SystemClock();
         }
 
         public bool CanHandle(ServerConfiguration configuration)
@@ -57,7 +65,7 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
             await KillProcessesOnPortAsync(configuration.BaseUrl.Port, configuration.ProcessName);
 
             // Build the command arguments
-            var arguments = AspNetServerLauncher.BuildCommandArguments(configuration);
+            var arguments = _commandBuilder.BuildCommand(configuration);
 
             // Create the process start info
             var startInfo = new ProcessStartInfo
@@ -71,20 +79,26 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
                 CreateNoWindow = true
             };
 
-            // Set environment variables
-            foreach (var envVar in configuration.EnvironmentVariables)
+            // Apply environment variables via provider (copy to Dictionary then back)
+            var env = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (System.Collections.DictionaryEntry kv in startInfo.EnvironmentVariables)
             {
-                startInfo.EnvironmentVariables[envVar.Key] = envVar.Value;
+                var key = kv.Key?.ToString();
+                var value = kv.Value?.ToString() ?? string.Empty;
+                if (!string.IsNullOrEmpty(key)) env[key] = value;
             }
-
-            // Set server-specific environment variables
-            AspNetServerLauncher.SetServerSpecificEnvironmentVariables(startInfo, configuration);
+            _envVarProvider.Apply(env, configuration);
+            foreach (var kv in env)
+            {
+                startInfo.EnvironmentVariables[kv.Key] = kv.Value;
+            }
 
             _logger?.LogInformation("Starting {ServerType} server with command: {Command} {Arguments}",
                 configuration.ServerType, startInfo.FileName, startInfo.Arguments);
 
             try
             {
+                _ = _processRunner.Start(startInfo);
                 _webServerProcess = Process.Start(startInfo);
                 if (_webServerProcess == null)
                 {
@@ -246,7 +260,7 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
             }
 
             // Add a small delay before starting health checks to give the server time to start
-            await Task.Delay(2000);
+            await _clock.Delay(TimeSpan.FromSeconds(2));
 
             while (DateTime.UtcNow - startTime < configuration.StartupTimeout)
             {
@@ -304,7 +318,7 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
                         configuration.ServerType, attempt, maxAttempts, elapsed.TotalSeconds);
                 }
 
-                await Task.Delay(200);
+                await _clock.Delay(TimeSpan.FromMilliseconds(200));
             }
 
             // Check if the process is still running
