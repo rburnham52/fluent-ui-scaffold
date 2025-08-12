@@ -5,9 +5,12 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$coverageDir = "./coverage"
-$reportDir = "$coverageDir/report"
-$runsettings = "coverlet.runsettings"
+
+# Resolve repo root relative to this script
+$root = Resolve-Path (Join-Path $PSScriptRoot "..")
+$coverageDir = Join-Path $root "coverage"
+$reportDir = Join-Path $coverageDir "report"
+$runsettings = Join-Path $root "coverlet.runsettings"
 
 # Ensure reportgenerator is available
 if (-not (Get-Command reportgenerator -ErrorAction SilentlyContinue)) {
@@ -20,54 +23,56 @@ if (-not (Get-Command reportgenerator -ErrorAction SilentlyContinue)) {
 if (Test-Path $coverageDir) { Remove-Item -Recurse -Force $coverageDir }
 New-Item -ItemType Directory -Force -Path $coverageDir | Out-Null
 
-# Run tests (core)
-if (Test-Path "tests/FluentUIScaffold.Core.Tests/FluentUIScaffold.Core.Tests.csproj") {
-    dotnet test "tests/FluentUIScaffold.Core.Tests/FluentUIScaffold.Core.Tests.csproj" `
+# Helper to run tests with coverage
+function Invoke-CoverageTest {
+    param(
+        [Parameter(Mandatory=$true)][string]$ProjectPath,
+        [Parameter(Mandatory=$true)][string]$LogName
+    )
+
+    dotnet test $ProjectPath `
         --no-build `
         --verbosity normal `
         --configuration $Configuration `
         --framework $Framework `
-        --settings $runsettings `
+        --settings "$runsettings" `
         --collect:"XPlat Code Coverage" `
-        --results-directory $coverageDir `
-        --logger trx
+        --results-directory "$coverageDir" `
+        --logger "trx;LogFileName=$LogName"
+}
+
+# Run tests (core)
+$coreProj = Join-Path $root "tests/FluentUIScaffold.Core.Tests/FluentUIScaffold.Core.Tests.csproj"
+if (Test-Path $coreProj) {
+    Invoke-CoverageTest -ProjectPath $coreProj -LogName "core.trx"
 }
 
 # Run tests (playwright) - best effort
-if (Test-Path "tests/FluentUIScaffold.Playwright.Tests/FluentUIScaffold.Playwright.Tests.csproj") {
+$pwProj = Join-Path $root "tests/FluentUIScaffold.Playwright.Tests/FluentUIScaffold.Playwright.Tests.csproj"
+if (Test-Path $pwProj) {
     try {
-        dotnet test "tests/FluentUIScaffold.Playwright.Tests/FluentUIScaffold.Playwright.Tests.csproj" `
-            --no-build `
-            --verbosity normal `
-            --configuration $Configuration `
-            --framework $Framework `
-            --settings $runsettings `
-            --collect:"XPlat Code Coverage" `
-            --results-directory $coverageDir `
-            --logger trx
+        Invoke-CoverageTest -ProjectPath $pwProj -LogName "playwright.trx"
     } catch { }
 }
 
-# Generate HTML report
+# Generate HTML/TextSummary merged report
 reportgenerator `
     -reports:"$coverageDir/**/coverage.cobertura.xml" `
     -targetdir:"$reportDir" `
     -reporttypes:"Html;TextSummary"
 
-# Threshold check (90%)
-$xml = Get-ChildItem $coverageDir -Recurse -Filter coverage.cobertura.xml | Select-Object -First 1
-if (-not $xml) { throw "Cobertura file not found" }
-$content = Get-Content $xml.FullName -Raw
-if ($content -match 'line-rate="([0-9\.]+)"') {
-    $rate = [double]$matches[1]
-    $percent = [int]([math]::Round($rate * 100))
-    Write-Host "Coverage: $percent%"
-    if ($percent -lt 90) { throw "Coverage below 90% ($percent%)" }
-} else {
-    throw "Could not parse coverage percentage"
-}
+# Threshold check (90%) using ReportGenerator Summary
+$summaryPath = Join-Path $reportDir "Summary.txt"
+if (-not (Test-Path $summaryPath)) { throw "Coverage summary not found at $summaryPath" }
+$summary = Get-Content $summaryPath
+$match = ($summary | Select-String -Pattern '^\s*Line coverage:\s+([0-9]+(?:\.[0-9]+)?)%').Matches | Select-Object -First 1
+if (-not $match) { throw "Could not parse Line coverage from $summaryPath" }
+$percent = [double]::Parse($match.Groups[1].Value, [System.Globalization.CultureInfo]::InvariantCulture)
+$percentInt = [int]([math]::Round($percent))
+Write-Host "Coverage: $percent%"
+if ($percent -lt 90) { throw "Coverage below 90% ($percentInt%)" }
 
 Write-Host "HTML report: $reportDir/index.html"
 if ($OpenReport) {
-    try { Start-Process "$reportDir/index.html" } catch { }
+    try { Start-Process (Join-Path $reportDir "index.html") } catch { }
 }
