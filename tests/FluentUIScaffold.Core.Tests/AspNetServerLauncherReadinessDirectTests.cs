@@ -6,6 +6,7 @@ using FluentUIScaffold.Core.Configuration.Launchers;
 using FluentUIScaffold.Core.Tests.Helpers;
 using NUnit.Framework;
 using System.Diagnostics;
+using System.Linq;
 
 namespace FluentUIScaffold.Core.Tests
 {
@@ -109,6 +110,33 @@ namespace FluentUIScaffold.Core.Tests
 
             var launcher = new AspNetServerLauncher();
             await InvokeWaitAsync(launcher, config);
+        }
+
+        private sealed class TestLogger : Microsoft.Extensions.Logging.ILogger
+        {
+            public System.Collections.Generic.List<string> Messages { get; } = new System.Collections.Generic.List<string>();
+            public IDisposable BeginScope<TState>(TState state) => System.Reactive.Disposables.Disposable.Empty;
+            public bool IsEnabled(Microsoft.Extensions.Logging.LogLevel logLevel) => true;
+            public void Log<TState>(Microsoft.Extensions.Logging.LogLevel logLevel, Microsoft.Extensions.Logging.EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+            {
+                try { Messages.Add(formatter(state, exception)); } catch { }
+            }
+        }
+
+        [Test]
+        public void WaitForServerReady_Logs_Progress_Every5Attempts()
+        {
+            var logger = new TestLogger();
+            var fakeClock = new FluentUIScaffold.Core.Tests.Mocks.FakeClock();
+            var launcher = new AspNetServerLauncher(logger, null, fakeClock);
+
+            var baseUrl = new Uri("http://localhost:9");
+            var config = ServerConfiguration.CreateDotNetServer(baseUrl, "/path/to/App.csproj")
+                .WithStartupTimeout(TimeSpan.FromSeconds(1))
+                .Build();
+
+            Assert.That(async () => await InvokeWaitAsync(launcher, config), Throws.Exception);
+            Assert.That(logger.Messages.Any(m => m.Contains("Still waiting for")), Is.True);
         }
     }
 }
