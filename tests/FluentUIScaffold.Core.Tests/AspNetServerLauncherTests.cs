@@ -126,5 +126,27 @@ namespace FluentUIScaffold.Core.Tests
             var config = new ServerConfiguration { ServerType = ServerType.AspNetCore, ProjectPath = "/path/app.csproj", BaseUrl = null };
             Assert.That(async () => await launcher.LaunchAsync(config), Throws.ArgumentException);
         }
+
+        [Test]
+        public void BuildCommandArguments_UsesFrameworkAndConfiguration_OrDefaults()
+        {
+            var baseUrl = new Uri("http://localhost:7201");
+            var cfgWithArgs = ServerConfiguration.CreateDotNetServer(baseUrl, "/path/to/app.csproj")
+                .WithFramework("net9.0")
+                .WithConfiguration("Debug")
+                .Build();
+
+            var method = typeof(AspNetServerLauncher).GetMethod("BuildCommandArguments", BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.That(method, Is.Not.Null);
+
+            var argsWith = (string)method!.Invoke(null, new object[] { cfgWithArgs })!;
+            Assert.That(argsWith, Does.Contain("--framework net9.0"));
+            Assert.That(argsWith, Does.Contain("--configuration Debug"));
+
+            var cfgDefault = ServerConfiguration.CreateDotNetServer(baseUrl, "/path/to/app.csproj").Build();
+            var argsDefault = (string)method!.Invoke(null, new object[] { cfgDefault })!;
+            Assert.That(argsDefault, Does.Contain("--framework net8.0"));
+            Assert.That(argsDefault, Does.Contain("--configuration Release"));
+        }
     }
 }
