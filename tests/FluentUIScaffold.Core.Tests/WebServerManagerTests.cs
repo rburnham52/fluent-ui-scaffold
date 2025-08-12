@@ -63,5 +63,20 @@ namespace FluentUIScaffold.Core.Tests
             WebServerManager.StopServer();
             Assert.That(WebServerManager.IsServerRunning(), Is.False);
         }
+
+        [Test]
+        public void StopServer_WhenNotStarted_IsNoOp()
+        {
+            // Ensure clean state
+            WebServerManager.StopServer();
+            Assert.That(WebServerManager.IsServerRunning(), Is.False);
+        }
+
+        [Test]
+        public void IsServerRunning_ReturnsFalse_WhenNoInstance()
+        {
+            WebServerManager.StopServer();
+            Assert.That(WebServerManager.IsServerRunning(), Is.False);
+        }
     }
 }
