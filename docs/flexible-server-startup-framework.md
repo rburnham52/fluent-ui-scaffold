@@ -13,10 +13,14 @@ The Flexible Server Startup Framework is a comprehensive solution for launching 
 3. Removed: automatic project detection
 4. **`ServerLauncherFactory`** - Factory for creating and managing launchers and detectors
 5. **`ServerConfiguration`** - Configuration class for server startup parameters
+6. **`IProcessRunner` / `IProcess`** - Abstractions to start and manage external processes (testable wrapper over `System.Diagnostics.Process`)
+7. **`IClock`** - Time abstraction to control delays and timing in tests
+8. **`IReadinessProbe`** - Strategy interface to centralize server readiness checks (default: `HttpReadinessProbe`)
+9. **`LaunchPlan`** - Value object describing the planned launch (executable, arguments, environment)
 
 ### Design Patterns
 
-- **Strategy Pattern**: `IServerLauncher` and `IProjectDetector` implementations
+- **Strategy Pattern**: `IServerLauncher` and `IProjectDetector` implementations; `IReadinessProbe`
 - **Factory Pattern**: `ServerLauncherFactory` manages component registration and creation
 - **Singleton Pattern**: `WebServerManager` provides singleton access for test scenarios
 
@@ -153,6 +157,11 @@ factory.RegisterDetector(new CustomProjectDetector());
 - `EnableSpaProxy` - Whether to enable SPA proxy
 - `StartupTimeout` - Timeout for server startup
 - `HealthCheckEndpoints` - Endpoints to check for server readiness
+
+### Readiness Probes
+
+- Default readiness is provided by `HttpReadinessProbe`, which queries `BaseUrl` and any configured `HealthCheckEndpoints` until the server responds with a success status or times out.
+- Custom readiness strategies can be implemented by providing your own `IReadinessProbe` and registering/injecting it for your launcher.
 
 ## Migration Guide
 

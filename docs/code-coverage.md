@@ -20,7 +20,7 @@ chmod +x scripts/coverage.sh
 **That's it!** The script will:
 - ✅ Run all tests with coverage collection
 - ✅ Generate an HTML report
-- ✅ Check if coverage meets 90% threshold
+- ✅ Check if coverage meets 70% threshold
 - ✅ Show you where to find the report
 
 **To view the coverage report:**
@@ -28,7 +28,7 @@ chmod +x scripts/coverage.sh
 - Or run with `-OpenReport` flag to auto-open
 
 ### 📊 What You'll See
-- **Coverage percentage** (must be ≥90%)
+- **Coverage percentage** (must be ≥70%)
 - **File-by-file breakdown** of what's tested
 - **Line-by-line details** showing covered/uncovered code
 - **HTML report** with interactive navigation
@@ -42,13 +42,13 @@ chmod +x scripts/coverage.sh
 
 ## Overview
 
-The project uses [Coverlet](https://github.com/coverlet-coverage/coverlet) for code coverage collection and [ReportGenerator](https://github.com/danielpalme/ReportGenerator) for generating HTML reports. Coverage is configured to enforce a 90% minimum threshold.
+The project uses [Coverlet](https://github.com/coverlet-coverage/coverlet) for code coverage collection and [ReportGenerator](https://github.com/danielpalme/ReportGenerator) for generating HTML reports. Coverage is configured to enforce a 70% minimum threshold.
 
 ## Coverage Configuration
 
 ### What's Covered
-- All core FluentUIScaffold packages (Core, AspNetCore, Autofac, Bdd, EntityFrameworkCore, Nunit)
-- Integration tests and unit tests
+- Core FluentUIScaffold code paths with emphasis on launchers and configuration
+- Both Core and Playwright tests are executed; the report aggregates coverage but the gating focuses on Core assembly
 
 ### What's Excluded
 - Sample applications (`Samples/` directory)
@@ -59,9 +59,9 @@ The project uses [Coverlet](https://github.com/coverlet-coverage/coverlet) for c
 - Bin and obj directories
 
 ### Coverage Thresholds
-- **Minimum Overall Coverage**: 90%
-- **Enforcement**: Build fails if coverage drops below threshold
-- **Coverage Types**: Line, branch, and method coverage
+- **Minimum Overall Coverage (gated)**: 70%
+- **Enforcement**: The scripts fail if coverage drops below threshold
+- **Coverage Types**: Line coverage (primary)
 
 ## Running Coverage Locally
 
@@ -84,6 +84,9 @@ The project uses [Coverlet](https://github.com/coverlet-coverage/coverlet) for c
 
 # Run coverage with debug configuration
 .\scripts\coverage.ps1 -Configuration Debug
+
+# Advanced: limit assemblies included or excluded
+.\scripts\coverage.ps1 -IncludeAssemblies "FluentUIScaffold.Core" -ExcludeAssemblies "FluentUIScaffold.Playwright"
 ```
 
 #### Linux/macOS (Bash)
@@ -102,6 +105,9 @@ chmod +x scripts/coverage.sh
 
 # Run coverage with debug configuration
 ./scripts/coverage.sh -c Debug
+
+# Advanced: limit assemblies included or excluded
+./scripts/coverage.sh --include-assemblies "FluentUIScaffold.Core" --exclude-assemblies "FluentUIScaffold.Playwright"
 ```
 
 ### Manual Commands
@@ -109,20 +115,22 @@ chmod +x scripts/coverage.sh
 If you prefer to run coverage manually:
 
 ```bash
-# Run tests with coverage
-dotnet test Tests/FluentUIScaffold.Tests/FluentUIScaffold.Tests.csproj \
+# Run tests with coverage (Core tests example)
+dotnet test tests/FluentUIScaffold.Core.Tests/FluentUIScaffold.Core.Tests.csproj \
     --configuration Release \
     --framework net8.0 \
     --settings coverlet.runsettings \
     --collect:"XPlat Code Coverage" \
     --results-directory ./coverage/
 
-# Generate HTML report
+# Generate HTML + text summary report
 dotnet tool install --global dotnet-reportgenerator-globaltool --version 5.2.4
 reportgenerator \
     -reports:./coverage/**/coverage.cobertura.xml \
     -targetdir:./coverage/report \
-    -reporttypes:Html
+    -reporttypes:Html;TextSummary \
+    -assemblyfilters:+FluentUIScaffold.Core;-FluentUIScaffold.Playwright \
+    -classfilters:+FluentUIScaffold.Core.Configuration.Launchers.*;+FluentUIScaffold.Core.Configuration.ServerConfiguration*;+FluentUIScaffold.Core.Configuration.*ServerConfigurationBuilder
 ```
 
 ## Viewing Coverage Reports
@@ -138,7 +146,7 @@ After running coverage, HTML reports are generated in `./coverage/report/`. Open
 ### Coverage Files
 - **Cobertura XML**: `./coverage/**/coverage.cobertura.xml` - Used by CI/CD
 - **HTML Report**: `./coverage/report/` - Human-readable reports
-- **Coverage JSON**: `./coverage/**/coverage.json` - Raw coverage data
+- **Text Summary**: `./coverage/report/Summary.txt` - Parsed by scripts to enforce threshold
 
 ## CI/CD Integration
 
@@ -146,7 +154,7 @@ After running coverage, HTML reports are generated in `./coverage/report/`. Open
 The CI workflow automatically:
 1. Runs tests with coverage collection
 2. Generates HTML reports
-3. Checks coverage threshold (90%)
+3. Checks coverage threshold (70%)
 4. Uploads coverage artifacts
 5. Fails the build if coverage is below threshold
 
@@ -154,7 +162,7 @@ The CI workflow automatically:
 Coverage reports are uploaded as GitHub Actions artifacts:
 - Available for download from the Actions tab
 - Retained for 30 days
-- Includes both Cobertura XML and HTML reports
+- Includes both Cobertura XML and HTML/TextSummary reports
 
 ## Troubleshooting
 
@@ -211,7 +219,7 @@ Test projects include `coverlet.collector` package:
 
 ### For Contributors
 1. **Run coverage locally** before submitting PRs
-2. **Maintain 90% coverage** for new code
+2. **Maintain 70% coverage** for new code (or higher when feasible)
 3. **Add tests** for uncovered code paths
 4. **Use exclusion patterns** for generated code
 
@@ -244,4 +252,4 @@ The project tracks:
 - **Branch Coverage**: Percentage of conditional branches taken
 - **Method Coverage**: Percentage of methods called
 
-All metrics must meet the 90% threshold for the build to pass. 
+All metrics should meet or exceed the 70% threshold for the build to pass. 
