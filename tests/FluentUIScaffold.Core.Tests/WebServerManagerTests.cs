@@ -78,5 +78,35 @@ namespace FluentUIScaffold.Core.Tests
             WebServerManager.StopServer();
             Assert.That(WebServerManager.IsServerRunning(), Is.False);
         }
+
+        private sealed class DisposableLauncherStub : FluentUIScaffold.Core.Configuration.IServerLauncher
+        {
+            public string Name => "DisposableStub";
+            public bool Disposed { get; private set; }
+            public bool CanHandle(FluentUIScaffold.Core.Configuration.ServerConfiguration configuration) => true;
+            public System.Threading.Tasks.Task LaunchAsync(FluentUIScaffold.Core.Configuration.ServerConfiguration configuration) => System.Threading.Tasks.Task.CompletedTask;
+            public void Dispose() { Disposed = true; }
+        }
+
+        [Test]
+        public void StopServer_WhenOwner_Disposes_CurrentLauncher()
+        {
+            // Ensure instance exists
+            var instance = FluentUIScaffold.Core.Configuration.WebServerManager.GetInstance();
+
+            // Reflect to set private fields
+            var type = typeof(FluentUIScaffold.Core.Configuration.WebServerManager);
+            var currentLauncherField = type.GetField("_currentLauncher", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            var serverStartedField = type.GetField("_serverStarted", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+            var isOwnerField = type.GetField("_isServerOwner", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+
+            var stub = new DisposableLauncherStub();
+            currentLauncherField!.SetValue(instance, stub);
+            serverStartedField!.SetValue(null, true);
+            isOwnerField!.SetValue(null, true);
+
+            FluentUIScaffold.Core.Configuration.WebServerManager.StopServer();
+            Assert.That(stub.Disposed, Is.True);
+        }
     }
 }
