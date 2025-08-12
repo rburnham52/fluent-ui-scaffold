@@ -92,5 +92,39 @@ namespace FluentUIScaffold.Core.Tests
             // Should remain unchanged for Aspire
             Assert.That(startInfo.EnvironmentVariables["ASPNETCORE_URLS"], Is.EqualTo("http://preset/"));
         }
+
+        [Test]
+        public void CanHandle_AspNetCore_And_Aspire_ReturnsTrue()
+        {
+            var launcher = new AspNetServerLauncher();
+            Assert.That(launcher.CanHandle(new ServerConfiguration { ServerType = ServerType.AspNetCore }), Is.True);
+            Assert.That(launcher.CanHandle(new ServerConfiguration { ServerType = ServerType.Aspire }), Is.True);
+            Assert.That(launcher.CanHandle(new ServerConfiguration { ServerType = ServerType.NodeJs }), Is.False);
+        }
+
+        [Test]
+        public void LaunchAsync_Throws_OnDisposed()
+        {
+            var launcher = new AspNetServerLauncher();
+            launcher.Dispose();
+            var config = ServerConfiguration.CreateDotNetServer(new Uri("http://localhost:5005"), "/path/app.csproj").Build();
+            Assert.That(async () => await launcher.LaunchAsync(config), Throws.Exception.TypeOf<ObjectDisposedException>());
+        }
+
+        [Test]
+        public void LaunchAsync_Throws_OnMissingProjectPath()
+        {
+            var launcher = new AspNetServerLauncher();
+            var config = new ServerConfiguration { ServerType = ServerType.AspNetCore, BaseUrl = new Uri("http://localhost:5006"), ProjectPath = null };
+            Assert.That(async () => await launcher.LaunchAsync(config), Throws.ArgumentException);
+        }
+
+        [Test]
+        public void LaunchAsync_Throws_OnMissingBaseUrl()
+        {
+            var launcher = new AspNetServerLauncher();
+            var config = new ServerConfiguration { ServerType = ServerType.AspNetCore, ProjectPath = "/path/app.csproj", BaseUrl = null };
+            Assert.That(async () => await launcher.LaunchAsync(config), Throws.ArgumentException);
+        }
     }
 }
