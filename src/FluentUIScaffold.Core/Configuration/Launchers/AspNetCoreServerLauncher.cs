@@ -21,15 +21,19 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
         private bool _disposed;
         private readonly ICommandBuilder _commandBuilder;
         private readonly IEnvVarProvider _envVarProvider;
+        private readonly IProcessRunner _processRunner;
+        private readonly IClock _clock;
 
         public string Name => "AspNetCoreServerLauncher";
 
-        public AspNetCoreServerLauncher(ILogger? logger = null)
+        public AspNetCoreServerLauncher(ILogger? logger = null, IProcessRunner? processRunner = null, IClock? clock = null)
         {
             _logger = logger;
             _httpClient = new HttpClient();
             _commandBuilder = new AspNetCoreCommandBuilder();
             _envVarProvider = new AspNetEnvVarProvider();
+            _processRunner = processRunner ?? new ProcessRunner();
+            _clock = clock ?? new SystemClock();
         }
 
         public bool CanHandle(ServerConfiguration configuration)
@@ -180,7 +184,7 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
             }
 
             // Add a small delay before starting health checks to give the server time to start
-            await Task.Delay(2000);
+            await _clock.Delay(TimeSpan.FromSeconds(2));
 
             while (DateTime.UtcNow - startTime < configuration.StartupTimeout)
             {
@@ -239,7 +243,7 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
                         attempt, maxAttempts, elapsed.TotalSeconds);
                 }
 
-                await Task.Delay(200); // Wait 200ms between attempts
+                await _clock.Delay(TimeSpan.FromMilliseconds(200));
             }
 
             // Check if the process is still running

@@ -17,15 +17,20 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
     {
         private readonly ILogger? _logger;
         private Process? _process;
+        private IProcess? _startedProcess;
         private bool _disposed;
         private readonly ICommandBuilder _commandBuilder;
         private readonly IEnvVarProvider _envVarProvider;
+        private readonly IProcessRunner _processRunner;
+        private readonly IClock _clock;
 
-        public AspireServerLauncher(ILogger? logger = null)
+        public AspireServerLauncher(ILogger? logger = null, IProcessRunner? processRunner = null, IClock? clock = null)
         {
             _logger = logger;
             _commandBuilder = new AspireCommandBuilder();
             _envVarProvider = new AspNetEnvVarProvider();
+            _processRunner = processRunner ?? new ProcessRunner();
+            _clock = clock ?? new SystemClock();
         }
 
         public string Name => "AspireServerLauncher";
@@ -83,14 +88,8 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
                 startInfo.EnvironmentVariables[kv.Key] = kv.Value;
             }
 
-            _process = new Process { StartInfo = startInfo };
-
             _logger?.LogInformation("Starting Aspire process: dotnet {Arguments}", arguments);
-
-            if (!_process.Start())
-            {
-                throw new InvalidOperationException("Failed to start Aspire server process");
-            }
+            _startedProcess = _processRunner.Start(startInfo);
 
             // Wait for server to be ready
             await WaitForServerReadyAsync(configuration);
@@ -144,7 +143,7 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
                     }
                 }
 
-                await Task.Delay(2000);
+                await _clock.Delay(TimeSpan.FromSeconds(2));
                 attempt++;
             }
 
@@ -205,9 +204,12 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
         {
             if (!_disposed && disposing)
             {
-                _process?.Kill();
-                _process?.Dispose();
+                try { _process?.Kill(); } catch { }
+                try { _process?.Dispose(); } catch { }
                 _process = null;
+                try { _startedProcess?.Kill(); } catch { }
+                try { _startedProcess?.Dispose(); } catch { }
+                _startedProcess = null;
                 _disposed = true;
             }
         }

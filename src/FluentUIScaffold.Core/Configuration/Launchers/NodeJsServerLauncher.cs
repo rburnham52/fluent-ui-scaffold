@@ -20,12 +20,16 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
         private bool _disposed;
         private readonly ICommandBuilder _commandBuilder;
         private readonly IEnvVarProvider _envVarProvider;
+        private readonly IProcessRunner _processRunner;
+        private readonly IClock _clock;
 
-        public NodeJsServerLauncher(ILogger? logger = null)
+        public NodeJsServerLauncher(ILogger? logger = null, IProcessRunner? processRunner = null, IClock? clock = null)
         {
             _logger = logger;
             _commandBuilder = new NodeJsCommandBuilder();
             _envVarProvider = new AspNetEnvVarProvider();
+            _processRunner = processRunner ?? new ProcessRunner();
+            _clock = clock ?? new SystemClock();
         }
 
         public string Name => "NodeJsServerLauncher";
@@ -83,14 +87,8 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
                 startInfo.EnvironmentVariables[kv.Key] = kv.Value;
             }
 
-            _process = new Process { StartInfo = startInfo };
-
             _logger?.LogInformation("Starting Node.js process: npm {Arguments}", arguments);
-
-            if (!_process.Start())
-            {
-                throw new InvalidOperationException("Failed to start Node.js server process");
-            }
+            var proc = _processRunner.Start(startInfo);
 
             // Wait for server to be ready
             await WaitForServerReadyAsync(configuration);
@@ -141,7 +139,7 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
                     }
                 }
 
-                await Task.Delay(2000); // Wait 2 seconds before next attempt
+                await _clock.Delay(TimeSpan.FromSeconds(2));
                 attempt++;
             }
 
@@ -202,8 +200,8 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
         {
             if (!_disposed && disposing)
             {
-                _process?.Kill();
-                _process?.Dispose();
+                try { _process?.Kill(); } catch { }
+                try { _process?.Dispose(); } catch { }
                 _process = null;
                 _disposed = true;
             }
