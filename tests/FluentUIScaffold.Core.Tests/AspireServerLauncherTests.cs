@@ -39,5 +39,13 @@ namespace FluentUIScaffold.Core.Tests
             Assert.That(args, Does.Contain("--configuration Release"));
             Assert.That(args, Does.Contain("--no-launch-profile"));
         }
+
+        [Test]
+        public void CanHandle_Aspire_ReturnsTrue()
+        {
+            var launcher = new AspireServerLauncher();
+            var config = new ServerConfiguration { ServerType = ServerType.Aspire };
+            Assert.That(launcher.CanHandle(config), Is.True);
+        }
     }
 }
