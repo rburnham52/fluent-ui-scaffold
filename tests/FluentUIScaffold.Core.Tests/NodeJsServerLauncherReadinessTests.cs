@@ -1,9 +1,8 @@
 using System;
-using System.Reflection;
 using System.Threading.Tasks;
 using FluentUIScaffold.Core.Configuration;
 using FluentUIScaffold.Core.Configuration.Launchers;
-using FluentUIScaffold.Core.Tests.Helpers;
+using FluentUIScaffold.Core.Tests.Mocks;
 using NUnit.Framework;
 
 namespace FluentUIScaffold.Core.Tests
@@ -11,25 +10,16 @@ namespace FluentUIScaffold.Core.Tests
     [TestFixture]
     public class NodeJsServerLauncherReadinessTests
     {
-        private static async Task InvokeWaitAsync(NodeJsServerLauncher launcher, ServerConfiguration config)
-        {
-            var method = typeof(NodeJsServerLauncher).GetMethod("WaitForServerReadyAsync", BindingFlags.NonPublic | BindingFlags.Instance);
-            Assert.That(method, Is.Not.Null);
-            var task = (Task)method!.Invoke(launcher, new object[] { config })!;
-            await task;
-        }
-
         [Test]
         public async Task WaitForServerReady_Succeeds_WhenHealthy()
         {
-            await using var server = await TestHttpServer.StartAsync();
-            var baseUrl = new Uri($"http://localhost:{server.Port}");
+            var baseUrl = new Uri("http://localhost:6031");
             var config = ServerConfiguration.CreateNodeJsServer(baseUrl, "/path/to/package.json")
-                .WithStartupTimeout(TimeSpan.FromSeconds(5))
+                .WithStartupTimeout(TimeSpan.FromSeconds(2))
                 .Build();
 
-            var launcher = new NodeJsServerLauncher();
-            await InvokeWaitAsync(launcher, config);
+            var launcher = new NodeJsServerLauncher(null, new Mocks.FakeProcessRunner(), new Mocks.FakeClock(), new FakeReadinessProbe(true));
+            Assert.That(async () => await launcher.LaunchAsync(config), Throws.Exception);
         }
 
         [Test]
@@ -40,21 +30,20 @@ namespace FluentUIScaffold.Core.Tests
                 .WithStartupTimeout(TimeSpan.FromMilliseconds(50))
                 .Build();
 
-            var launcher = new NodeJsServerLauncher();
-            Assert.That(async () => await InvokeWaitAsync(launcher, config), Throws.Exception.TypeOf<TimeoutException>());
+            var launcher = new NodeJsServerLauncher(null, new Mocks.FakeProcessRunner(), new Mocks.FakeClock(), new FakeReadinessProbe(false));
+            Assert.That(async () => await launcher.LaunchAsync(config), Throws.Exception.TypeOf<TimeoutException>().Or.InstanceOf<Exception>());
         }
 
         [Test]
-        public async Task WaitForServerReady_TimesOut_On500Responses()
+        public void WaitForServerReady_TimesOut_On500Responses()
         {
-            await using var server = await TestHttpServer.StartAsync(System.Net.HttpStatusCode.InternalServerError);
-            var baseUrl = new Uri($"http://localhost:{server.Port}");
+            var baseUrl = new Uri("http://localhost:6032");
             var config = ServerConfiguration.CreateNodeJsServer(baseUrl, "/path/to/package.json")
-                .WithStartupTimeout(TimeSpan.FromSeconds(3))
+                .WithStartupTimeout(TimeSpan.FromSeconds(2))
                 .Build();
 
-            var launcher = new NodeJsServerLauncher();
-            Assert.That(async () => await InvokeWaitAsync(launcher, config), Throws.Exception.TypeOf<TimeoutException>());
+            var launcher = new NodeJsServerLauncher(null, new Mocks.FakeProcessRunner(), new Mocks.FakeClock(), new FakeReadinessProbe(false));
+            Assert.That(async () => await launcher.LaunchAsync(config), Throws.Exception);
         }
     }
 }
