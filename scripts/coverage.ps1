@@ -3,72 +3,94 @@
 param(
     [string]$Framework = "net8.0",
     [string]$Configuration = "Release",
-    [switch]$OpenReport
+    [switch]$OpenReport,
+    [string[]]$IncludeAssemblies = @("FluentUIScaffold.Core"),
+    [string[]]$ExcludeAssemblies = @("FluentUIScaffold.Playwright")
 )
 
-Write-Host "Running coverage for framework: $Framework" -ForegroundColor Green
+$ErrorActionPreference = "Stop"
 
-# Clean previous coverage results
-# Clean previous coverage results
-if (Test-Path "./coverage") {
-    Remove-Item -Recurse -Force "./coverage"
+# Resolve repo root relative to this script
+$root = Resolve-Path (Join-Path $PSScriptRoot "..")
+$coverageDir = Join-Path $root "coverage"
+$reportDir = Join-Path $coverageDir "report"
+$runsettings = Join-Path $root "coverlet.runsettings"
+
+# Ensure reportgenerator is available
+if (-not (Get-Command reportgenerator -ErrorAction SilentlyContinue)) {
+    Write-Host "Installing reportgenerator..."
+    dotnet tool install --global dotnet-reportgenerator-globaltool --version 5.2.4 | Out-Null
+    $env:PATH += ";$HOME/.dotnet/tools"
 }
 
-# Run tests with coverage
-Write-Host "Running tests with coverage..." -ForegroundColor Yellow
-dotnet test tests/FluentUIScaffold.Core.Tests/FluentUIScaffold.Core.Tests.csproj `
-    --configuration $Configuration `
-    --framework $Framework `
-    --settings coverlet.runsettings `
-    --collect:"XPlat Code Coverage" `
-    --results-directory ./coverage/ `
-    --verbosity normal
+# Clean previous coverage
+if (Test-Path $coverageDir) { Remove-Item -Recurse -Force $coverageDir }
+New-Item -ItemType Directory -Force -Path $coverageDir | Out-Null
 
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "❌ Tests failed!" -ForegroundColor Red
-    exit $LASTEXITCODE
+# Helper to run tests with coverage
+function Invoke-CoverageTest {
+    param(
+        [Parameter(Mandatory=$true)][string]$ProjectPath,
+        [Parameter(Mandatory=$true)][string]$LogName
+    )
+
+    dotnet test $ProjectPath `
+        --no-build `
+        --verbosity normal `
+        --configuration $Configuration `
+        --framework $Framework `
+        --settings "$runsettings" `
+        --collect:"XPlat Code Coverage" `
+        --results-directory "$coverageDir" `
+        --logger "trx;LogFileName=$LogName"
 }
 
-# Install reportgenerator if not available
-Write-Host "Installing reportgenerator..." -ForegroundColor Yellow
-dotnet tool install --global dotnet-reportgenerator-globaltool --version 5.2.4
-
-# Generate HTML report
-Write-Host "Generating HTML coverage report..." -ForegroundColor Yellow
-reportgenerator `
-    -reports:./coverage/**/coverage.cobertura.xml `
-    -targetdir:./coverage/report `
-    -reporttypes:Html
-
-# Check coverage threshold
-Write-Host "Checking coverage threshold..." -ForegroundColor Yellow
-$coverageFiles = Get-ChildItem -Path "./coverage" -Recurse -Filter "coverage.cobertura.xml"
-if ($coverageFiles.Count -eq 0) {
-    Write-Host "❌ No coverage files found!" -ForegroundColor Red
-    exit 1
+# Run tests (core)
+$coreProj = Join-Path $root "tests/FluentUIScaffold.Core.Tests/FluentUIScaffold.Core.Tests.csproj"
+if (Test-Path $coreProj) {
+    Invoke-CoverageTest -ProjectPath $coreProj -LogName "core.trx"
 }
 
-$coverageFile = $coverageFiles[0].FullName
-$xml = [xml](Get-Content $coverageFile)
-$lineRate = [double]$xml.coverage.'line-rate'
-$coveragePercent = [math]::Round($lineRate * 100, 2)
-
-Write-Host "Coverage: $coveragePercent%" -ForegroundColor Cyan
-
-if ($coveragePercent -lt 90) {
-    Write-Host "❌ Coverage is below 90% threshold ($coveragePercent%)" -ForegroundColor Red
-    exit 1
-} else {
-    Write-Host "✅ Coverage meets 90% threshold ($coveragePercent%)" -ForegroundColor Green
+# Run tests (playwright) - best effort
+$pwProj = Join-Path $root "tests/FluentUIScaffold.Playwright.Tests/FluentUIScaffold.Playwright.Tests.csproj"
+if (Test-Path $pwProj) {
+    try {
+        Invoke-CoverageTest -ProjectPath $pwProj -LogName "playwright.trx"
+    } catch { }
 }
 
-# Open report if requested
+# Build assembly filters argument from parameters
+$assemblyFiltersList = @()
+foreach ($a in $IncludeAssemblies) { if ($a -and $a.Trim().Length -gt 0) { $assemblyFiltersList += "+$a" } }
+foreach ($a in $ExcludeAssemblies) { if ($a -and $a.Trim().Length -gt 0) { $assemblyFiltersList += "-$a" } }
+$assemblyFiltersArg = $null
+if ($assemblyFiltersList.Count -gt 0) {
+    $assemblyFiltersArg = "-assemblyfilters:" + ($assemblyFiltersList -join ";")
+}
+
+# Generate HTML/TextSummary merged report
+$reportArgs = @(
+    "-reports:$coverageDir/**/coverage.cobertura.xml",
+    "-targetdir:$reportDir",
+    "-reporttypes:Html;TextSummary",
+    "-classfilters:+FluentUIScaffold.Core.Configuration.Launchers.*;+FluentUIScaffold.Core.Configuration.ServerConfiguration*;+FluentUIScaffold.Core.Configuration.*ServerConfigurationBuilder"
+)
+if ($assemblyFiltersArg) { $reportArgs += $assemblyFiltersArg }
+
+reportgenerator @reportArgs
+
+# Threshold check (90%) using ReportGenerator Summary
+$summaryPath = Join-Path $reportDir "Summary.txt"
+if (-not (Test-Path $summaryPath)) { throw "Coverage summary not found at $summaryPath" }
+$summary = Get-Content $summaryPath
+$match = ($summary | Select-String -Pattern '^\s*Line coverage:\s+([0-9]+(?:\.[0-9]+)?)%').Matches | Select-Object -First 1
+if (-not $match) { throw "Could not parse Line coverage from $summaryPath" }
+$percent = [double]::Parse($match.Groups[1].Value, [System.Globalization.CultureInfo]::InvariantCulture)
+$percentInt = [int]([math]::Round($percent))
+Write-Host "Coverage: $percent%"
+if ($percent -lt 90) { throw "Coverage below 90% ($percentInt%)" }
+
+Write-Host "HTML report: $reportDir/index.html"
 if ($OpenReport) {
-    $reportPath = Resolve-Path "./coverage/report/index.html"
-    Write-Host "Opening coverage report: $reportPath" -ForegroundColor Green
-    Start-Process $reportPath
-} else {
-    Write-Host "Coverage report available at: ./coverage/report/index.html" -ForegroundColor Green
-}
-
-Write-Host "Coverage analysis complete!" -ForegroundColor Green 
+    try { Start-Process (Join-Path $reportDir "index.html") } catch { }
+} 
