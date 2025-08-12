@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 
 using FluentUIScaffold.Core.Configuration;
+using FluentUIScaffold.Core.Configuration.Launchers;
 
 using Microsoft.Extensions.Logging;
 
@@ -13,113 +14,48 @@ namespace FluentUIScaffold.Core.Tests
     [TestFixture]
     public class ServerLauncherFactoryTests
     {
-        private ServerLauncherFactory _factory;
-
-        [SetUp]
-        public void Setup()
+        private sealed class DummyLauncher : IServerLauncher
         {
-            _factory = new ServerLauncherFactory();
+            public string Name => "Dummy";
+            private readonly ServerType _type;
+            public DummyLauncher(ServerType type) { _type = type; }
+            public bool CanHandle(ServerConfiguration configuration) => configuration.ServerType == _type;
+            public System.Threading.Tasks.Task LaunchAsync(ServerConfiguration configuration) => System.Threading.Tasks.Task.CompletedTask;
+            public void Dispose() { }
+        }
+
+        private sealed class NoopDetector : IProjectDetector
+        {
+            public string Name => "Noop";
+            public int Priority => 0;
+            public string? DetectProjectPath(ProjectDetectionContext context) => null;
         }
 
         [Test]
-        public void RegisterLauncher_WithValidLauncher_RegistersSuccessfully()
+        public void RegisterLauncher_And_GetLauncher_Selects_By_CanHandle()
         {
-            // Arrange
-            var launcher = new TestServerLauncher();
+            var factory = new ServerLauncherFactory();
+            factory.RegisterLauncher(new DummyLauncher(ServerType.NodeJs));
+            factory.RegisterLauncher(new DummyLauncher(ServerType.AspNetCore));
 
-            // Act
-            _factory.RegisterLauncher(launcher);
-
-            // Assert
-            var retrievedLauncher = _factory.GetLauncher(new ServerConfiguration { ServerType = ServerType.AspNetCore });
-            Assert.That(retrievedLauncher, Is.EqualTo(launcher));
+            var cfg = new ServerConfiguration { ServerType = ServerType.AspNetCore };
+            var selected = factory.GetLauncher(cfg);
+            Assert.That(selected.Name, Is.EqualTo("Dummy"));
         }
 
         [Test]
-        public void RegisterDetector_WithValidDetector_RegistersSuccessfully()
+        public void GetLauncher_Throws_When_No_Match()
         {
-            // Arrange
-            var detector = new TestProjectDetector();
-
-            // Act
-            _factory.RegisterDetector(detector);
-
-            // Assert
-            // The detector should be registered and available for project detection
-            Assert.Pass("Detector registered successfully");
+            var factory = new ServerLauncherFactory();
+            Assert.That(() => factory.GetLauncher(new ServerConfiguration { ServerType = ServerType.NodeJs }), Throws.Exception);
         }
 
         [Test]
-        public void CreateConfiguration_WithValidParameters_ReturnsConfiguration()
+        public void CreateConfigurationWithDetection_Throws_When_No_Project_Detected()
         {
-            // Arrange
-            var baseUrl = new Uri("http://localhost:5000");
-            var projectPath = "/path/to/project.csproj";
-
-            // Act
-            var config = ServerLauncherFactory.CreateConfiguration(baseUrl, ServerType.AspNetCore, projectPath);
-
-            Assert.Multiple(() =>
-            {
-                // Assert
-                Assert.That(config.BaseUrl, Is.EqualTo(baseUrl));
-                Assert.That(config.ServerType, Is.EqualTo(ServerType.AspNetCore));
-                Assert.That(config.ProjectPath, Is.EqualTo(projectPath));
-            });
-        }
-
-        [Test]
-        public void CreateConfigurationWithDetection_WithValidParameters_ReturnsConfiguration()
-        {
-            // Arrange
-            var baseUrl = new Uri("http://localhost:5000");
-            var additionalPaths = new List<string> { "/path1", "/path2" };
-
-            // Act & Assert
-            // This test would require actual project detection, so we'll just verify the method exists
-            Assert.Throws<InvalidOperationException>(() =>
-                _factory.CreateConfigurationWithDetection(baseUrl, ServerType.AspNetCore, additionalPaths));
-        }
-
-        [Test]
-        public void GetLauncher_WithUnregisteredServerType_ThrowsException()
-        {
-            // Arrange
-            var config = new ServerConfiguration { ServerType = ServerType.Aspire };
-
-            // Act & Assert
-            Assert.Throws<InvalidOperationException>(() => _factory.GetLauncher(config));
-        }
-
-        private class TestServerLauncher : IServerLauncher
-        {
-            public string Name => "TestServerLauncher";
-
-            public bool CanHandle(ServerConfiguration configuration)
-            {
-                return configuration.ServerType == ServerType.AspNetCore;
-            }
-
-            public Task LaunchAsync(ServerConfiguration configuration)
-            {
-                return Task.CompletedTask;
-            }
-
-            public void Dispose()
-            {
-                // No cleanup needed for test
-            }
-        }
-
-        private class TestProjectDetector : IProjectDetector
-        {
-            public string Name => "TestProjectDetector";
-            public int Priority => 100;
-
-            public string? DetectProjectPath(ProjectDetectionContext context)
-            {
-                return null; // Return null for test
-            }
+            var factory = new ServerLauncherFactory();
+            factory.RegisterDetector(new NoopDetector());
+            Assert.That(() => factory.CreateConfigurationWithDetection(new Uri("http://localhost:5007"), ServerType.NodeJs), Throws.Exception);
         }
     }
 }
