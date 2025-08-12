@@ -5,7 +5,7 @@
       <DataCollector friendlyName="XPlat Code Coverage">
         <Configuration>
           <Format>cobertura</Format>
-          <Include>[FluentUIScaffold.Core]FluentUIScaffold.Core.Configuration.ServerConfiguration*;[FluentUIScaffold.Core]FluentUIScaffold.Core.Configuration.*ServerConfigurationBuilder</Include>
+          <Include>[FluentUIScaffold.Core]FluentUIScaffold.Core.Configuration.ServerConfiguration*;[FluentUIScaffold.Core]FluentUIScaffold.Core.Configuration.*ServerConfigurationBuilder;[FluentUIScaffold.Core]FluentUIScaffold.Core.Configuration.Launchers.*</Include>
           <Exclude>[*.Tests]*;[*]SampleApp*</Exclude>
         </Configuration>
       </DataCollector>
