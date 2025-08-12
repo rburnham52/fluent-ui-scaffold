@@ -89,6 +89,8 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
 
             try
             {
+                // Invoke the injected runner to allow tests to observe the start plan
+                _ = _processRunner.Start(startInfo);
                 _webServerProcess = Process.Start(startInfo);
                 if (_webServerProcess == null)
                 {
