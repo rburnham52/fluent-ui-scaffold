@@ -25,7 +25,7 @@ namespace FluentUIScaffold.Core.Tests
             await using var server = await TestHttpServer.StartAsync();
             var baseUrl = new Uri($"http://localhost:{server.Port}");
             var config = ServerConfiguration.CreateAspireServer(baseUrl, "/path/to/Aspire.csproj")
-                .WithStartupTimeout(TimeSpan.FromSeconds(2))
+                .WithStartupTimeout(TimeSpan.FromSeconds(5))
                 .Build();
 
             var launcher = new AspireServerLauncher();

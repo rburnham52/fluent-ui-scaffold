@@ -61,21 +61,29 @@ namespace FluentUIScaffold.Core.Tests
         }
 
         [Test]
-        public void GetNetstatCommand_OnLinux_ReturnsNetstatTulPn()
+        public void GetNetstatCommand_ReturnsExpectedArgs_ForPlatform()
         {
             var method = typeof(PortProcessFinder).GetMethod("GetNetstatCommand", BindingFlags.NonPublic | BindingFlags.Static);
             Assert.That(method, Is.Not.Null);
 
             var tuple = method!.Invoke(null, Array.Empty<object>());
-            // ValueTuple<string,string> boxed
             var fileName = (string)tuple!.GetType().GetField("Item1")!.GetValue(tuple)!;
             var args = (string)tuple.GetType().GetField("Item2")!.GetValue(tuple)!;
 
-            Assert.Multiple(() =>
+            Assert.That(fileName, Is.EqualTo("netstat"));
+
+            if (System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows))
             {
-                Assert.That(fileName, Is.EqualTo("netstat"));
+                Assert.That(args, Is.EqualTo("-ano"));
+            }
+            else if (System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Linux))
+            {
                 Assert.That(args, Is.EqualTo("-tulpn"));
-            });
+            }
+            else if (System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.OSX))
+            {
+                Assert.That(args, Is.EqualTo("-anv"));
+            }
         }
     }
 }
