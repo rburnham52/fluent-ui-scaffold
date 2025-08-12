@@ -59,5 +59,23 @@ namespace FluentUIScaffold.Core.Tests
                 Assert.That(result, Does.Not.Contain(":19090"));
             });
         }
+
+        [Test]
+        public void GetNetstatCommand_OnLinux_ReturnsNetstatTulPn()
+        {
+            var method = typeof(PortProcessFinder).GetMethod("GetNetstatCommand", BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.That(method, Is.Not.Null);
+
+            var tuple = method!.Invoke(null, Array.Empty<object>());
+            // ValueTuple<string,string> boxed
+            var fileName = (string)tuple!.GetType().GetField("Item1")!.GetValue(tuple)!;
+            var args = (string)tuple.GetType().GetField("Item2")!.GetValue(tuple)!;
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(fileName, Is.EqualTo("netstat"));
+                Assert.That(args, Is.EqualTo("-tulpn"));
+            });
+        }
     }
 }

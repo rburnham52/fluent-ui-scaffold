@@ -98,5 +98,25 @@ namespace FluentUIScaffold.Core.Tests
                 Assert.That(env["ASPNETCORE_URLS"], Is.EqualTo(baseUrl.ToString()));
             });
         }
+
+        [Test]
+        public void Apply_SpaProxy_Toggle_Off_Clears_HostingStartupAssemblies()
+        {
+            var baseUrl = new Uri("http://localhost:6062");
+            var config = ServerConfiguration
+                .CreateDotNetServer(baseUrl, "/path/app.csproj")
+                .WithSpaProxy(false)
+                .Build();
+
+            var env = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["ASPNETCORE_HOSTINGSTARTUPASSEMBLIES"] = "Microsoft.AspNetCore.SpaProxy"
+            };
+
+            var provider = new AspNetEnvVarProvider();
+            provider.Apply(env, config);
+
+            Assert.That(env["ASPNETCORE_HOSTINGSTARTUPASSEMBLIES"], Is.EqualTo(""));
+        }
     }
 }
