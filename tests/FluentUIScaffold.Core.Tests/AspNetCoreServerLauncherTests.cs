@@ -111,5 +111,21 @@ namespace FluentUIScaffold.Core.Tests
             Assert.That(fakeRunner.LastStartInfo!.Arguments, Does.Contain("--framework"));
             Assert.That(fakeRunner.LastStartInfo!.Arguments, Does.Contain("--configuration"));
         }
+
+        [Test]
+        public void PlanLaunch_BuildsExpectedStartInfo()
+        {
+            var baseUrl = new Uri("http://localhost:7171");
+            var cfg = ServerConfiguration.CreateDotNetServer(baseUrl, "/path/to/MyApp.csproj")
+                .WithFramework("net8.0")
+                .WithConfiguration("Release")
+                .Build();
+
+            var launcher = new AspNetCoreServerLauncher();
+            var plan = launcher.PlanLaunch(cfg);
+            Assert.That(plan.StartInfo.FileName, Is.EqualTo("dotnet"));
+            Assert.That(plan.StartInfo.Arguments, Does.Contain("run"));
+            Assert.That(plan.PollInterval, Is.EqualTo(TimeSpan.FromMilliseconds(200)));
+        }
     }
 }

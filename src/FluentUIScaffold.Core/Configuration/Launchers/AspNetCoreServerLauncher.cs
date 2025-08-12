@@ -43,6 +43,41 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
             return configuration.ServerType == ServerType.AspNetCore;
         }
 
+        public LaunchPlan PlanLaunch(ServerConfiguration configuration)
+        {
+            if (string.IsNullOrEmpty(configuration.ProjectPath))
+                throw new ArgumentException("Project path cannot be null or empty.", nameof(configuration));
+            if (configuration.BaseUrl == null)
+                throw new ArgumentException("Base URL cannot be null.", nameof(configuration));
+
+            var arguments = _commandBuilder.BuildCommand(configuration);
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = "dotnet",
+                Arguments = arguments,
+                WorkingDirectory = Path.GetDirectoryName(configuration.ProjectPath),
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true
+            };
+
+            var env = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (System.Collections.DictionaryEntry kv in startInfo.EnvironmentVariables)
+            {
+                var key = kv.Key?.ToString();
+                var value = kv.Value?.ToString() ?? string.Empty;
+                if (!string.IsNullOrEmpty(key)) env[key] = value;
+            }
+            _envVarProvider.Apply(env, configuration);
+            foreach (var kv in env)
+            {
+                startInfo.EnvironmentVariables[kv.Key] = kv.Value;
+            }
+
+            return new LaunchPlan(startInfo, TimeSpan.FromSeconds(2), TimeSpan.FromMilliseconds(200));
+        }
+
         public async Task LaunchAsync(ServerConfiguration configuration)
         {
             if (string.IsNullOrEmpty(configuration.ProjectPath))
@@ -57,43 +92,15 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
             // Kill any existing processes on the same port
             await KillProcessesOnPortAsync(configuration.BaseUrl.Port);
 
-            // Build the command arguments
-            var arguments = _commandBuilder.BuildCommand(configuration);
-
-            // Create the process start info
-            var startInfo = new ProcessStartInfo
-            {
-                FileName = "dotnet",
-                Arguments = arguments,
-                WorkingDirectory = Path.GetDirectoryName(configuration.ProjectPath), // Use project directory like old launcher
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                CreateNoWindow = true
-            };
-
-            // Apply environment variables via provider
-            var env = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            foreach (System.Collections.DictionaryEntry kv in startInfo.EnvironmentVariables)
-            {
-                var key = kv.Key?.ToString();
-                var value = kv.Value?.ToString() ?? string.Empty;
-                if (!string.IsNullOrEmpty(key)) env[key] = value;
-            }
-            _envVarProvider.Apply(env, configuration);
-            foreach (var kv in env)
-            {
-                startInfo.EnvironmentVariables[kv.Key] = kv.Value;
-            }
+            var plan = PlanLaunch(configuration);
 
             _logger?.LogInformation("Starting ASP.NET Core server with command: {Command} {Arguments}",
-                startInfo.FileName, startInfo.Arguments);
+                plan.StartInfo.FileName, plan.StartInfo.Arguments);
 
             try
             {
-                // Invoke the injected runner to allow tests to observe the start plan
-                _ = _processRunner.Start(startInfo);
-                _webServerProcess = Process.Start(startInfo);
+                _ = _processRunner.Start(plan.StartInfo);
+                _webServerProcess = Process.Start(plan.StartInfo);
                 if (_webServerProcess == null)
                 {
                     throw new InvalidOperationException("Failed to start ASP.NET Core server process.");
@@ -149,7 +156,7 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
                 });
 
                 // Wait for the server to be ready
-                await _readinessProbe.WaitUntilReadyAsync(configuration, _logger, TimeSpan.FromSeconds(2), TimeSpan.FromMilliseconds(200));
+                await _readinessProbe.WaitUntilReadyAsync(configuration, _logger, plan.InitialDelay, plan.PollInterval);
 
                 _logger?.LogInformation("ASP.NET Core server is ready and responding at {BaseUrl}", configuration.BaseUrl);
             }

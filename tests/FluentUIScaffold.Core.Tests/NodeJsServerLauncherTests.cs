@@ -116,5 +116,20 @@ namespace FluentUIScaffold.Core.Tests
             Assert.That(fakeRunner.LastStartInfo!.Arguments, Does.Contain("--open"));
             Assert.That(fakeRunner.LastStartInfo!.WorkingDirectory, Is.EqualTo(System.IO.Path.GetDirectoryName(cfg.ProjectPath)));
         }
+
+        [Test]
+        public void PlanLaunch_BuildsExpectedStartInfo()
+        {
+            var baseUrl = new Uri("http://localhost:7161");
+            var cfg = ServerConfiguration.CreateNodeJsServer(baseUrl, "/path/to/package.json")
+                .WithArguments("--", "--open")
+                .Build();
+
+            var launcher = new NodeJsServerLauncher();
+            var plan = launcher.PlanLaunch(cfg);
+            Assert.That(plan.StartInfo.FileName, Is.EqualTo("npm"));
+            Assert.That(plan.StartInfo.Arguments, Does.Contain("start"));
+            Assert.That(plan.PollInterval, Is.EqualTo(TimeSpan.FromSeconds(2)));
+        }
     }
 }

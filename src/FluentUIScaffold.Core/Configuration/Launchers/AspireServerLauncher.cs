@@ -42,29 +42,14 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
             return configuration.ServerType == ServerType.Aspire;
         }
 
-        public async Task LaunchAsync(ServerConfiguration configuration)
+        public LaunchPlan PlanLaunch(ServerConfiguration configuration)
         {
-            if (_disposed)
-                throw new ObjectDisposedException(nameof(AspireServerLauncher));
-
             if (string.IsNullOrEmpty(configuration.ProjectPath))
                 throw new ArgumentException("Project path cannot be null or empty.", nameof(configuration));
-
             if (configuration.BaseUrl == null)
                 throw new ArgumentException("Base URL cannot be null.", nameof(configuration));
 
-            _logger?.LogInformation("Launching Aspire server with configuration: {ProjectPath}", configuration.ProjectPath);
-
-            // Kill existing processes on the port
-            await KillProcessesOnPortAsync(configuration.BaseUrl.Port);
-
-            // Build command arguments (reuse unified .NET builder to respect framework/configuration from builder)
             var arguments = _commandBuilder.BuildCommand(configuration);
-
-            // Set up environment variables
-            var environmentVariables = new Dictionary<string, string>(configuration.EnvironmentVariables);
-
-            // Start the process
             var startInfo = new ProcessStartInfo
             {
                 FileName = "dotnet",
@@ -90,11 +75,29 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
                 startInfo.EnvironmentVariables[kv.Key] = kv.Value;
             }
 
-            _logger?.LogInformation("Starting Aspire process: dotnet {Arguments}", arguments);
-            _startedProcess = _processRunner.Start(startInfo);
+            return new LaunchPlan(startInfo, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2));
+        }
+
+        public async Task LaunchAsync(ServerConfiguration configuration)
+        {
+            if (_disposed)
+                throw new ObjectDisposedException(nameof(AspireServerLauncher));
+
+                        _logger?.LogInformation("Launching Aspire server with configuration: {ProjectPath}", configuration.ProjectPath);
+
+            // Validate critical fields before any side effects
+            if (configuration.BaseUrl == null)
+                throw new ArgumentException("Base URL cannot be null.", nameof(configuration));
+
+            // Kill existing processes on the port
+            await KillProcessesOnPortAsync(configuration.BaseUrl.Port);
+
+            var plan = PlanLaunch(configuration);
+            _logger?.LogInformation("Starting Aspire process: {File} {Arguments}", plan.StartInfo.FileName, plan.StartInfo.Arguments);
+            _startedProcess = _processRunner.Start(plan.StartInfo);
 
             // Wait for server to be ready
-            await _readinessProbe.WaitUntilReadyAsync(configuration, _logger, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2));
+            await _readinessProbe.WaitUntilReadyAsync(configuration, _logger, plan.InitialDelay, plan.PollInterval);
 
             _logger?.LogInformation("Aspire server is ready at {BaseUrl}", configuration.BaseUrl);
         }
