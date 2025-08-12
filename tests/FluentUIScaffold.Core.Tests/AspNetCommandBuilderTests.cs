@@ -86,5 +86,35 @@ namespace FluentUIScaffold.Core.Tests
             Assert.That(args, Does.Contain("--framework net8.0"));
             Assert.That(args, Does.Contain("--configuration Release"));
         }
+
+        [Test]
+        public void BuildCommand_Defaults_When_NoArgs()
+        {
+            var cfg = ServerConfiguration
+                .CreateDotNetServer(new Uri("http://localhost:9100"), "/p.csproj")
+                .Build();
+            var args = new AspNetCommandBuilder().BuildCommand(cfg);
+            Assert.Multiple(() =>
+            {
+                Assert.That(args, Does.Contain("--framework net8.0"));
+                Assert.That(args, Does.Contain("--configuration Release"));
+                Assert.That(args, Does.Contain("--no-launch-profile"));
+            });
+        }
+
+        [Test]
+        public void BuildCommand_Preserves_Custom_Args()
+        {
+            var cfg = ServerConfiguration
+                .CreateDotNetServer(new Uri("http://localhost:9101"), "/p.csproj")
+                .WithArguments("--no-restore", "--verbosity", "quiet")
+                .Build();
+            var args = new AspNetCommandBuilder().BuildCommand(cfg);
+            Assert.Multiple(() =>
+            {
+                Assert.That(args, Does.Contain("--no-restore"));
+                Assert.That(args, Does.Contain("--verbosity quiet"));
+            });
+        }
     }
 }

@@ -69,5 +69,17 @@ namespace FluentUIScaffold.Core.Tests
 
             Assert.That(async () => await waitTask!, Throws.Exception.TypeOf<InvalidOperationException>().Or.TypeOf<TimeoutException>());
         }
+
+        [Test]
+        public void WaitForServerReady_Fails_OnNonResponsivePort()
+        {
+            var baseUrl = new Uri("http://localhost:9");
+            var config = ServerConfiguration.CreateDotNetServer(baseUrl, "/path/to/App.csproj")
+                .WithStartupTimeout(TimeSpan.FromMilliseconds(200))
+                .Build();
+
+            var launcher = new AspNetServerLauncher();
+            Assert.That(async () => await InvokeWaitAsync(launcher, config), Throws.Exception);
+        }
     }
 }
