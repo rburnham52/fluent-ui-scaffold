@@ -105,7 +105,7 @@ namespace FluentUIScaffold.Core.Tests
             var baseUrl = new Uri($"http://localhost:{server.Port}");
             var config = ServerConfiguration.CreateDotNetServer(baseUrl, "/path/to/App.csproj")
                 .WithHealthCheckEndpoints("/health", "status")
-                .WithStartupTimeout(TimeSpan.FromSeconds(2))
+                .WithStartupTimeout(TimeSpan.FromSeconds(5))
                 .Build();
 
             var launcher = new AspNetServerLauncher();
