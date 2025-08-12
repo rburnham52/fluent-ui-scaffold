@@ -357,3 +357,5 @@ samples/SampleApp/wwwroot/
 
 coverage/
 coverage/**
+
+.dotnet/
