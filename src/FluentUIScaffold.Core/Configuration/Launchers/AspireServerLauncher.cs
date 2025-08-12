@@ -83,7 +83,7 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
             if (_disposed)
                 throw new ObjectDisposedException(nameof(AspireServerLauncher));
 
-                        _logger?.LogInformation("Launching Aspire server with configuration: {ProjectPath}", configuration.ProjectPath);
+            _logger?.LogInformation("Launching Aspire server with configuration: {ProjectPath}", configuration.ProjectPath);
 
             // Validate critical fields before any side effects
             if (configuration.BaseUrl == null)

@@ -1,5 +1,7 @@
 using System;
+
 using FluentUIScaffold.Core.Exceptions;
+
 using NUnit.Framework;
 
 namespace FluentUIScaffold.Core.Tests

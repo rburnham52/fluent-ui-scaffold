@@ -1,8 +1,11 @@
 using System;
+
 using FluentUIScaffold.Core.Configuration;
 using FluentUIScaffold.Core.Exceptions;
 using FluentUIScaffold.Core.Interfaces;
+
 using Microsoft.Extensions.Logging.Abstractions;
+
 using NUnit.Framework;
 
 namespace FluentUIScaffold.Core.Tests

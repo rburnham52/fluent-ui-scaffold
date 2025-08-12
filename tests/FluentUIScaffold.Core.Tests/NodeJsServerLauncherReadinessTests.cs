@@ -1,8 +1,10 @@
 using System;
 using System.Threading.Tasks;
+
 using FluentUIScaffold.Core.Configuration;
 using FluentUIScaffold.Core.Configuration.Launchers;
 using FluentUIScaffold.Core.Tests.Mocks;
+
 using NUnit.Framework;
 
 namespace FluentUIScaffold.Core.Tests

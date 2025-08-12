@@ -81,7 +81,7 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
             if (_disposed)
                 throw new ObjectDisposedException(nameof(NodeJsServerLauncher));
 
-                        _logger?.LogInformation("Launching Node.js server with configuration: {ProjectPath}", configuration.ProjectPath);
+            _logger?.LogInformation("Launching Node.js server with configuration: {ProjectPath}", configuration.ProjectPath);
 
             if (configuration.BaseUrl == null)
                 throw new ArgumentException("Base URL cannot be null.", nameof(configuration));

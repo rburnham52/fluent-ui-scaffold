@@ -1,10 +1,13 @@
 using System;
 using System.Threading.Tasks;
+
 using FluentUIScaffold.Core;
 using FluentUIScaffold.Core.Configuration;
 using FluentUIScaffold.Core.Interfaces;
 using FluentUIScaffold.Core.Plugins;
+
 using Microsoft.Extensions.DependencyInjection;
+
 using NUnit.Framework;
 
 namespace FluentUIScaffold.Core.Tests
