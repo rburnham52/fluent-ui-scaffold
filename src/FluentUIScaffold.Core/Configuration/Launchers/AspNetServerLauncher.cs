@@ -23,16 +23,20 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
         private bool _disposed;
         private readonly ICommandBuilder _commandBuilder;
         private readonly IEnvVarProvider _envVarProvider;
+        private readonly IProcessRunner _processRunner;
+        private readonly IClock _clock;
 
         public string Name => "AspNetServerLauncher";
         private static readonly string[] collection = new[] { "--framework", "net8.0" };
 
-        public AspNetServerLauncher(ILogger? logger = null)
+        public AspNetServerLauncher(ILogger? logger = null, IProcessRunner? processRunner = null, IClock? clock = null)
         {
             _logger = logger;
             _httpClient = new HttpClient();
             _commandBuilder = new AspNetCommandBuilder();
             _envVarProvider = new AspNetEnvVarProvider();
+            _processRunner = processRunner ?? new ProcessRunner();
+            _clock = clock ?? new SystemClock();
         }
 
         public bool CanHandle(ServerConfiguration configuration)
@@ -94,6 +98,7 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
 
             try
             {
+                _ = _processRunner.Start(startInfo);
                 _webServerProcess = Process.Start(startInfo);
                 if (_webServerProcess == null)
                 {
@@ -255,7 +260,7 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
             }
 
             // Add a small delay before starting health checks to give the server time to start
-            await Task.Delay(2000);
+            await _clock.Delay(TimeSpan.FromSeconds(2));
 
             while (DateTime.UtcNow - startTime < configuration.StartupTimeout)
             {
@@ -313,7 +318,7 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
                         configuration.ServerType, attempt, maxAttempts, elapsed.TotalSeconds);
                 }
 
-                await Task.Delay(200);
+                await _clock.Delay(TimeSpan.FromMilliseconds(200));
             }
 
             // Check if the process is still running

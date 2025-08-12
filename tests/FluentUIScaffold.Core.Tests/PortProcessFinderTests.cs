@@ -61,6 +61,37 @@ namespace FluentUIScaffold.Core.Tests
         }
 
         [Test]
+        public void FilterOutputByPort_Handles_Ipv6_And_ExactEnd()
+        {
+            var port = 5050;
+            var output = string.Join("\n", new[]
+            {
+                "tcp6       0      0 :::5050                 :::*                    LISTEN      1234/node",
+                "udp        0      0 0.0.0.0:5050           0.0.0.0:*                           5678/app",
+                "tcp        0      0 127.0.0.1:45050        0.0.0.0:*               LISTEN      9012/other" // should not match
+            });
+
+            var method = typeof(PortProcessFinder).GetMethod("FilterOutputByPort", BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.That(method, Is.Not.Null);
+            var result = (string)method!.Invoke(null, new object[] { output, port })!;
+
+            Assert.That(result, Does.Contain(":5050"));
+            Assert.That(result, Does.Not.Contain("45050"));
+        }
+
+        [Test]
+        public void FilterOutputByPort_MultiplePorts_FiltersCorrectly()
+        {
+            var output = "tcp 0 0 0.0.0.0:8080 0.0.0.0:* LISTEN 1111/app\n" +
+                         "tcp 0 0 0.0.0.0:8081 0.0.0.0:* LISTEN 2222/app";
+            var method = typeof(PortProcessFinder).GetMethod("FilterOutputByPort", BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.That(method, Is.Not.Null);
+            var result = (string)method!.Invoke(null, new object[] { output, 8081 })!;
+            Assert.That(result.Split('\n').Length, Is.EqualTo(1));
+            Assert.That(result, Does.Contain(":8081 "));
+        }
+
+        [Test]
         public void GetNetstatCommand_ReturnsExpectedArgs_ForPlatform()
         {
             var method = typeof(PortProcessFinder).GetMethod("GetNetstatCommand", BindingFlags.NonPublic | BindingFlags.Static);
