@@ -56,7 +56,7 @@ namespace FluentUIScaffold.Core.Tests
             var env = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             provider.Apply(env, config);
 
-            Assert.That(env.ContainsKey("ASPNETCORE_URLS"), Is.False);
+            Assert.That(env["ASPNETCORE_URLS"], Is.EqualTo(baseUrl.ToString()));
         }
     }
 }
