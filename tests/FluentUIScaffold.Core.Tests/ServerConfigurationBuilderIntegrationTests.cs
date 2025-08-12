@@ -339,5 +339,43 @@ namespace FluentUIScaffold.Core.Tests
             Assert.That(launcher, Is.InstanceOf<WebApplicationFactoryServerLauncher>());
             Assert.That(launcher.CanHandle(config), Is.True);
         }
+
+        [Test]
+        public void ServerConfigurationBuilder_Sets_WorkingDirectory_And_ProcessName()
+        {
+            var baseUrl = new Uri("http://localhost:5050");
+            var cfg = new ServerConfigurationBuilder(ServerType.AspNetCore, baseUrl, "/root/app/MyApp.csproj")
+                .WithWorkingDirectory("/custom/dir")
+                .WithProcessName("my-process")
+                .WithHealthCheckEndpoints("/healthz", "status")
+                .Build();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(cfg.WorkingDirectory, Is.EqualTo("/custom/dir"));
+                Assert.That(cfg.ProcessName, Is.EqualTo("my-process"));
+                Assert.That(cfg.HealthCheckEndpoints, Is.EqualTo(new[] { "/healthz", "status" }));
+            });
+        }
+
+        [Test]
+        public void NodeJsServerConfigurationBuilder_Defaults_And_Overrides()
+        {
+            var baseUrl = new Uri("http://localhost:6000");
+            var nodeCfg = ServerConfiguration
+                .CreateNodeJsServer(baseUrl, "/web/package.json")
+                .WithNpmScript("dev")
+                .WithNodeEnvironment("production")
+                .WithPort(7777)
+                .WithArguments("--", "--open")
+                .Build();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(nodeCfg.Arguments[0], Is.EqualTo("dev"));
+                Assert.That(nodeCfg.EnvironmentVariables["NODE_ENV"], Is.EqualTo("production"));
+                Assert.That(nodeCfg.EnvironmentVariables["PORT"], Is.EqualTo("7777"));
+            });
+        }
     }
 }
