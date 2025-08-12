@@ -79,6 +79,12 @@ namespace FluentUIScaffold.Core.Tests
             Assert.That(WebServerManager.IsServerRunning(), Is.False);
         }
 
+        [Test]
+        public void StartServerAsync_Throws_OnNullConfig()
+        {
+            Assert.That(async () => await FluentUIScaffold.Core.Configuration.WebServerManager.StartServerAsync(null!), Throws.Exception);
+        }
+
         private sealed class DisposableLauncherStub : FluentUIScaffold.Core.Configuration.IServerLauncher
         {
             public string Name => "DisposableStub";

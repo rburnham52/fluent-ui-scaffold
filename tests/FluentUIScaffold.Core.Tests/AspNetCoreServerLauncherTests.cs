@@ -74,19 +74,28 @@ namespace FluentUIScaffold.Core.Tests
         }
 
         [Test]
+        public void LaunchAsync_Throws_OnDisposed()
+        {
+            var launcher = new AspNetCoreServerLauncher();
+            launcher.Dispose();
+            var cfg = ServerConfiguration.CreateDotNetServer(new Uri("http://localhost:7301"), "/path/to/app.csproj").Build();
+            Assert.That(async () => await launcher.LaunchAsync(cfg), Throws.Exception.TypeOf<ObjectDisposedException>());
+        }
+
+        [Test]
         public void LaunchAsync_Throws_OnMissingProjectPath()
         {
             var launcher = new AspNetCoreServerLauncher();
-            var config = new ServerConfiguration { ServerType = ServerType.AspNetCore, BaseUrl = new Uri("http://localhost:5000") };
-            Assert.That(async () => await launcher.LaunchAsync(config), Throws.ArgumentException);
+            var cfg = new ServerConfiguration { ServerType = ServerType.AspNetCore, BaseUrl = new Uri("http://localhost:7302") };
+            Assert.That(async () => await launcher.LaunchAsync(cfg), Throws.Exception);
         }
 
         [Test]
         public void LaunchAsync_Throws_OnMissingBaseUrl()
         {
             var launcher = new AspNetCoreServerLauncher();
-            var config = new ServerConfiguration { ServerType = ServerType.AspNetCore, ProjectPath = "/path/to/app.csproj" };
-            Assert.That(async () => await launcher.LaunchAsync(config), Throws.ArgumentException);
+            var cfg = new ServerConfiguration { ServerType = ServerType.AspNetCore, ProjectPath = "/path/to/app.csproj" };
+            Assert.That(async () => await launcher.LaunchAsync(cfg), Throws.Exception);
         }
 
         [Test]

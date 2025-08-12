@@ -171,5 +171,18 @@ namespace FluentUIScaffold.Core.Tests
             Assert.That(fakeRunner.LastStartInfo!.Arguments, Does.Contain("--framework"));
             Assert.That(fakeRunner.LastStartInfo!.Arguments, Does.Contain("--configuration"));
         }
+
+        [Test]
+        public void SetServerSpecificEnvironmentVariables_Sets_ASPNETCORE_URLS_For_AspNetCore()
+        {
+            var method = typeof(AspNetServerLauncher).GetMethod("SetServerSpecificEnvironmentVariables", BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.That(method, Is.Not.Null);
+
+            var psi = new System.Diagnostics.ProcessStartInfo();
+            var cfg = ServerConfiguration.CreateDotNetServer(new Uri("http://localhost:7333"), "/path/app.csproj").Build();
+            method!.Invoke(null, new object[] { psi, cfg });
+
+            Assert.That(psi.EnvironmentVariables["ASPNETCORE_URLS"], Is.EqualTo("http://localhost:7333/"));
+        }
     }
 }

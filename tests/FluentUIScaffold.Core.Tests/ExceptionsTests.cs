@@ -93,6 +93,17 @@ namespace FluentUIScaffold.Core.Tests
         }
 
         [Test]
+        public void ElementTimeoutException_Selector_And_Timeout_Are_Set()
+        {
+            var ex = new ElementTimeoutException("msg", "#login", TimeSpan.FromSeconds(3));
+            Assert.Multiple(() =>
+            {
+                Assert.That(ex.Selector, Is.EqualTo("#login"));
+                Assert.That(ex.Timeout, Is.EqualTo(TimeSpan.FromSeconds(3)));
+            });
+        }
+
+        [Test]
         public void FluentUIScaffoldPluginException_Constructors_Work()
         {
             var ex1 = new FluentUIScaffoldPluginException();

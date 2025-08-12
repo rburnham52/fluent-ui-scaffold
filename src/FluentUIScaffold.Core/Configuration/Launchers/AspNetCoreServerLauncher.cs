@@ -80,6 +80,9 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
 
         public async Task LaunchAsync(ServerConfiguration configuration)
         {
+            if (_disposed)
+                throw new ObjectDisposedException(nameof(AspNetCoreServerLauncher));
+
             if (string.IsNullOrEmpty(configuration.ProjectPath))
                 throw new ArgumentException("Project path cannot be null or empty.", nameof(configuration));
 
