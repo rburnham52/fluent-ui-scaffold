@@ -114,8 +114,9 @@ namespace FluentUIScaffold.Core.Tests
 
         private sealed class TestLogger : Microsoft.Extensions.Logging.ILogger
         {
+            private sealed class NoopDisposable : IDisposable { public void Dispose() { } }
             public System.Collections.Generic.List<string> Messages { get; } = new System.Collections.Generic.List<string>();
-            public IDisposable BeginScope<TState>(TState state) => System.Reactive.Disposables.Disposable.Empty;
+            public IDisposable BeginScope<TState>(TState state) => new NoopDisposable();
             public bool IsEnabled(Microsoft.Extensions.Logging.LogLevel logLevel) => true;
             public void Log<TState>(Microsoft.Extensions.Logging.LogLevel logLevel, Microsoft.Extensions.Logging.EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
             {
