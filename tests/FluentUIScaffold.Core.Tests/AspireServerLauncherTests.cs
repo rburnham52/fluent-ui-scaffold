@@ -80,5 +80,28 @@ namespace FluentUIScaffold.Core.Tests
             var cfg = new ServerConfiguration { ServerType = ServerType.Aspire, ProjectPath = "/path/to/AppHost.csproj" };
             Assert.That(async () => await launcher.LaunchAsync(cfg), Throws.Exception.TypeOf<ArgumentException>());
         }
+
+        [Test]
+        public async System.Threading.Tasks.Task LaunchAsync_Uses_ProcessRunner_And_CommandArgs()
+        {
+            var baseUrl = new Uri("http://localhost:7133");
+            var cfg = ServerConfiguration.CreateAspireServer(baseUrl, "/path/to/AppHost.csproj")
+                .WithFramework("net8.0")
+                .WithConfiguration("Release")
+                .WithStartupTimeout(TimeSpan.FromMilliseconds(10))
+                .Build();
+
+            var fakeRunner = new FluentUIScaffold.Core.Tests.Mocks.FakeProcessRunner();
+            var fakeClock = new FluentUIScaffold.Core.Tests.Mocks.FakeClock();
+            var launcher = new AspireServerLauncher(null, fakeRunner, fakeClock);
+
+            Assert.That(async () => await launcher.LaunchAsync(cfg), Throws.Exception);
+
+            Assert.That(fakeRunner.LastStartInfo, Is.Not.Null);
+            Assert.That(fakeRunner.LastStartInfo!.FileName, Is.EqualTo("dotnet"));
+            Assert.That(fakeRunner.LastStartInfo!.Arguments, Does.Contain("run"));
+            Assert.That(fakeRunner.LastStartInfo!.Arguments, Does.Contain("--framework"));
+            Assert.That(fakeRunner.LastStartInfo!.Arguments, Does.Contain("--configuration"));
+        }
     }
 }

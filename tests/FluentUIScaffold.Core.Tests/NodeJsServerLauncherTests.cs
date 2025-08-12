@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.Reflection;
+using System.Threading.Tasks;
 
 using FluentUIScaffold.Core.Configuration;
 using FluentUIScaffold.Core.Configuration.Launchers;
@@ -89,6 +90,31 @@ namespace FluentUIScaffold.Core.Tests
             var launcher = new NodeJsServerLauncher();
             var cfg = new ServerConfiguration { ServerType = ServerType.NodeJs, ProjectPath = "/path/to/package.json" };
             Assert.That(async () => await launcher.LaunchAsync(cfg), Throws.Exception.TypeOf<ArgumentException>());
+        }
+
+        [Test]
+        public async Task LaunchAsync_Uses_Command_And_Env_Vars_With_ProcessRunner()
+        {
+            var baseUrl = new Uri("http://localhost:7123");
+            var cfg = ServerConfiguration.CreateNodeJsServer(baseUrl, "/path/to/package.json")
+                .WithNodeEnvironment("production")
+                .WithPort(7123)
+                .WithArguments("--", "--open")
+                .WithStartupTimeout(TimeSpan.FromMilliseconds(10))
+                .Build();
+
+            var fakeRunner = new Mocks.FakeProcessRunner();
+            var fakeClock = new Mocks.FakeClock();
+            var launcher = new NodeJsServerLauncher(null, fakeRunner, fakeClock);
+
+            // We expect readiness to timeout quickly. Ensure it throws, then assert start info.
+            Assert.That(async () => await launcher.LaunchAsync(cfg), Throws.Exception);
+
+            Assert.That(fakeRunner.LastStartInfo, Is.Not.Null);
+            Assert.That(fakeRunner.LastStartInfo!.FileName, Is.EqualTo("npm"));
+            Assert.That(fakeRunner.LastStartInfo!.Arguments, Does.Contain("start"));
+            Assert.That(fakeRunner.LastStartInfo!.Arguments, Does.Contain("--open"));
+            Assert.That(fakeRunner.LastStartInfo!.WorkingDirectory, Is.EqualTo(System.IO.Path.GetDirectoryName(cfg.ProjectPath)));
         }
     }
 }
