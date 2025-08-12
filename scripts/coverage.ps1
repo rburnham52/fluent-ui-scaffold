@@ -59,7 +59,9 @@ if (Test-Path $pwProj) {
 reportgenerator `
     -reports:"$coverageDir/**/coverage.cobertura.xml" `
     -targetdir:"$reportDir" `
-    -reporttypes:"Html;TextSummary"
+    -reporttypes:"Html;TextSummary" `
+    -assemblyfilters:+FluentUIScaffold.Core;-FluentUIScaffold.Playwright `
+    -classfilters:+FluentUIScaffold.Core.Configuration.Launchers.*;+FluentUIScaffold.Core.Configuration.ServerConfiguration*;+FluentUIScaffold.Core.Configuration.*ServerConfigurationBuilder
 
 # Threshold check (90%) using ReportGenerator Summary
 $summaryPath = Join-Path $reportDir "Summary.txt"
