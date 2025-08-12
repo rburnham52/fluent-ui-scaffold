@@ -21,19 +21,37 @@ namespace FluentUIScaffold.Core.Tests.Helpers
             _listener = new TcpListener(IPAddress.Loopback, port);
         }
 
-        public static async Task<TestHttpServer> StartAsync()
+        public static async Task<TestHttpServer> StartAsync(HttpStatusCode statusCode = HttpStatusCode.OK)
         {
             var listener = new TcpListener(IPAddress.Loopback, 0);
             listener.Start();
             var localPort = ((IPEndPoint)listener.LocalEndpoint).Port;
             listener.Stop();
 
-            var server = new TestHttpServer(localPort);
+            var server = new TestHttpServer(localPort)
+            {
+                _statusCode = statusCode
+            };
             server._listener.Start();
             server._loopTask = Task.Run(() => server.RunLoopAsync(server._cts.Token));
             // Give it a moment to start
             await Task.Delay(50);
             return server;
+        }
+
+        private HttpStatusCode _statusCode = HttpStatusCode.OK;
+
+        private static string GetReasonPhrase(HttpStatusCode code)
+        {
+            return code switch
+            {
+                HttpStatusCode.OK => "OK",
+                HttpStatusCode.InternalServerError => "Internal Server Error",
+                HttpStatusCode.NotFound => "Not Found",
+                HttpStatusCode.BadRequest => "Bad Request",
+                HttpStatusCode.ServiceUnavailable => "Service Unavailable",
+                _ => code.ToString().Replace('_', ' ')
+            };
         }
 
         private async Task RunLoopAsync(CancellationToken cancellationToken)
@@ -59,7 +77,9 @@ namespace FluentUIScaffold.Core.Tests.Helpers
                         await stream.ReadAsync(buffer, 0, buffer.Length, cancellationToken);
                     }
 
-                    var response = "HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
+                    var statusCode = (int)_statusCode;
+                    var reason = GetReasonPhrase(_statusCode);
+                    var response = $"HTTP/1.1 {statusCode} {reason}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
                     var bytes = Encoding.ASCII.GetBytes(response);
                     await stream.WriteAsync(bytes, 0, bytes.Length, cancellationToken);
                 }

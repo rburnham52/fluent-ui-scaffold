@@ -67,17 +67,28 @@ namespace FluentUIScaffold.Core.Tests
         }
 
         [Test]
+        public void LaunchAsync_Throws_OnDisposed()
+        {
+            var launcher = new NodeJsServerLauncher();
+            launcher.Dispose();
+            var cfg = ServerConfiguration.CreateNodeJsServer(new Uri("http://localhost:7102"), "/path/to/package.json").Build();
+            Assert.That(async () => await launcher.LaunchAsync(cfg), Throws.Exception.TypeOf<ObjectDisposedException>());
+        }
+
+        [Test]
         public void LaunchAsync_Throws_OnMissingProjectPath()
         {
             var launcher = new NodeJsServerLauncher();
-            var config = new ServerConfiguration
-            {
-                ServerType = ServerType.NodeJs,
-                BaseUrl = new Uri("http://localhost:7000"),
-                ProjectPath = null
-            };
+            var cfg = new ServerConfiguration { ServerType = ServerType.NodeJs, BaseUrl = new Uri("http://localhost:7103") };
+            Assert.That(async () => await launcher.LaunchAsync(cfg), Throws.Exception.TypeOf<ArgumentException>());
+        }
 
-            Assert.That(async () => await launcher.LaunchAsync(config), Throws.ArgumentException);
+        [Test]
+        public void LaunchAsync_Throws_OnMissingBaseUrl()
+        {
+            var launcher = new NodeJsServerLauncher();
+            var cfg = new ServerConfiguration { ServerType = ServerType.NodeJs, ProjectPath = "/path/to/package.json" };
+            Assert.That(async () => await launcher.LaunchAsync(cfg), Throws.Exception.TypeOf<ArgumentException>());
         }
     }
 }

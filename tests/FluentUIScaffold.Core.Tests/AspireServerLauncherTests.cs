@@ -55,5 +55,30 @@ namespace FluentUIScaffold.Core.Tests
             var config = new ServerConfiguration { ServerType = ServerType.Aspire };
             Assert.That(launcher.CanHandle(config), Is.True);
         }
+
+        [Test]
+        public void LaunchAsync_Throws_OnDisposed()
+        {
+            var launcher = new AspireServerLauncher();
+            launcher.Dispose();
+            var cfg = ServerConfiguration.CreateAspireServer(new Uri("http://localhost:7002"), "/path/to/AppHost.csproj").Build();
+            Assert.That(async () => await launcher.LaunchAsync(cfg), Throws.Exception.TypeOf<ObjectDisposedException>());
+        }
+
+        [Test]
+        public void LaunchAsync_Throws_OnMissingProjectPath()
+        {
+            var launcher = new AspireServerLauncher();
+            var cfg = new ServerConfiguration { ServerType = ServerType.Aspire, BaseUrl = new Uri("http://localhost:7003") };
+            Assert.That(async () => await launcher.LaunchAsync(cfg), Throws.Exception.TypeOf<ArgumentException>());
+        }
+
+        [Test]
+        public void LaunchAsync_Throws_OnMissingBaseUrl()
+        {
+            var launcher = new AspireServerLauncher();
+            var cfg = new ServerConfiguration { ServerType = ServerType.Aspire, ProjectPath = "/path/to/AppHost.csproj" };
+            Assert.That(async () => await launcher.LaunchAsync(cfg), Throws.Exception.TypeOf<ArgumentException>());
+        }
     }
 }
