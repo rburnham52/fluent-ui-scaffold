@@ -65,6 +65,27 @@ namespace FluentUIScaffold.Core.Tests
         }
 
         [Test]
+#if NET8_0_OR_GREATER
+        [Platform(Include="Linux")] // Only meaningful on Linux CI, avoids Windows process path issues
+#endif
+        public void StartServerAsync_MutexHeldByOther_AndNoServer_AfterTimeout_Throws()
+        {
+            var baseUrl = new Uri("http://localhost:61"); // Unused test port
+            var config = ServerConfiguration.CreateDotNetServer(baseUrl, "/path/to/app.csproj")
+                .WithFramework("net8.0")
+                .WithConfiguration("Release")
+                .Build();
+
+            var mutexName = $"FluentUIScaffold_WebServer_{baseUrl.Port}";
+            using var mutex = new System.Threading.Mutex(initiallyOwned: true, name: mutexName, createdNew: out _);
+
+            // Because no server will ever become ready on port 61, the wait loop should eventually time out
+            Assert.That(async () => await WebServerManager.StartServerAsync(config), Throws.Exception);
+
+            WebServerManager.StopServer();
+        }
+
+        [Test]
         public void StopServer_WhenNotStarted_IsNoOp()
         {
             // Ensure clean state

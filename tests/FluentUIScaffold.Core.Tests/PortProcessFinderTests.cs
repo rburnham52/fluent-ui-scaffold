@@ -119,6 +119,24 @@ namespace FluentUIScaffold.Core.Tests
         }
 
         [Test]
+        public void FilterOutputByPort_Handles_MacOS_Anv_Format()
+        {
+            var port = 8080;
+            var output = string.Join("\n", new[]
+            {
+                "Active Internet connections (including servers)",
+                "Proto Recv-Q Send-Q  Local Address          Foreign Address        (state)      pid/program",
+                $"tcp4       0      0  *.http                 *.*                    LISTEN      1234/node",
+                $"tcp4       0      0  127.0.0.1.{port}      *.*                    LISTEN      5678/app",
+                $"tcp6       0      0  ::1.{port}            *.*                    LISTEN      9876/other"
+            });
+
+            var method = typeof(PortProcessFinder).GetMethod("FilterOutputByPort", BindingFlags.NonPublic | BindingFlags.Static);
+            var result = (string)method!.Invoke(null, new object[] { output, port })!;
+            Assert.That(result, Does.Contain($".{port}"));
+        }
+
+        [Test]
         public void GetNetstatCommand_ReturnsExpectedArgs_ForPlatform()
         {
             var method = typeof(PortProcessFinder).GetMethod("GetNetstatCommand", BindingFlags.NonPublic | BindingFlags.Static);
