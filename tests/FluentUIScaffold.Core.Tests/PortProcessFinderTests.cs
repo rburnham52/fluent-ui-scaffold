@@ -2,6 +2,7 @@ using System;
 using System.Reflection;
 using FluentUIScaffold.Core.Configuration.Launchers;
 using NUnit.Framework;
+using System.Threading.Tasks;
 
 namespace FluentUIScaffold.Core.Tests
 {
@@ -114,6 +115,19 @@ namespace FluentUIScaffold.Core.Tests
             else if (System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.OSX))
             {
                 Assert.That(args, Is.EqualTo("-anv"));
+            }
+        }
+
+        [Test]
+        public async Task FindProcessesOnPortLinuxSsAsync_Throws_On_NonLinux()
+        {
+            if (!System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Linux))
+            {
+                Assert.That(async () => await PortProcessFinder.FindProcessesOnPortLinuxSsAsync(5050), Throws.Exception.TypeOf<PlatformNotSupportedException>());
+            }
+            else
+            {
+                Assert.Pass("Skipped assertion on Linux environment where ss is available");
             }
         }
     }

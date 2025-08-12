@@ -28,8 +28,8 @@ namespace FluentUIScaffold.Core.Tests
             {
                 return new ProcessStartInfo
                 {
-                    FileName = "/bin/sh",
-                    Arguments = "-lc 'echo hello'",
+                    FileName = "/bin/echo",
+                    Arguments = "hello",
                     UseShellExecute = false,
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
@@ -59,6 +59,86 @@ namespace FluentUIScaffold.Core.Tests
                 UseShellExecute = false
             };
             Assert.That(() => runner.Start(psi), Throws.Exception);
+        }
+
+        [Test]
+        public async Task Start_Captures_StandardOutput_And_Error()
+        {
+            var runner = new ProcessRunner();
+
+            // stdout
+            var outPsi = BuildNoopCommand();
+            var outProc = runner.Start(outPsi);
+            await outProc.WaitForExitAsync();
+            var stdout = outProc.StandardOutputReader.ReadToEnd().Trim();
+            Assert.That(stdout, Is.EqualTo("hello"));
+
+            // stderr
+            ProcessStartInfo errPsi;
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                errPsi = new ProcessStartInfo
+                {
+                    FileName = "cmd",
+                    Arguments = "/c echo err 1>&2",
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true
+                };
+            }
+            else
+            {
+                errPsi = new ProcessStartInfo
+                {
+                    FileName = "/bin/sh",
+                    Arguments = "-c \"echo err 1>&2\"",
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true
+                };
+            }
+            var errProc = runner.Start(errPsi);
+            await errProc.WaitForExitAsync();
+            var stderr = errProc.StandardErrorReader.ReadToEnd().Trim();
+            Assert.That(stderr, Is.EqualTo("err"));
+        }
+
+        [Test]
+        public async Task Kill_Stops_LongRunning_Process()
+        {
+            var runner = new ProcessRunner();
+            ProcessStartInfo psi;
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                psi = new ProcessStartInfo
+                {
+                    FileName = "cmd",
+                    Arguments = "/c ping 127.0.0.1 -n 5 > nul",
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true
+                };
+            }
+            else
+            {
+                psi = new ProcessStartInfo
+                {
+                    FileName = "/bin/sh",
+                    Arguments = "-c 'sleep 5'",
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true
+                };
+            }
+
+            var proc = runner.Start(psi);
+            proc.Kill();
+            await proc.WaitForExitAsync();
+            Assert.That(proc.HasExited, Is.True);
         }
     }
 }
