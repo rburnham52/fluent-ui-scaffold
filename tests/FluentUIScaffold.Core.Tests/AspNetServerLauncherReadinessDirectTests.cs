@@ -5,6 +5,7 @@ using FluentUIScaffold.Core.Configuration;
 using FluentUIScaffold.Core.Configuration.Launchers;
 using FluentUIScaffold.Core.Tests.Helpers;
 using NUnit.Framework;
+using System.Diagnostics;
 
 namespace FluentUIScaffold.Core.Tests
 {
@@ -42,6 +43,31 @@ namespace FluentUIScaffold.Core.Tests
 
             var launcher = new AspNetServerLauncher();
             Assert.That(async () => await InvokeWaitAsync(launcher, config), Throws.Exception.TypeOf<TimeoutException>());
+        }
+
+        [Test]
+        public void WaitForServerReady_Fails_WhenProcessExitsEarly()
+        {
+            var baseUrl = new Uri("http://localhost:6553");
+            var config = ServerConfiguration.CreateDotNetServer(baseUrl, "/path/to/App.csproj")
+                .WithStartupTimeout(TimeSpan.FromSeconds(1))
+                .Build();
+
+            var launcher = new AspNetServerLauncher();
+
+            var procField = typeof(AspNetServerLauncher).GetField("_webServerProcess", BindingFlags.NonPublic | BindingFlags.Instance);
+            Assert.That(procField, Is.Not.Null);
+
+            var fake = new Process();
+            procField!.SetValue(launcher, fake);
+
+            var waitTask = typeof(AspNetServerLauncher).GetMethod("WaitForServerReadyAsync", BindingFlags.NonPublic | BindingFlags.Instance)!
+                .Invoke(launcher, new object[] { config }) as Task;
+
+            // Immediately dispose the fake process to emulate exit
+            try { fake.Kill(); } catch { }
+
+            Assert.That(async () => await waitTask!, Throws.Exception.TypeOf<InvalidOperationException>().Or.TypeOf<TimeoutException>());
         }
     }
 }
