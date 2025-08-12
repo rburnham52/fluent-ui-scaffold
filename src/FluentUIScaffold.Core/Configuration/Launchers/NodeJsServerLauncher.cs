@@ -22,14 +22,16 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
         private readonly IEnvVarProvider _envVarProvider;
         private readonly IProcessRunner _processRunner;
         private readonly IClock _clock;
+        private readonly IReadinessProbe _readinessProbe;
 
-        public NodeJsServerLauncher(ILogger? logger = null, IProcessRunner? processRunner = null, IClock? clock = null)
+        public NodeJsServerLauncher(ILogger? logger = null, IProcessRunner? processRunner = null, IClock? clock = null, IReadinessProbe? readinessProbe = null)
         {
             _logger = logger;
             _commandBuilder = new NodeJsCommandBuilder();
             _envVarProvider = new AspNetEnvVarProvider();
             _processRunner = processRunner ?? new ProcessRunner();
             _clock = clock ?? new SystemClock();
+            _readinessProbe = readinessProbe ?? new HttpReadinessProbe(null, _clock);
         }
 
         public string Name => "NodeJsServerLauncher";
@@ -91,7 +93,7 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
             var proc = _processRunner.Start(startInfo);
 
             // Wait for server to be ready
-            await WaitForServerReadyAsync(configuration);
+            await _readinessProbe.WaitUntilReadyAsync(configuration, _logger, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2));
 
             _logger?.LogInformation("Node.js server is ready at {BaseUrl}", configuration.BaseUrl);
         }
@@ -106,45 +108,7 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
             return string.Join(" ", arguments);
         }
 
-        private async Task WaitForServerReadyAsync(ServerConfiguration configuration)
-        {
-            using var httpClient = new HttpClient();
-            httpClient.Timeout = configuration.StartupTimeout;
-
-            var healthCheckEndpoints = configuration.HealthCheckEndpoints.Count > 0
-                ? configuration.HealthCheckEndpoints
-                : new List<string> { "/", "/health" };
-
-            var maxAttempts = (int)(configuration.StartupTimeout.TotalSeconds / 2);
-            var attempt = 0;
-
-            while (attempt < maxAttempts)
-            {
-                foreach (var endpoint in healthCheckEndpoints)
-                {
-                    try
-                    {
-                        var url = new Uri(configuration.BaseUrl, endpoint);
-                        var response = await httpClient.GetAsync(url);
-
-                        if (response.IsSuccessStatusCode)
-                        {
-                            _logger?.LogInformation("Server health check passed for endpoint: {Endpoint}", endpoint);
-                            return;
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger?.LogDebug(ex, "Health check failed for endpoint: {Endpoint}", endpoint);
-                    }
-                }
-
-                await _clock.Delay(TimeSpan.FromSeconds(2));
-                attempt++;
-            }
-
-            throw new TimeoutException($"Node.js server did not become ready within {configuration.StartupTimeout}");
-        }
+        // readiness logic centralized in HttpReadinessProbe
 
         private async Task KillProcessesOnPortAsync(int port)
         {

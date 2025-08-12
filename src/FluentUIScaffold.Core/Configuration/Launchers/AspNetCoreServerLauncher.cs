@@ -23,10 +23,11 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
         private readonly IEnvVarProvider _envVarProvider;
         private readonly IProcessRunner _processRunner;
         private readonly IClock _clock;
+        private readonly IReadinessProbe _readinessProbe;
 
         public string Name => "AspNetCoreServerLauncher";
 
-        public AspNetCoreServerLauncher(ILogger? logger = null, IProcessRunner? processRunner = null, IClock? clock = null)
+        public AspNetCoreServerLauncher(ILogger? logger = null, IProcessRunner? processRunner = null, IClock? clock = null, IReadinessProbe? readinessProbe = null)
         {
             _logger = logger;
             _httpClient = new HttpClient();
@@ -34,6 +35,7 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
             _envVarProvider = new AspNetEnvVarProvider();
             _processRunner = processRunner ?? new ProcessRunner();
             _clock = clock ?? new SystemClock();
+            _readinessProbe = readinessProbe ?? new HttpReadinessProbe(null, _clock);
         }
 
         public bool CanHandle(ServerConfiguration configuration)
@@ -147,7 +149,7 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
                 });
 
                 // Wait for the server to be ready
-                await WaitForServerReadyAsync(configuration);
+                await _readinessProbe.WaitUntilReadyAsync(configuration, _logger, TimeSpan.FromSeconds(2), TimeSpan.FromMilliseconds(200));
 
                 _logger?.LogInformation("ASP.NET Core server is ready and responding at {BaseUrl}", configuration.BaseUrl);
             }
@@ -164,102 +166,7 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
             return $"run --configuration Release --framework net8.0 --urls \"{configuration.BaseUrl}\" --no-launch-profile";
         }
 
-        private async Task WaitForServerReadyAsync(ServerConfiguration configuration)
-        {
-            _logger?.LogInformation("Waiting for ASP.NET Core server to be ready at {BaseUrl}", configuration.BaseUrl);
-
-            var startTime = DateTime.UtcNow;
-            var attempt = 0;
-            var maxAttempts = (int)(configuration.StartupTimeout.TotalMilliseconds / 200); // Check every 200ms instead of 100ms
-
-            // Build test URLs from health check endpoints
-            var testUrls = new List<Uri> { configuration.BaseUrl };
-            foreach (var endpoint in configuration.HealthCheckEndpoints)
-            {
-                if (!string.IsNullOrEmpty(endpoint))
-                {
-                    var uri = endpoint.StartsWith("/")
-                        ? new Uri(configuration.BaseUrl, endpoint)
-                        : new Uri($"{configuration.BaseUrl}{endpoint}");
-                    testUrls.Add(uri);
-                }
-            }
-
-            // Add a small delay before starting health checks to give the server time to start
-            await _clock.Delay(TimeSpan.FromSeconds(2));
-
-            while (DateTime.UtcNow - startTime < configuration.StartupTimeout)
-            {
-                attempt++;
-
-                // Check if the process is still running
-                if (_webServerProcess?.HasExited == true)
-                {
-                    var exitCode = _webServerProcess.ExitCode;
-                    _logger?.LogError("ASP.NET Core server process has exited with code: {ExitCode}", exitCode);
-                    throw new InvalidOperationException($"ASP.NET Core server process exited with code {exitCode}");
-                }
-
-                bool serverReady = false;
-
-                foreach (var testUrl in testUrls)
-                {
-                    try
-                    {
-                        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5)); // 5 second timeout per request
-                        var response = await _httpClient.GetAsync(testUrl, cts.Token);
-
-                        if (response.IsSuccessStatusCode)
-                        {
-                            _logger?.LogInformation("ASP.NET Core server is ready after {Attempts} attempts at {TestUrl}",
-                                attempt, testUrl);
-                            return;
-                        }
-                        else
-                        {
-                            _logger?.LogDebug("Server responded with status {StatusCode} on attempt {Attempt} at {TestUrl}",
-                                response.StatusCode, attempt, testUrl);
-                        }
-                    }
-                    catch (HttpRequestException ex)
-                    {
-                        _logger?.LogDebug("Attempt {Attempt}: Server not ready yet at {TestUrl} ({Message})",
-                            attempt, testUrl, ex.Message);
-                    }
-                    catch (TaskCanceledException)
-                    {
-                        _logger?.LogDebug("Attempt {Attempt}: Request timeout at {TestUrl}", attempt, testUrl);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger?.LogDebug("Attempt {Attempt}: Unexpected error checking {TestUrl}: {Message}",
-                            attempt, testUrl, ex.Message);
-                    }
-                }
-
-                // Log progress every 5 attempts
-                if (attempt % 5 == 0)
-                {
-                    var elapsed = DateTime.UtcNow - startTime;
-                    _logger?.LogInformation("Still waiting for ASP.NET Core server... Attempt {Attempt}/{MaxAttempts}, Elapsed: {Elapsed:F1}s",
-                        attempt, maxAttempts, elapsed.TotalSeconds);
-                }
-
-                await _clock.Delay(TimeSpan.FromMilliseconds(200));
-            }
-
-            // Check if the process is still running
-            if (_webServerProcess != null && !_webServerProcess.HasExited)
-            {
-                _logger?.LogWarning("ASP.NET Core server process is still running but not responding. Process ID: {PID}", _webServerProcess.Id);
-            }
-            else if (_webServerProcess != null && _webServerProcess.HasExited)
-            {
-                _logger?.LogError("ASP.NET Core server process has exited with code: {ExitCode}", _webServerProcess.ExitCode);
-            }
-
-            throw new TimeoutException($"ASP.NET Core server failed to start within {configuration.StartupTimeout.TotalSeconds} seconds after {attempt} attempts.");
-        }
+        // readiness logic centralized in HttpReadinessProbe
 
         private async Task KillProcessesOnPortAsync(int port)
         {
