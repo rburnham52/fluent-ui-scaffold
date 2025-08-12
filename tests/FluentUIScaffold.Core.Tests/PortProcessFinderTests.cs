@@ -93,6 +93,32 @@ namespace FluentUIScaffold.Core.Tests
         }
 
         [Test]
+        public void FilterOutputByPort_Handles_Tabs_And_TrailingSpaces()
+        {
+            var port = 6060;
+            var output = string.Join("\n", new[]
+            {
+                $"tcp        0      0 127.0.0.1:{port}\t0.0.0.0:*               LISTEN      1111/app ",
+                $"udp        0      0 0.0.0.0:{port}           0.0.0.0:*                           2222/daemon\t",
+                "tcp        0      0 127.0.0.1:16060        0.0.0.0:*               LISTEN      3333/other"
+            });
+
+            var method = typeof(PortProcessFinder).GetMethod("FilterOutputByPort", BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.That(method, Is.Not.Null);
+            var result = (string)method!.Invoke(null, new object[] { output, port })!;
+            Assert.That(result.Split('\n', StringSplitOptions.RemoveEmptyEntries).Length, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void FilterOutputByPort_NoMatches_ReturnsEmpty()
+        {
+            var output = "tcp 0 0 127.0.0.1:8081 0.0.0.0:* LISTEN 9999/app";
+            var method = typeof(PortProcessFinder).GetMethod("FilterOutputByPort", BindingFlags.NonPublic | BindingFlags.Static);
+            var result = (string)method!.Invoke(null, new object[] { output, 8080 })!;
+            Assert.That(result, Is.EqualTo(string.Empty));
+        }
+
+        [Test]
         public void GetNetstatCommand_ReturnsExpectedArgs_ForPlatform()
         {
             var method = typeof(PortProcessFinder).GetMethod("GetNetstatCommand", BindingFlags.NonPublic | BindingFlags.Static);

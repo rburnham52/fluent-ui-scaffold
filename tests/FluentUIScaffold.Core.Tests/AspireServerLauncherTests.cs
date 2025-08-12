@@ -120,5 +120,23 @@ namespace FluentUIScaffold.Core.Tests
             Assert.That(plan.InitialDelay, Is.EqualTo(TimeSpan.FromSeconds(2)));
             Assert.That(plan.PollInterval, Is.EqualTo(TimeSpan.FromSeconds(2)));
         }
+
+        [Test]
+        public void PlanLaunch_Includes_NoLaunchProfile_And_Framework_Config()
+        {
+            var cfg = ServerConfiguration.CreateAspireServer(new Uri("http://localhost:7401"), "/path/app.csproj")
+                .WithFramework("net8.0")
+                .WithConfiguration("Debug")
+                .Build();
+
+            var launcher = new AspireServerLauncher();
+            var plan = launcher.PlanLaunch(cfg);
+            Assert.Multiple(() =>
+            {
+                Assert.That(plan.StartInfo.Arguments, Does.Contain("--no-launch-profile"));
+                Assert.That(plan.StartInfo.Arguments, Does.Contain("--framework net8.0"));
+                Assert.That(plan.StartInfo.Arguments, Does.Contain("--configuration Debug"));
+            });
+        }
     }
 }

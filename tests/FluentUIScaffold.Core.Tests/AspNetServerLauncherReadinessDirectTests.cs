@@ -81,5 +81,34 @@ namespace FluentUIScaffold.Core.Tests
             var launcher = new AspNetServerLauncher();
             Assert.That(async () => await InvokeWaitAsync(launcher, config), Throws.Exception);
         }
+
+        [Test]
+        public async Task WaitForServerReady_TimesOut_On500Responses()
+        {
+            // Use a server that returns 500 to force probe failure
+            await using var server = await TestHttpServer.StartAsync(System.Net.HttpStatusCode.InternalServerError);
+
+            var baseUrl = new Uri($"http://localhost:{server.Port}");
+            var config = ServerConfiguration.CreateDotNetServer(baseUrl, "/path/to/App.csproj")
+                .WithStartupTimeout(TimeSpan.FromSeconds(2))
+                .Build();
+
+            var launcher = new AspNetServerLauncher();
+            Assert.That(async () => await InvokeWaitAsync(launcher, config), Throws.Exception);
+        }
+
+        [Test]
+        public async Task WaitForServerReady_Uses_HealthCheck_Endpoints()
+        {
+            await using var server = await TestHttpServer.StartAsync();
+            var baseUrl = new Uri($"http://localhost:{server.Port}");
+            var config = ServerConfiguration.CreateDotNetServer(baseUrl, "/path/to/App.csproj")
+                .WithHealthCheckEndpoints("/health", "status")
+                .WithStartupTimeout(TimeSpan.FromSeconds(2))
+                .Build();
+
+            var launcher = new AspNetServerLauncher();
+            await InvokeWaitAsync(launcher, config);
+        }
     }
 }
