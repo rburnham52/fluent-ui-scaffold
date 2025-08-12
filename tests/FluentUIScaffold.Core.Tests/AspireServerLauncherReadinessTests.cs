@@ -19,8 +19,7 @@ namespace FluentUIScaffold.Core.Tests
                 .Build();
 
             var launcher = new AspireServerLauncher(null, new Mocks.FakeProcessRunner(), new Mocks.FakeClock(), new FakeReadinessProbe(true));
-            // Launch will still attempt process; we expect readiness to return immediately and then timeout due to no real process. So just call the probe through LaunchAsync expectations.
-            Assert.That(async () => await launcher.LaunchAsync(config), Throws.Exception);
+            Assert.DoesNotThrowAsync(async () => await launcher.LaunchAsync(config));
         }
 
         [Test]

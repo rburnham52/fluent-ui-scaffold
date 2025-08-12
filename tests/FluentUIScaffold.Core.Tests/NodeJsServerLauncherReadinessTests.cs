@@ -19,7 +19,7 @@ namespace FluentUIScaffold.Core.Tests
                 .Build();
 
             var launcher = new NodeJsServerLauncher(null, new Mocks.FakeProcessRunner(), new Mocks.FakeClock(), new FakeReadinessProbe(true));
-            Assert.That(async () => await launcher.LaunchAsync(config), Throws.Exception);
+            Assert.DoesNotThrowAsync(async () => await launcher.LaunchAsync(config));
         }
 
         [Test]
