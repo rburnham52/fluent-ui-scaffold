@@ -70,5 +70,21 @@ namespace FluentUIScaffold.Core.Tests
                 Assert.That(args, Does.Not.Contain("--configuration AlsoIgnore"));
             });
         }
+
+        [Test]
+        public void BuildCommand_Uses_Last_Framework_And_Config_When_Duplicates()
+        {
+            var baseUrl = new Uri("http://localhost:9091");
+            var config = ServerConfiguration
+                .CreateDotNetServer(baseUrl, "/path/app.csproj")
+                .WithArguments("--framework", "net7.0", "--configuration", "Debug", "--framework", "net8.0", "--configuration", "Release")
+                .Build();
+
+            var builder = new AspNetCommandBuilder();
+            var args = builder.BuildCommand(config);
+
+            Assert.That(args, Does.Contain("--framework net8.0"));
+            Assert.That(args, Does.Contain("--configuration Release"));
+        }
     }
 }

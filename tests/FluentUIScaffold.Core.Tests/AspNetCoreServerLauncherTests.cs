@@ -64,5 +64,29 @@ namespace FluentUIScaffold.Core.Tests
 
             Assert.That(startInfo.EnvironmentVariables["ASPNETCORE_HOSTINGSTARTUPASSEMBLIES"], Is.EqualTo("Microsoft.AspNetCore.SpaProxy"));
         }
+
+        [Test]
+        public void CanHandle_AspNetCore_ReturnsTrue()
+        {
+            var launcher = new AspNetCoreServerLauncher();
+            var config = new ServerConfiguration { ServerType = ServerType.AspNetCore };
+            Assert.That(launcher.CanHandle(config), Is.True);
+        }
+
+        [Test]
+        public void LaunchAsync_Throws_OnMissingProjectPath()
+        {
+            var launcher = new AspNetCoreServerLauncher();
+            var config = new ServerConfiguration { ServerType = ServerType.AspNetCore, BaseUrl = new Uri("http://localhost:5000") };
+            Assert.That(async () => await launcher.LaunchAsync(config), Throws.ArgumentException);
+        }
+
+        [Test]
+        public void LaunchAsync_Throws_OnMissingBaseUrl()
+        {
+            var launcher = new AspNetCoreServerLauncher();
+            var config = new ServerConfiguration { ServerType = ServerType.AspNetCore, ProjectPath = "/path/to/app.csproj" };
+            Assert.That(async () => await launcher.LaunchAsync(config), Throws.ArgumentException);
+        }
     }
 }

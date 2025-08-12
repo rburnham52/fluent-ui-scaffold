@@ -41,6 +41,14 @@ namespace FluentUIScaffold.Core.Tests
         }
 
         [Test]
+        public void AspNetServerLauncher_CanHandle_AspNetCore_And_Aspire()
+        {
+            var launcher = new AspNetServerLauncher();
+            Assert.That(launcher.CanHandle(new ServerConfiguration { ServerType = ServerType.AspNetCore }), Is.True);
+            Assert.That(launcher.CanHandle(new ServerConfiguration { ServerType = ServerType.Aspire }), Is.True);
+        }
+
+        [Test]
         public void CanHandle_Aspire_ReturnsTrue()
         {
             var launcher = new AspireServerLauncher();
