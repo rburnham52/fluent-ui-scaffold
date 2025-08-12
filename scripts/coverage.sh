@@ -67,7 +67,9 @@ echo "Generating HTML coverage report..."
 reportgenerator \
     -reports:./coverage/**/coverage.cobertura.xml \
     -targetdir:./coverage/report \
-    -reporttypes:Html
+    -reporttypes:'Html;TextSummary' \
+    -assemblyfilters:+FluentUIScaffold.Core;-FluentUIScaffold.Playwright \
+    -classfilters:+FluentUIScaffold.Core.Configuration.Launchers.*;+FluentUIScaffold.Core.Configuration.ServerConfiguration*;+FluentUIScaffold.Core.Configuration.*ServerConfigurationBuilder
 
 # Check coverage threshold
 echo "Checking coverage threshold..."
