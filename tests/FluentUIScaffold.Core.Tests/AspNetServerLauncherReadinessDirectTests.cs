@@ -1,12 +1,12 @@
 using System;
+using System.Diagnostics;
+using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using FluentUIScaffold.Core.Configuration;
 using FluentUIScaffold.Core.Configuration.Launchers;
 using FluentUIScaffold.Core.Tests.Helpers;
 using NUnit.Framework;
-using System.Diagnostics;
-using System.Linq;
 
 namespace FluentUIScaffold.Core.Tests
 {
