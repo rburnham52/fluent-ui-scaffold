@@ -1,7 +1,9 @@
 using System;
-using NUnit.Framework;
+
 using FluentUIScaffold.Core.Configuration;
 using FluentUIScaffold.Core.Configuration.Launchers;
+
+using NUnit.Framework;
 
 namespace FluentUIScaffold.Core.Tests
 {

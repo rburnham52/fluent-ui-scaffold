@@ -39,7 +39,7 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
         public TSelf WithArgument(string name, string? value = null) { _namedArguments[name] = value; return This; }
         public TSelf WithArguments(params string[] args) { _positionalArguments.AddRange(args); return This; }
         public TSelf WithEnvironmentVariable(string key, string value) { _environment[key] = value; return This; }
-        public TSelf WithEnvironmentVariables(IDictionary<string,string> env) { foreach (var kv in env) _environment[kv.Key] = kv.Value; return This; }
+        public TSelf WithEnvironmentVariables(IDictionary<string, string> env) { foreach (var kv in env) _environment[kv.Key] = kv.Value; return This; }
         public TSelf WithStartupTimeout(TimeSpan timeout) { _startupTimeout = timeout; return This; }
         public TSelf WithHealthCheckEndpoints(params string[] endpoints) { _healthEndpoints.Clear(); _healthEndpoints.AddRange(endpoints); return This; }
         public TSelf WithReadiness(IReadinessProbe probe, TimeSpan? initialDelay = null, TimeSpan? pollInterval = null)

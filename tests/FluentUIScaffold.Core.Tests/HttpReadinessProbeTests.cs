@@ -3,8 +3,10 @@ using System.Net;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
+
 using FluentUIScaffold.Core.Configuration;
 using FluentUIScaffold.Core.Configuration.Launchers;
+
 using NUnit.Framework;
 
 namespace FluentUIScaffold.Core.Tests
