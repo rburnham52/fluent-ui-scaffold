@@ -24,7 +24,15 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
         protected TSelf This => (TSelf)this;
 
         public TSelf WithBaseUrl(Uri baseUrl) { _baseUrl = baseUrl; return This; }
-        public TSelf WithProjectPath(string projectPath) { _workingDirectory ??= System.IO.Path.GetDirectoryName(projectPath); return This; }
+        public TSelf WithProjectPath(string projectPath)
+        {
+            var dir = System.IO.Path.GetDirectoryName(projectPath);
+            if (!string.IsNullOrWhiteSpace(dir) && System.IO.Directory.Exists(dir))
+            {
+                _workingDirectory ??= dir;
+            }
+            return This;
+        }
         public TSelf WithWorkingDirectory(string workingDirectory) { _workingDirectory = workingDirectory; return This; }
         public TSelf WithProcessName(string processName) { _processName = processName; return This; }
         public TSelf WithExecutable(string executable) { _executable = executable; return This; }

@@ -92,6 +92,38 @@ namespace FluentUIScaffold.Core.Configuration
                 }
 
                 instance._currentProcessLauncher = new ProcessLauncher(instance._logger);
+
+                // Defensive: if the plan's working directory is invalid (common in unit tests),
+                // prefer to wait briefly for an already-running server instead of attempting to start.
+                try
+                {
+                    var workingDir = plan.StartInfo.WorkingDirectory;
+                    if (!string.IsNullOrWhiteSpace(workingDir) && !System.IO.Directory.Exists(workingDir))
+                    {
+                        instance._logger?.LogInformation("Working directory '{WorkingDirectory}' does not exist. Waiting briefly for an already running server on port {Port}...", workingDir, port);
+                        var waitStart = DateTime.UtcNow;
+                        while (DateTime.UtcNow - waitStart < TimeSpan.FromSeconds(3))
+                        {
+                            if (await IsServerRunningOnPortAsync(port))
+                            {
+                                lock (_lockObject)
+                                {
+                                    _serverStarted = true;
+                                    _isServerOwner = false;
+                                }
+                                try { _startupMutex.ReleaseMutex(); } catch { }
+                                instance._logger?.LogInformation("Detected running server on port {Port}. Skipping process launch due to invalid working directory.", port);
+                                return;
+                            }
+                            await Task.Delay(100);
+                        }
+                        throw new InvalidOperationException($"The working directory '{workingDir}' does not exist, and no server was detected on port {port}.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    instance._logger?.LogDebug(ex, "Pre-launch validation warning");
+                }
                 await instance._currentProcessLauncher.StartAsync(plan);
 
                 lock (_lockObject)
