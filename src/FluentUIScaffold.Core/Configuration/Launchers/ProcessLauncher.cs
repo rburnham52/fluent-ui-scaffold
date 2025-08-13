@@ -35,6 +35,23 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
                 _logger?.LogInformation("Aspire OTLP endpoints: gRPC={Grpc} HTTP={Http}", otlpGrpc ?? "<unset>", otlpHttp ?? "<unset>");
             }
 
+            // Log all environment variables for diagnostics
+            try
+            {
+                var env = plan.StartInfo.EnvironmentVariables;
+                _logger?.LogInformation("Environment variables ({Count}):", env.Count);
+                foreach (System.Collections.DictionaryEntry kv in env)
+                {
+                    var key = kv.Key?.ToString();
+                    var value = kv.Value?.ToString() ?? string.Empty;
+                    _logger?.LogInformation("  {Key}={Value}", key, value);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogDebug(ex, "Failed to enumerate environment variables for logging");
+            }
+
             _process = Process.Start(plan.StartInfo);
             if (_process == null)
             {
