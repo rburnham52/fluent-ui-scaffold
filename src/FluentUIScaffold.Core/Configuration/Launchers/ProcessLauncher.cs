@@ -23,7 +23,17 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
             if (_disposed) throw new ObjectDisposedException(nameof(ProcessLauncher));
             if (plan.BaseUrl == null) throw new ArgumentException("BaseUrl cannot be null", nameof(plan));
 
+            var wd = string.IsNullOrWhiteSpace(plan.StartInfo.WorkingDirectory) ? Environment.CurrentDirectory : plan.StartInfo.WorkingDirectory;
             _logger?.LogInformation("Starting process: {FileName} {Arguments}", plan.StartInfo.FileName, plan.StartInfo.Arguments);
+            _logger?.LogInformation("Working directory: {WorkingDirectory}", wd);
+
+            // Helpful when using Aspire AppHost
+            var otlpGrpc = plan.StartInfo.EnvironmentVariables["DOTNET_DASHBOARD_OTLP_ENDPOINT_URL"];
+            var otlpHttp = plan.StartInfo.EnvironmentVariables["DOTNET_DASHBOARD_OTLP_HTTP_ENDPOINT_URL"];
+            if (!string.IsNullOrEmpty(otlpGrpc) || !string.IsNullOrEmpty(otlpHttp))
+            {
+                _logger?.LogInformation("Aspire OTLP endpoints: gRPC={Grpc} HTTP={Http}", otlpGrpc ?? "<unset>", otlpHttp ?? "<unset>");
+            }
 
             _process = Process.Start(plan.StartInfo);
             if (_process == null)
