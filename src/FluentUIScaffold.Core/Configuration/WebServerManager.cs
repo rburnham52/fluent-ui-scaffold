@@ -92,9 +92,7 @@ namespace FluentUIScaffold.Core.Configuration
                 }
 
                 instance._currentProcessLauncher = new ProcessLauncher(instance._logger);
-                // Build a minimal configuration context for readiness
-                var cfg = new LegacyShimConfiguration { BaseUrl = plan.BaseUrl, StartupTimeout = plan.StartupTimeout, HealthCheckEndpoints = new System.Collections.Generic.List<string>(plan.HealthCheckEndpoints) };
-                await instance._currentProcessLauncher.StartAsync(cfg, plan);
+                await instance._currentProcessLauncher.StartAsync(plan);
 
                 lock (_lockObject)
                 {
@@ -161,19 +159,5 @@ namespace FluentUIScaffold.Core.Configuration
         {
             _currentProcessLauncher?.Dispose();
         }
-
-        private sealed class LegacyShimConfiguration : IServerLegacyShim
-        {
-            public Uri? BaseUrl { get; set; }
-            public TimeSpan StartupTimeout { get; set; }
-            public System.Collections.Generic.List<string> HealthCheckEndpoints { get; set; } = new();
-        }
-    }
-
-    internal interface IServerLegacyShim
-    {
-        Uri? BaseUrl { get; set; }
-        TimeSpan StartupTimeout { get; set; }
-        System.Collections.Generic.List<string> HealthCheckEndpoints { get; set; }
     }
 }

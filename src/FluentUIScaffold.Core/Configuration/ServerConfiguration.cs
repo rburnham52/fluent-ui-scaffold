@@ -16,13 +16,14 @@ namespace FluentUIScaffold.Core.Configuration
 
         public static Launchers.AspireServerConfigurationBuilder CreateAspireServer(Uri baseUrl, string projectPath)
         {
-            return new Launchers.AspireServerConfigurationBuilder(baseUrl)
-                .WithBaseUrl(baseUrl)
-                .WithProjectPath(projectPath)
-                .WithAspNetCoreEnvironment("Development")
-                .WithDotNetEnvironment("Development")
-                .EnableSpaProxy(false)
-                .WithStartupTimeout(TimeSpan.FromSeconds(90));
+            var builder = new Launchers.AspireServerConfigurationBuilder(baseUrl);
+            builder.WithBaseUrl(baseUrl);
+            builder.WithProjectPath(projectPath);
+            builder.WithAspNetCoreEnvironment("Development");
+            builder.WithDotNetEnvironment("Development");
+            builder.EnableSpaProxy(false);
+            builder.WithStartupTimeout(TimeSpan.FromSeconds(90));
+            return builder;
         }
 
         public static Launchers.NodeJsServerConfigurationBuilder CreateNodeJsServer(Uri baseUrl, string projectPath)
