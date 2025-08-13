@@ -149,8 +149,18 @@ namespace FluentUIScaffold.Core.Configuration
             try
             {
                 using var httpClient = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(2) };
-                var response = await httpClient.GetAsync($"http://localhost:{port}");
-                return response.IsSuccessStatusCode;
+                // Prefer IPv4 loopback to avoid IPv6 (::1) resolution issues on Windows
+                var urlsToTry = new[] { $"http://127.0.0.1:{port}", $"http://localhost:{port}" };
+                foreach (var url in urlsToTry)
+                {
+                    try
+                    {
+                        var response = await httpClient.GetAsync(url);
+                        if (response.IsSuccessStatusCode) return true;
+                    }
+                    catch { /* try next */ }
+                }
+                return false;
             }
             catch { return false; }
         }

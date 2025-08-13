@@ -60,7 +60,8 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
             {
                 FileName = _executable,
                 Arguments = string.Join(" ", argsList),
-                WorkingDirectory = _workingDirectory,
+                // If WorkingDirectory is null/empty, let ProcessStartInfo default to current directory.
+                WorkingDirectory = string.IsNullOrWhiteSpace(_workingDirectory) ? Environment.CurrentDirectory : _workingDirectory,
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
