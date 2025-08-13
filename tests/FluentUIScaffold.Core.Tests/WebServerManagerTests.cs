@@ -25,13 +25,13 @@ namespace FluentUIScaffold.Core.Tests
             await using var server = await TestHttpServer.StartAsync();
             var baseUrl = new Uri($"http://localhost:{server.Port}");
 
-            var config = ServerConfiguration.CreateDotNetServer(baseUrl, "/path/to/MyApp.csproj")
+            var plan = ServerConfiguration.CreateDotNetServer(baseUrl, "/path/to/MyApp.csproj")
                 .WithFramework("net8.0")
                 .WithConfiguration("Release")
                 .Build();
 
             Assert.That(WebServerManager.IsServerRunning(), Is.False);
-            await WebServerManager.StartServerAsync(config);
+            await WebServerManager.StartServerAsync(plan);
             Assert.That(WebServerManager.IsServerRunning(), Is.True);
 
             WebServerManager.StopServer();
@@ -50,12 +50,12 @@ namespace FluentUIScaffold.Core.Tests
 
             using var mutex = new Mutex(initiallyOwned: true, name: mutexName, createdNew: out _);
 
-            var config = ServerConfiguration.CreateDotNetServer(baseUrl, "/path/to/MyApp.csproj")
+            var plan = ServerConfiguration.CreateDotNetServer(baseUrl, "/path/to/MyApp.csproj")
                 .WithFramework("net8.0")
                 .WithConfiguration("Release")
                 .Build();
 
-            var startTask = WebServerManager.StartServerAsync(config);
+            var startTask = WebServerManager.StartServerAsync(plan);
             // Release quickly so the StartServerAsync loop can proceed
             mutex.ReleaseMutex();
             await startTask;
@@ -73,7 +73,7 @@ namespace FluentUIScaffold.Core.Tests
         public void StartServerAsync_MutexHeldByOther_AndNoServer_AfterTimeout_Throws()
         {
             var baseUrl = new Uri("http://localhost:61"); // Unused test port
-            var config = ServerConfiguration.CreateDotNetServer(baseUrl, "/path/to/app.csproj")
+            var plan = ServerConfiguration.CreateDotNetServer(baseUrl, "/path/to/app.csproj")
                 .WithFramework("net8.0")
                 .WithConfiguration("Release")
                 .Build();
@@ -82,7 +82,7 @@ namespace FluentUIScaffold.Core.Tests
             using var mutex = new System.Threading.Mutex(initiallyOwned: true, name: mutexName, createdNew: out _);
 
             // Because no server will ever become ready on port 61, the wait loop should eventually time out
-            Assert.That(async () => await WebServerManager.StartServerAsync(config), Throws.Exception);
+            Assert.That(async () => await WebServerManager.StartServerAsync(plan), Throws.Exception);
 
             WebServerManager.StopServer();
         }

@@ -2,8 +2,6 @@ using System.Collections.Generic;
 
 namespace FluentUIScaffold.Core.Configuration.Launchers
 {
-    public interface IEnvVarProvider
-    {
-        void Apply(IDictionary<string, string> targetEnvironment, ServerConfiguration configuration);
-    }
+    // Deprecated: Env var providers are not used by the unified ProcessLauncher path.
+    public interface IEnvVarProvider {}
 }

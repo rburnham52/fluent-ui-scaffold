@@ -2,8 +2,6 @@ using System;
 
 namespace FluentUIScaffold.Core.Configuration.Launchers
 {
-    public interface ICommandBuilder
-    {
-        string BuildCommand(ServerConfiguration configuration);
-    }
+    // Deprecated: Command builders are no longer used in the unified ProcessLauncher path.
+    public interface ICommandBuilder {}
 }

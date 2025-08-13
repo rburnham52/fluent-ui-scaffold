@@ -9,24 +9,19 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
     public sealed class ProcessLauncher : IDisposable
     {
         private readonly ILogger? _logger;
-        private readonly IProcessRunner _processRunner;
-        private readonly IClock _clock;
         private Process? _process;
         private bool _disposed;
 
-        public ProcessLauncher(ILogger? logger = null, IProcessRunner? processRunner = null, IClock? clock = null)
+        public ProcessLauncher(ILogger? logger = null)
         {
             _logger = logger;
-            _processRunner = processRunner ?? new ProcessRunner();
-            _clock = clock ?? new SystemClock();
         }
 
-        public async Task StartAsync(ServerConfiguration configuration, LaunchPlan plan, CancellationToken cancellationToken = default)
+        public async Task StartAsync(LaunchPlan plan, CancellationToken cancellationToken = default)
         {
             if (_disposed) throw new ObjectDisposedException(nameof(ProcessLauncher));
-            if (configuration.BaseUrl == null) throw new ArgumentException("BaseUrl cannot be null", nameof(configuration));
+            if (plan.BaseUrl == null) throw new ArgumentException("BaseUrl cannot be null", nameof(plan));
 
-            // Ensure env contains ASNET/urls as already serialized in StartInfo
             _logger?.LogInformation("Starting process: {FileName} {Arguments}", plan.StartInfo.FileName, plan.StartInfo.Arguments);
 
             _process = Process.Start(plan.StartInfo);
@@ -42,19 +37,7 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
                 _ = Task.Run(async () => await StreamOutputAsync(_process, _logger, isError: true), cancellationToken);
             }
 
-            // Wait for readiness
-            var originalTimeout = configuration.StartupTimeout;
-            try
-            {
-                // Temporarily override timeout contextually for the probe
-                configuration.StartupTimeout = plan.StartupTimeout;
-                configuration.HealthCheckEndpoints = new System.Collections.Generic.List<string>(plan.HealthCheckEndpoints);
-                await plan.ReadinessProbe.WaitUntilReadyAsync(configuration, _logger, plan.InitialDelay, plan.PollInterval, cancellationToken);
-            }
-            finally
-            {
-                configuration.StartupTimeout = originalTimeout;
-            }
+            await plan.ReadinessProbe.WaitUntilReadyAsync(plan, _logger, cancellationToken);
         }
 
         private static async Task StreamOutputAsync(Process process, ILogger? logger, bool isError)

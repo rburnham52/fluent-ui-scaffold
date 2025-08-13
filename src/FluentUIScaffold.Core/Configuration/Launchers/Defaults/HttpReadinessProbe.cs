@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
-
 using Microsoft.Extensions.Logging;
 
 namespace FluentUIScaffold.Core.Configuration.Launchers
@@ -11,41 +10,34 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
     public sealed class HttpReadinessProbe : IReadinessProbe
     {
         private readonly HttpClient _httpClient;
-        private readonly IClock _clock;
 
-        public HttpReadinessProbe(HttpClient? httpClient = null, IClock? clock = null)
+        public HttpReadinessProbe(HttpClient? httpClient = null)
         {
             _httpClient = httpClient ?? new HttpClient();
-            _clock = clock ?? new SystemClock();
         }
 
-        public async Task WaitUntilReadyAsync(ServerConfiguration configuration, ILogger? logger, TimeSpan initialDelay, TimeSpan pollInterval, CancellationToken cancellationToken = default)
+        public async Task WaitUntilReadyAsync(LaunchPlan plan, ILogger? logger, CancellationToken cancellationToken = default)
         {
-            if (configuration.BaseUrl == null)
-                throw new ArgumentException("BaseUrl cannot be null for readiness probe", nameof(configuration));
+            if (plan.BaseUrl == null)
+                throw new ArgumentException("BaseUrl cannot be null for readiness probe", nameof(plan));
 
-            if (initialDelay > TimeSpan.Zero)
+            if (plan.InitialDelay > TimeSpan.Zero)
             {
-                await _clock.Delay(initialDelay);
+                await Task.Delay(plan.InitialDelay, cancellationToken);
             }
 
             var startTime = DateTime.UtcNow;
             var attempt = 0;
 
-            // Build test URLs
-            var endpoints = configuration.HealthCheckEndpoints.Count > 0
-                ? configuration.HealthCheckEndpoints
-                : new List<string> { "/", "/health" };
-
-            var testUrls = new List<Uri> { configuration.BaseUrl };
-            foreach (var endpoint in endpoints)
+            var testUrls = new List<Uri> { plan.BaseUrl };
+            foreach (var endpoint in plan.HealthCheckEndpoints)
             {
                 if (string.IsNullOrWhiteSpace(endpoint)) continue;
-                var uri = endpoint.StartsWith("/") ? new Uri(configuration.BaseUrl, endpoint) : new Uri($"{configuration.BaseUrl}{endpoint}");
+                var uri = endpoint.StartsWith("/") ? new Uri(plan.BaseUrl, endpoint) : new Uri($"{plan.BaseUrl}{endpoint}");
                 testUrls.Add(uri);
             }
 
-            while (DateTime.UtcNow - startTime < configuration.StartupTimeout)
+            while (DateTime.UtcNow - startTime < plan.StartupTimeout)
             {
                 attempt++;
                 foreach (var url in testUrls)
@@ -71,10 +63,10 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
                     }
                 }
 
-                await _clock.Delay(pollInterval);
+                await Task.Delay(plan.PollInterval, cancellationToken);
             }
 
-            throw new TimeoutException($"Server did not become ready within {configuration.StartupTimeout}");
+            throw new TimeoutException($"Server did not become ready within {plan.StartupTimeout}");
         }
     }
 }
