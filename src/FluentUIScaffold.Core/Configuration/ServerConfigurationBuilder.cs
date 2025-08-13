@@ -445,3 +445,166 @@ namespace FluentUIScaffold.Core.Configuration
         }
     }
 }
+
+namespace FluentUIScaffold.Core.Configuration.Launchers
+{
+    using System;
+    using System.Collections.Generic;
+    using System.Diagnostics;
+    using System.Linq;
+
+    public class ServerProcessBuilder
+    {
+        private readonly Dictionary<string, string> _environment = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, string?> _namedArguments = new(StringComparer.Ordinal);
+        private readonly List<string> _positionalArguments = new();
+        private readonly List<string> _healthEndpoints = new();
+        private string _executable = string.Empty;
+        private string? _workingDirectory;
+        private string? _processName;
+        private Uri? _baseUrl;
+        private TimeSpan _startupTimeout = TimeSpan.FromSeconds(60);
+        private IReadinessProbe _readinessProbe = new HttpReadinessProbe();
+        private TimeSpan _initialDelay = TimeSpan.FromSeconds(2);
+        private TimeSpan _pollInterval = TimeSpan.FromMilliseconds(200);
+        private bool _streamOutput = true;
+
+        public ServerProcessBuilder WithBaseUrl(Uri baseUrl) { _baseUrl = baseUrl; return this; }
+        public ServerProcessBuilder WithProjectPath(string projectPath) { _workingDirectory ??= System.IO.Path.GetDirectoryName(projectPath); return this; }
+        public ServerProcessBuilder WithWorkingDirectory(string workingDirectory) { _workingDirectory = workingDirectory; return this; }
+        public ServerProcessBuilder WithProcessName(string processName) { _processName = processName; return this; }
+        public ServerProcessBuilder WithExecutable(string executable) { _executable = executable; return this; }
+        public ServerProcessBuilder WithArgument(string name, string? value = null) { _namedArguments[name] = value; return this; }
+        public ServerProcessBuilder WithArguments(params string[] args) { _positionalArguments.AddRange(args); return this; }
+        public ServerProcessBuilder WithEnvironmentVariable(string key, string value) { _environment[key] = value; return this; }
+        public ServerProcessBuilder WithEnvironmentVariables(IDictionary<string,string> env) { foreach (var kv in env) _environment[kv.Key] = kv.Value; return this; }
+        public ServerProcessBuilder WithStartupTimeout(TimeSpan timeout) { _startupTimeout = timeout; return this; }
+        public ServerProcessBuilder WithHealthCheckEndpoints(params string[] endpoints) { _healthEndpoints.Clear(); _healthEndpoints.AddRange(endpoints); return this; }
+        public ServerProcessBuilder WithReadiness(IReadinessProbe probe, TimeSpan? initialDelay = null, TimeSpan? pollInterval = null)
+        {
+            _readinessProbe = probe ?? _readinessProbe;
+            if (initialDelay.HasValue) _initialDelay = initialDelay.Value;
+            if (pollInterval.HasValue) _pollInterval = pollInterval.Value;
+            return this;
+        }
+        public ServerProcessBuilder WithProcessOutputLogging(bool enabled = true) { _streamOutput = enabled; return this; }
+
+        public LaunchPlan Build()
+        {
+            if (_baseUrl == null) throw new InvalidOperationException("BaseUrl must be provided");
+            if (string.IsNullOrWhiteSpace(_executable)) throw new InvalidOperationException("Executable must be provided");
+
+            var argsList = new List<string>();
+            // positional first (e.g., run, start)
+            argsList.AddRange(_positionalArguments);
+            // then named arguments in deterministic order (alphabetical by key)
+            foreach (var kv in _namedArguments.OrderBy(k => k.Key, StringComparer.Ordinal))
+            {
+                argsList.Add(kv.Key);
+                if (!string.IsNullOrEmpty(kv.Value)) argsList.Add(kv.Value);
+            }
+
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = _executable,
+                Arguments = string.Join(" ", argsList),
+                WorkingDirectory = _workingDirectory,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true
+            };
+            foreach (var kv in _environment)
+            {
+                startInfo.EnvironmentVariables[kv.Key] = kv.Value;
+            }
+
+            var endpoints = _healthEndpoints.Count > 0 ? _healthEndpoints : new List<string> { "/" };
+            return new LaunchPlan(startInfo, _baseUrl, _startupTimeout, _readinessProbe, endpoints, _initialDelay, _pollInterval, _streamOutput);
+        }
+    }
+
+    public class DotNetServerConfigurationBuilder2 : ServerProcessBuilder
+    {
+        public DotNetServerConfigurationBuilder2()
+        {
+            WithExecutable("dotnet");
+            WithArguments("run");
+            WithArgument("--no-launch-profile");
+            WithFramework("net8.0");
+            WithConfiguration("Release");
+        }
+
+        public DotNetServerConfigurationBuilder2 WithFramework(string tfm)
+        {
+            return (DotNetServerConfigurationBuilder2)WithArgument("--framework", tfm);
+        }
+
+        public DotNetServerConfigurationBuilder2 WithConfiguration(string config)
+        {
+            return (DotNetServerConfigurationBuilder2)WithArgument("--configuration", config);
+        }
+
+        public DotNetServerConfigurationBuilder2 WithAspNetCoreUrls(string urls)
+        {
+            WithEnvironmentVariable("ASPNETCORE_URLS", urls);
+            return this;
+        }
+
+        public DotNetServerConfigurationBuilder2 WithAspNetCoreEnvironment(string env = "Development")
+        {
+            WithEnvironmentVariable("ASPNETCORE_ENVIRONMENT", env);
+            return this;
+        }
+
+        public DotNetServerConfigurationBuilder2 WithDotNetEnvironment(string env = "Development")
+        {
+            WithEnvironmentVariable("DOTNET_ENVIRONMENT", env);
+            return this;
+        }
+
+        public DotNetServerConfigurationBuilder2 EnableSpaProxy(bool enabled = true)
+        {
+            WithEnvironmentVariable("ASPNETCORE_HOSTINGSTARTUPASSEMBLIES", enabled ? "Microsoft.AspNetCore.SpaProxy" : "");
+            return this;
+        }
+    }
+
+    public class AspireServerConfigurationBuilder2 : DotNetServerConfigurationBuilder2
+    {
+        public AspireServerConfigurationBuilder2(Uri baseUrl)
+        {
+            WithAspNetCoreUrls(baseUrl.ToString());
+            WithStartupTimeout(TimeSpan.FromSeconds(90));
+            WithHealthCheckEndpoints("/", "/health");
+        }
+    }
+
+    public class NodeJsServerConfigurationBuilder2 : ServerProcessBuilder
+    {
+        public NodeJsServerConfigurationBuilder2(Uri baseUrl)
+        {
+            WithExecutable("npm");
+            WithArguments("run", "start");
+            WithEnvironmentVariable("PORT", baseUrl.Port.ToString());
+            WithEnvironmentVariable("NODE_ENV", "development");
+        }
+
+        public NodeJsServerConfigurationBuilder2 WithNpmScript(string script = "start")
+        {
+            return (NodeJsServerConfigurationBuilder2)WithArguments("run", script);
+        }
+
+        public NodeJsServerConfigurationBuilder2 WithNodeEnvironment(string env = "development")
+        {
+            WithEnvironmentVariable("NODE_ENV", env);
+            return this;
+        }
+
+        public NodeJsServerConfigurationBuilder2 WithPort(int port)
+        {
+            WithEnvironmentVariable("PORT", port.ToString());
+            return this;
+        }
+    }
+}

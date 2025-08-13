@@ -100,6 +100,28 @@ namespace FluentUIScaffold.Core.Configuration
                 .WithNodeEnvironment("development")
                 .WithStartupTimeout(TimeSpan.FromSeconds(60));
         }
+
+        public static FluentUIScaffold.Core.Configuration.Launchers.AspireServerConfigurationBuilder2 CreateAspireServerV2(Uri baseUrl, string projectPath)
+        {
+            return new FluentUIScaffold.Core.Configuration.Launchers.AspireServerConfigurationBuilder2(baseUrl)
+                .WithBaseUrl(baseUrl)
+                .WithProjectPath(projectPath)
+                .WithHealthCheckEndpoints("/", "/health");
+        }
+
+        public static FluentUIScaffold.Core.Configuration.Launchers.DotNetServerConfigurationBuilder2 CreateDotNetServerV2(Uri baseUrl, string projectPath)
+        {
+            return new FluentUIScaffold.Core.Configuration.Launchers.DotNetServerConfigurationBuilder2()
+                .WithBaseUrl(baseUrl)
+                .WithProjectPath(projectPath);
+        }
+
+        public static FluentUIScaffold.Core.Configuration.Launchers.NodeJsServerConfigurationBuilder2 CreateNodeJsServerV2(Uri baseUrl, string projectPath)
+        {
+            return new FluentUIScaffold.Core.Configuration.Launchers.NodeJsServerConfigurationBuilder2(baseUrl)
+                .WithBaseUrl(baseUrl)
+                .WithProjectPath(projectPath);
+        }
     }
 
     /// <summary>

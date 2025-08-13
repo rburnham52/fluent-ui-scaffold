@@ -151,6 +151,36 @@ namespace FluentUIScaffold.Core.Configuration
             }
         }
 
+        public static async Task StartServerAsync(Launchers.LaunchPlan plan)
+        {
+            if (plan == null) throw new ArgumentNullException(nameof(plan));
+
+            // Minimal configuration context for readiness probe
+            var serverConfig = new ServerConfiguration
+            {
+                BaseUrl = plan.BaseUrl,
+                StartupTimeout = plan.StartupTimeout,
+                HealthCheckEndpoints = new System.Collections.Generic.List<string>(plan.HealthCheckEndpoints)
+            };
+
+            WebServerManager? instance = null;
+            try
+            {
+                instance = GetInstance();
+                var processLauncher = new Launchers.ProcessLauncher(instance._logger);
+                await processLauncher.StartAsync(serverConfig, plan);
+                lock (_lockObject)
+                {
+                    _serverStarted = true;
+                }
+            }
+            catch (Exception ex)
+            {
+                instance?._logger?.LogError(ex, "Failed to start server using LaunchPlan");
+                throw;
+            }
+        }
+
         /// <summary>
         /// Stops the web server and cleans up resources.
         /// </summary>

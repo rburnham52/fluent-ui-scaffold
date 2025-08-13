@@ -73,7 +73,8 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
                 startInfo.EnvironmentVariables[kv.Key] = kv.Value;
             }
 
-            return new LaunchPlan(startInfo, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2));
+            var endpoints = configuration.HealthCheckEndpoints.Count > 0 ? configuration.HealthCheckEndpoints : new List<string> { "/" };
+            return new LaunchPlan(startInfo, configuration.BaseUrl!, configuration.StartupTimeout, _readinessProbe, endpoints, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2), true);
         }
 
         public async Task LaunchAsync(ServerConfiguration configuration)
