@@ -120,6 +120,12 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
             WithEnvironmentVariable("ASPNETCORE_HOSTINGSTARTUPASSEMBLIES", enabled ? "Microsoft.AspNetCore.SpaProxy" : "");
             return this;
         }
+
+        public DotNetServerConfigurationBuilder WithAspNetCoreForwardedHeaders(bool enabled)
+        {
+            WithEnvironmentVariable("ASPNETCORE_FORWARDEDHEADERS_ENABLED", enabled ? "true" : "false");
+            return this;
+        }
     }
 
     public class AspireServerConfigurationBuilder : DotNetServerConfigurationBuilder
@@ -129,6 +135,18 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
             WithAspNetCoreUrls(baseUrl.ToString());
             WithStartupTimeout(TimeSpan.FromSeconds(90));
             WithHealthCheckEndpoints("/", "/health");
+        }
+
+        public AspireServerConfigurationBuilder WithAspireDashboardOtlpEndpoint(string url)
+        {
+            WithEnvironmentVariable("DOTNET_DASHBOARD_OTLP_ENDPOINT_URL", url);
+            return this;
+        }
+
+        public AspireServerConfigurationBuilder WithAspireResourceServiceEndpoint(string url)
+        {
+            WithEnvironmentVariable("DOTNET_RESOURCE_SERVICE_ENDPOINT_URL", url);
+            return this;
         }
     }
 
