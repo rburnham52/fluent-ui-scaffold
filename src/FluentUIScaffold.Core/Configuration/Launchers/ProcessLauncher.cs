@@ -27,25 +27,6 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
             _logger?.LogInformation("Starting process: {FileName} {Arguments}", plan.StartInfo.FileName, plan.StartInfo.Arguments);
             _logger?.LogInformation("Working directory: {WorkingDirectory}", wd);
 
-            // Helpful when using Aspire AppHost
-            string? otlpGrpc = null, otlpHttp = null;
-            try
-            {
-                var env = plan.StartInfo.EnvironmentVariables;
-                if (env.ContainsKey("DOTNET_DASHBOARD_OTLP_ENDPOINT_URL"))
-                    otlpGrpc = env["DOTNET_DASHBOARD_OTLP_ENDPOINT_URL"];
-                if (env.ContainsKey("DOTNET_DASHBOARD_OTLP_HTTP_ENDPOINT_URL"))
-                    otlpHttp = env["DOTNET_DASHBOARD_OTLP_HTTP_ENDPOINT_URL"];
-            }
-            catch
-            {
-                // ignore, logging below will still enumerate safely
-            }
-            if (!string.IsNullOrEmpty(otlpGrpc) || !string.IsNullOrEmpty(otlpHttp))
-            {
-                _logger?.LogInformation("Aspire OTLP endpoints: gRPC={Grpc} HTTP={Http}", otlpGrpc ?? "<unset>", otlpHttp ?? "<unset>");
-            }
-
             // Log all environment variables for diagnostics
             try
             {
