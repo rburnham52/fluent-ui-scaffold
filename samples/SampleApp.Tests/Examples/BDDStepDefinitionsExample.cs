@@ -29,8 +29,6 @@ namespace SampleApp.Tests.Examples
             var options = new FluentUIScaffoldOptionsBuilder()
                 .WithBaseUrl(TestConfiguration.BaseUri)
                 .WithDefaultWaitTimeout(TimeSpan.FromSeconds(30))
-                .WithHeadlessMode(false)
-                .WithSlowMo(250)
                 .Build();
 
             // FluentUIScaffoldApp uses only framework options; server is managed separately

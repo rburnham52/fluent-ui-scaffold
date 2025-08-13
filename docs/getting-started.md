@@ -99,7 +99,7 @@ public async Task Setup()
             new Uri("https://your-app.com"),
             "./path/to/your/project.csproj"
         )
-        .WithFramework("net8.0")
+        .WithFramework("net9.0")
         .WithConfiguration("Debug")
         .WithSpaProxy(true)
         .WithAspNetCoreEnvironment("Development")
@@ -179,13 +179,14 @@ await WebServerManager.StartServerAsync(serverConfig);
 Launcher selection
 
 - ASP.NET Core: default for .NET projects; good general choice.
-- WebApplicationFactory: in-process style; currently falls back to ASP.NET launcher by default for portability.
-- Node.js: for pure SPA/Node servers.
 - Aspire: for .NET Aspire App Host.
+- Node.js: for pure SPA/Node servers.
+- WebApplicationFactory: in-process style API that delegates to the same process-based launcher for cross-platform stability.
 
-#### Log Level Control
+#### Readiness and logging
 
-Note: per-option web server log level has been removed; launcher output is managed by the chosen server launcher.
+- The readiness probe queries the `BaseUrl` and any `WithHealthCheckEndpoints(...)` until success.
+- Progress is logged on the first attempt and then every 5 attempts while waiting.
 
 ### 4. Headless and SlowMo Defaults
 
@@ -373,9 +374,9 @@ var fluentUI = FluentUIScaffoldBuilder.Web(options =>
 
 | Server Type | Factory Method | Description |
 |-------------|----------------|-------------|
-| ASP.NET Core | `ServerConfiguration.CreateAspNetCore()` | Standard ASP.NET Core applications |
-| Aspire App Host | `ServerConfiguration.CreateAspire()` | .NET Aspire applications with dashboard |
-| Node.js | `ServerConfiguration.CreateNodeJs()` | Node.js applications using npm scripts |
+| ASP.NET Core | `ServerConfiguration.CreateDotNetServer(...)` | Standard ASP.NET Core applications |
+| Aspire App Host | `ServerConfiguration.CreateAspireServer(...)` | .NET Aspire App Host applications |
+| Node.js | `ServerConfiguration.CreateNodeJsServer(...)` | Node.js applications using npm scripts |
 
 ### Advanced Server Configuration
 

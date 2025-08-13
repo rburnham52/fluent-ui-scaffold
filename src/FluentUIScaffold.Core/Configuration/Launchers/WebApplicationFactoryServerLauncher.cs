@@ -21,7 +21,15 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
         public WebApplicationFactoryServerLauncher(ILogger? logger = null, IServerLauncher? fallbackLauncher = null)
         {
             _logger = logger;
-            _fallbackLauncher = fallbackLauncher ?? new AspNetServerLauncher(logger);
+            _fallbackLauncher = fallbackLauncher ?? new ProcessLauncher(
+                name: "AspNetProcessLauncher",
+                executable: "dotnet",
+                supportedTypes: new[] { ServerType.AspNetCore, ServerType.Aspire },
+                commandBuilder: new AspNetCommandBuilder(),
+                envVarProvider: new AspNetEnvVarProvider(),
+                readinessProbe: new HttpReadinessProbe(null, new SystemClock()),
+                logger: logger
+            );
         }
 
         public bool CanHandle(ServerConfiguration configuration)

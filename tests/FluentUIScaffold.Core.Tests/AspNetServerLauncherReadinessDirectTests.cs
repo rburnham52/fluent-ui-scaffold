@@ -52,8 +52,9 @@ namespace FluentUIScaffold.Core.Tests
         public void WaitForServerReady_Fails_WhenProcessExitsEarly()
         {
             var baseUrl = new Uri("http://localhost:6553");
+            // Allow time for the launcher's initial delay and enough polling attempts to trigger progress logs
             var config = ServerConfiguration.CreateDotNetServer(baseUrl, "/path/to/App.csproj")
-                .WithStartupTimeout(TimeSpan.FromSeconds(1))
+                .WithStartupTimeout(TimeSpan.FromSeconds(3))
                 .Build();
 
             var launcher = new AspNetServerLauncher();
@@ -133,13 +134,28 @@ namespace FluentUIScaffold.Core.Tests
             var fakeClock = new FluentUIScaffold.Core.Tests.Mocks.FakeClock();
             var launcher = new AspNetServerLauncher(logger, null, fakeClock);
 
-            var baseUrl = new Uri("http://localhost:9");
+            // Inject an HttpClient that always fails fast to avoid OS-dependent socket timing
+            var httpClientField = typeof(AspNetServerLauncher).GetField("_httpClient", BindingFlags.NonPublic | BindingFlags.Instance);
+            Assert.That(httpClientField, Is.Not.Null);
+            httpClientField!.SetValue(launcher, new System.Net.Http.HttpClient(new AlwaysFailHandler()));
+
+            // Use a harmless base URL; all GETs will be short-circuited by the AlwaysFailHandler
+            var baseUrl = new Uri("http://localhost:1");
             var config = ServerConfiguration.CreateDotNetServer(baseUrl, "/path/to/App.csproj")
-                .WithStartupTimeout(TimeSpan.FromSeconds(1))
+                .WithStartupTimeout(TimeSpan.FromSeconds(2))
                 .Build();
 
             Assert.That(async () => await InvokeWaitAsync(launcher, config), Throws.Exception);
             Assert.That(logger.Messages.Any(m => m.Contains("Still waiting for")), Is.True);
+        }
+
+        private sealed class AlwaysFailHandler : System.Net.Http.HttpMessageHandler
+        {
+            protected override System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage> SendAsync(System.Net.Http.HttpRequestMessage request, System.Threading.CancellationToken cancellationToken)
+            {
+                var response = new System.Net.Http.HttpResponseMessage(System.Net.HttpStatusCode.ServiceUnavailable);
+                return System.Threading.Tasks.Task.FromResult(response);
+            }
         }
     }
 }

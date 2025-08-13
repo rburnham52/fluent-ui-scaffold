@@ -28,8 +28,6 @@ namespace SampleApp.Tests.Examples
             // Arrange - Set up the application and page objects
             var options = new FluentUIScaffoldOptionsBuilder()
                 .WithBaseUrl(TestConfiguration.BaseUri)
-                .WithHeadlessMode(false)
-                .WithSlowMo(1000)
                 .WithDefaultWaitTimeout(TimeSpan.FromSeconds(30))
                 .Build();
 

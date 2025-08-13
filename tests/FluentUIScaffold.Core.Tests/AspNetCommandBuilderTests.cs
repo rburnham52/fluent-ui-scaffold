@@ -51,6 +51,22 @@ namespace FluentUIScaffold.Core.Tests
             });
         }
 
+        [TestCase("net7.0")]
+        [TestCase("net8.0")]
+        [TestCase("net9.0")]
+        public void BuildCommand_Framework_Variants_Are_Propagated(string framework)
+        {
+            var config = ServerConfiguration
+                .CreateDotNetServer(new Uri("http://localhost:5003"), "/path/to/app.csproj")
+                .WithFramework(framework)
+                .Build();
+
+            var builder = new AspNetCommandBuilder();
+            var args = builder.BuildCommand(config);
+
+            Assert.That(args, Does.Contain($"--framework {framework}"));
+        }
+
         [Test]
         public void BuildCommand_Ignores_Framework_Config_Duplicates_In_CustomArgs()
         {

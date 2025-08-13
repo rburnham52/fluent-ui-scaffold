@@ -11,12 +11,13 @@ The Flexible Server Startup Framework is a comprehensive solution for launching 
 1. **`WebServerManager`** - The main orchestrator that manages server lifecycle
 2. **`IServerLauncher`** - Strategy interface for different server types
 3. Removed: automatic project detection
-4. **`ServerLauncherFactory`** - Factory for creating and managing launchers and detectors
-5. **`ServerConfiguration`** - Configuration class for server startup parameters
-6. **`IProcessRunner` / `IProcess`** - Abstractions to start and manage external processes (testable wrapper over `System.Diagnostics.Process`)
-7. **`IClock`** - Time abstraction to control delays and timing in tests
-8. **`IReadinessProbe`** - Strategy interface to centralize server readiness checks (default: `HttpReadinessProbe`)
-9. **`LaunchPlan`** - Value object describing the planned launch (executable, arguments, environment)
+4. **`ServerLauncherFactory`** - Factory that composes a launcher for the selected server type
+5. **`ProcessLauncher`** - Generic, process-based launcher used for all external servers (ASP.NET Core, Aspire, Node.js)
+6. **`ServerConfiguration`** - Configuration class for server startup parameters
+7. **`IProcessRunner` / `IProcess`** - Abstractions to start and manage external processes (testable wrapper over `System.Diagnostics.Process`)
+8. **`IClock`** - Time abstraction to control delays and timing in tests
+9. **`IReadinessProbe`** - Strategy interface to centralize server readiness checks (default: `HttpReadinessProbe`)
+10. **`LaunchPlan`** - Value object describing the planned launch (executable, arguments, environment)
 
 ### Design Patterns
 
@@ -27,10 +28,9 @@ The Flexible Server Startup Framework is a comprehensive solution for launching 
 ## Benefits
 
 - **Framework Agnostic**: Works with any UI testing framework (MSTest, NUnit, xUnit)
-- **Multi-Server Support**: Built-in support for ASP.NET Core and Aspire App Host
-- **Automatic Project Detection**: Finds projects without relying on Git repositories
-- **Flexible Configuration**: Supports explicit configuration or automatic detection
-- **Extensible**: Easy to add new server types and project detectors
+- **Unified Launcher Path**: A single, generic `ProcessLauncher` drives ASP.NET Core, Aspire, and Node.js so behavior and logging are consistent
+- **Flexible Configuration**: Explicit configuration through `ServerConfiguration` (no hidden state)
+- **Extensible**: Add new server types by providing a command builder, env var provider, and readiness probe
 - **Robust Error Handling**: Comprehensive logging and error recovery
 
 ## Usage Examples
@@ -41,7 +41,7 @@ The Flexible Server Startup Framework is a comprehensive solution for launching 
 var serverConfig = ServerConfiguration.CreateDotNetServer(
         new Uri("http://localhost:5000"),
         "/path/to/project.csproj")
-    .WithFramework("net8.0")
+    .WithFramework("net9.0")
     .WithConfiguration("Release")
     .WithHealthCheckEndpoints("/", "/index.html")
     .Build();
@@ -104,6 +104,20 @@ var config = ServerConfiguration.CreateDotNetServer(
 ```
 
 ### Aspire App Host Application
+Note: Both ASP.NET Core and Aspire are launched via the same generic `ProcessLauncher`. Selection is driven by the `ServerType` set by the factory method (e.g., `CreateDotNetServer` vs `CreateAspireServer`).
+
+### Node.js Application
+
+Node.js servers are also launched through `ProcessLauncher` using an `npm` command built by the Node command builder.
+
+```csharp
+var config = ServerConfiguration.CreateNodeJsServer(
+    new Uri("http://localhost:3000"),
+    "/path/to/package.json")
+    .WithNpmScript("start")
+    .Build();
+```
+
 
 ```csharp
 var config = ServerConfiguration.CreateAspireServer(
@@ -161,6 +175,7 @@ factory.RegisterDetector(new CustomProjectDetector());
 ### Readiness Probes
 
 - Default readiness is provided by `HttpReadinessProbe`, which queries `BaseUrl` and any configured `HealthCheckEndpoints` until the server responds with a success status or times out.
+- The ASP.NET readiness loop logs progress at the first attempt and every 5 attempts thereafter to improve observability with short timeouts.
 - Custom readiness strategies can be implemented by providing your own `IReadinessProbe` and registering/injecting it for your launcher.
 
 ## Migration Guide
@@ -197,6 +212,7 @@ The new framework provides more flexibility and better error handling. Update yo
    - Increase `StartupTimeout` in configuration
    - Check if the server is actually starting (logs, process list)
    - Verify health check endpoints are correct
+   - For ASP.NET/Aspire, ensure `ASPNETCORE_URLS` (set by the env provider) matches `BaseUrl`
 
 2. **Project Not Found**
    - Enable logging to see detection attempts
@@ -205,7 +221,14 @@ The new framework provides more flexibility and better error handling. Update yo
 
 3. **Port Conflicts**
    - The framework automatically checks for running servers
+   - The launcher attempts to kill processes bound to the configured port conservatively (by process name when provided)
    - Kill existing processes manually if needed
+
+4. **Framework Mismatch (e.g., shows net8.0 instead of net9.0)**
+   - Confirm `.WithFramework("net9.0")`
+   - Check project `TargetFramework` is `net9.0`
+   - Ensure the .NET 9 SDK is installed and not pinned to 8 by a `global.json`
+   - Verify you pass the result of `.Build()` into `StartServerAsync`
    - Use different ports for different test runs
 
 ### Debugging

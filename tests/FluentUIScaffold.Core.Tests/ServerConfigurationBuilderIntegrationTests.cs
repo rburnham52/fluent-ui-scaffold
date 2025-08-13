@@ -118,6 +118,24 @@ namespace FluentUIScaffold.Core.Tests
             });
         }
 
+        [TestCase("net8.0")]
+        [TestCase("net9.0")]
+        public void Aspire_WithFrameworkVariants_PropagatesToRunCommand(string framework)
+        {
+            var baseUrl = new Uri("http://localhost:7077");
+            var projectPath = "/path/to/AspireApp.AppHost.csproj";
+
+            var config = ServerConfiguration
+                .CreateAspireServer(baseUrl, projectPath)
+                .WithFramework(framework)
+                .WithConfiguration("Release")
+                .Build();
+
+            var args = InvokeAspNetServerBuildArgs(config);
+
+            Assert.That(args, Does.Contain($"--framework {framework}"));
+        }
+
         [Test]
         public void SpaProxy_Toggle_SetsHostingStartupAssembliesEnv()
         {

@@ -310,8 +310,8 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
                     }
                 }
 
-                // Log progress every 5 attempts
-                if (attempt % 5 == 0)
+                // Log progress on first attempt and then every 5 attempts
+                if (attempt == 1 || attempt % 5 == 0)
                 {
                     var elapsed = DateTime.UtcNow - startTime;
                     _logger?.LogInformation("Still waiting for {ServerType} server... Attempt {Attempt}/{MaxAttempts}, Elapsed: {Elapsed:F1}s",
@@ -340,21 +340,12 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
         {
             try
             {
-                var startInfo = new ProcessStartInfo
-                {
-                    FileName = "netstat",
-                    Arguments = $"-ano | findstr :{port}",
-                    UseShellExecute = true,
-                    RedirectStandardOutput = true,
-                    CreateNoWindow = true
-                };
+                // Use PortProcessFinder to locate processes; avoid invoking netstat directly to keep test output clean
                 var result = await PortProcessFinder.FindProcessesOnPortAsync(port);
                 // using var process = Process.Start(startInfo);
                 if (result != null)
                 {
-                    // var output = await process.StandardOutput.ReadToEndAsync();
-                    var output = result; // Use the output from PortProcessFinder
-                    // await process.WaitForExitAsync();
+                    var output = result;
 
                     var lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
                     foreach (var line in lines)

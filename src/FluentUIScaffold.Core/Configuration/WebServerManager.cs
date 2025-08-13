@@ -208,9 +208,26 @@ namespace FluentUIScaffold.Core.Configuration
 
         private void RegisterDefaultComponents()
         {
-            // Register default server launchers
-            _factory.RegisterLauncher(new Launchers.AspNetServerLauncher(_logger));
-            _factory.RegisterLauncher(new Launchers.NodeJsServerLauncher(_logger));
+            // Register default server launchers (generic process launcher composition)
+            _factory.RegisterLauncher(new Launchers.ProcessLauncher(
+                name: "AspNetProcessLauncher",
+                executable: "dotnet",
+                supportedTypes: new[] { ServerType.AspNetCore, ServerType.Aspire },
+                commandBuilder: new Launchers.AspNetCommandBuilder(),
+                envVarProvider: new Launchers.AspNetEnvVarProvider(),
+                readinessProbe: new Launchers.HttpReadinessProbe(null, new Launchers.SystemClock()),
+                logger: _logger
+            ));
+
+            _factory.RegisterLauncher(new Launchers.ProcessLauncher(
+                name: "NodeProcessLauncher",
+                executable: "npm",
+                supportedTypes: new[] { ServerType.NodeJs },
+                commandBuilder: new Launchers.NodeJsCommandBuilder(),
+                envVarProvider: new Launchers.AspNetEnvVarProvider(),
+                readinessProbe: new Launchers.HttpReadinessProbe(null, new Launchers.SystemClock()),
+                logger: _logger
+            ));
             _factory.RegisterLauncher(new Launchers.WebApplicationFactoryServerLauncher(_logger));
 
             // Register default project detectors

@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Net.Http;
 using System.Threading.Tasks;
 
 using Microsoft.Extensions.Logging;
@@ -10,48 +9,76 @@ using Microsoft.Extensions.Logging;
 namespace FluentUIScaffold.Core.Configuration.Launchers
 {
     /// <summary>
-    /// Server launcher for Node.js applications.
-    /// Handles launching Node.js applications with npm/yarn commands.
+    /// Generic process-based server launcher. It composes an executable, a command builder,
+    /// an environment variable provider, and a readiness probe to start and validate a server
+    /// regardless of underlying platform (ASP.NET Core, Aspire, Node.js, etc.).
     /// </summary>
-    public class NodeJsServerLauncher : IServerLauncher
+    public sealed class ProcessLauncher : IServerLauncher
     {
         private readonly ILogger? _logger;
-        private Process? _process;
-        private bool _disposed;
+        private readonly string _name;
+        private readonly string _executable;
+        private readonly ServerType[] _supportedTypes;
         private readonly ICommandBuilder _commandBuilder;
         private readonly IEnvVarProvider _envVarProvider;
+        private readonly IReadinessProbe _readinessProbe;
         private readonly IProcessRunner _processRunner;
         private readonly IClock _clock;
-        private readonly IReadinessProbe _readinessProbe;
+        private bool _disposed;
 
-        public NodeJsServerLauncher(ILogger? logger = null, IProcessRunner? processRunner = null, IClock? clock = null, IReadinessProbe? readinessProbe = null)
+        public string Name => _name;
+
+        public ProcessLauncher(
+            string name,
+            string executable,
+            ServerType[] supportedTypes,
+            ICommandBuilder commandBuilder,
+            IEnvVarProvider envVarProvider,
+            IReadinessProbe readinessProbe,
+            IProcessRunner? processRunner = null,
+            IClock? clock = null,
+            ILogger? logger = null)
         {
-            _logger = logger;
-            _commandBuilder = new NodeJsCommandBuilder();
-            _envVarProvider = new AspNetEnvVarProvider();
+            _name = name;
+            _executable = executable;
+            _supportedTypes = supportedTypes;
+            _commandBuilder = commandBuilder;
+            _envVarProvider = envVarProvider;
+            _readinessProbe = readinessProbe;
             _processRunner = processRunner ?? new ProcessRunner();
             _clock = clock ?? new SystemClock();
-            _readinessProbe = readinessProbe ?? new HttpReadinessProbe(null, _clock);
+            _logger = logger;
         }
-
-        public string Name => "NodeJsServerLauncher";
 
         public bool CanHandle(ServerConfiguration configuration)
         {
-            return configuration.ServerType == ServerType.NodeJs;
+            foreach (var t in _supportedTypes)
+            {
+                if (configuration.ServerType == t) return true;
+            }
+            return false;
         }
 
-        public LaunchPlan PlanLaunch(ServerConfiguration configuration)
+        public async Task LaunchAsync(ServerConfiguration configuration)
         {
+            if (_disposed)
+                throw new ObjectDisposedException(nameof(ProcessLauncher));
+
             if (string.IsNullOrEmpty(configuration.ProjectPath))
                 throw new ArgumentException("Project path cannot be null or empty.", nameof(configuration));
+
             if (configuration.BaseUrl == null)
                 throw new ArgumentException("Base URL cannot be null.", nameof(configuration));
+
+            _logger?.LogInformation("Launching {Launcher} for {ServerType}: {ProjectPath}", Name, configuration.ServerType, configuration.ProjectPath);
+
+            // Attempt to clear any existing process on the target port
+            await KillProcessesOnPortAsync(configuration.BaseUrl.Port, configuration.ProcessName);
 
             var arguments = _commandBuilder.BuildCommand(configuration);
             var startInfo = new ProcessStartInfo
             {
-                FileName = "npm",
+                FileName = _executable,
                 Arguments = arguments,
                 WorkingDirectory = configuration.WorkingDirectory ?? Path.GetDirectoryName(configuration.ProjectPath),
                 UseShellExecute = false,
@@ -60,6 +87,7 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
                 CreateNoWindow = true
             };
 
+            // Merge and apply environment variables
             var env = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             foreach (System.Collections.DictionaryEntry kv in startInfo.EnvironmentVariables)
             {
@@ -73,45 +101,16 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
                 startInfo.EnvironmentVariables[kv.Key] = kv.Value;
             }
 
-            return new LaunchPlan(startInfo, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2));
+            _logger?.LogInformation("Starting process: {File} {Arguments}", startInfo.FileName, startInfo.Arguments);
+
+            _ = _processRunner.Start(startInfo);
+
+            // Wait for readiness using the shared probe
+            await _readinessProbe.WaitUntilReadyAsync(configuration, _logger, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2));
+            _logger?.LogInformation("{Launcher} reports server ready at {Url}", Name, configuration.BaseUrl);
         }
 
-        public async Task LaunchAsync(ServerConfiguration configuration)
-        {
-            if (_disposed)
-                throw new ObjectDisposedException(nameof(NodeJsServerLauncher));
-
-            _logger?.LogInformation("Launching Node.js server with configuration: {ProjectPath}", configuration.ProjectPath);
-
-            if (configuration.BaseUrl == null)
-                throw new ArgumentException("Base URL cannot be null.", nameof(configuration));
-
-            // Kill existing processes on the port
-            await KillProcessesOnPortAsync(configuration.BaseUrl.Port);
-
-            var plan = PlanLaunch(configuration);
-            _logger?.LogInformation("Starting Node.js process: {File} {Arguments}", plan.StartInfo.FileName, plan.StartInfo.Arguments);
-            var proc = _processRunner.Start(plan.StartInfo);
-
-            // Wait for server to be ready
-            await _readinessProbe.WaitUntilReadyAsync(configuration, _logger, plan.InitialDelay, plan.PollInterval);
-
-            _logger?.LogInformation("Node.js server is ready at {BaseUrl}", configuration.BaseUrl);
-        }
-
-        private static string BuildCommandArguments(ServerConfiguration configuration)
-        {
-            var arguments = new List<string> { "start" };
-
-            // Add custom arguments
-            arguments.AddRange(configuration.Arguments);
-
-            return string.Join(" ", arguments);
-        }
-
-        // readiness logic centralized in HttpReadinessProbe
-
-        private async Task KillProcessesOnPortAsync(int port)
+        private async Task KillProcessesOnPortAsync(int port, string processName)
         {
             try
             {
@@ -122,13 +121,20 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
                 foreach (var line in lines)
                 {
                     var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                    // On Windows netstat output lines, PID is usually the last token
                     if (parts.Length == 0) continue;
                     if (!int.TryParse(parts[^1], out var pid)) continue;
 
                     try
                     {
-                        var killProcess = Process.GetProcessById(pid);
-                        killProcess.Kill();
+                        var proc = Process.GetProcessById(pid);
+                        if (!string.IsNullOrEmpty(processName) && !proc.ProcessName.Contains(processName, StringComparison.OrdinalIgnoreCase))
+                        {
+                            // Skip unrelated processes to be conservative
+                            continue;
+                        }
+
+                        proc.Kill();
                         _logger?.LogInformation("Killed process {PID} on port {Port}", pid, port);
                     }
                     catch (Exception ex)
@@ -145,18 +151,9 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
 
         public void Dispose()
         {
-            Dispose(true);
-        }
-
-        protected virtual void Dispose(bool disposing)
-        {
-            if (!_disposed && disposing)
-            {
-                try { _process?.Kill(); } catch { }
-                try { _process?.Dispose(); } catch { }
-                _process = null;
-                _disposed = true;
-            }
+            _disposed = true;
         }
     }
 }
+
+
