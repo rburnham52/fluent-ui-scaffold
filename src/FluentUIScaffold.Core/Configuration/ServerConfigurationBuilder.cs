@@ -144,6 +144,10 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
             WithAspNetCoreUrls(baseUrl.ToString());
             WithStartupTimeout(TimeSpan.FromSeconds(90));
             WithHealthCheckEndpoints("/", "/health");
+            // Defaults to make Aspire dashboard work in local/dev without extra config
+            WithEnvironmentVariable("ASPIRE_ALLOW_UNSECURED_TRANSPORT", "true");
+            // Provide at least one OTLP endpoint (gRPC) so Dashboard doesn't fail startup
+            WithEnvironmentVariable("DOTNET_DASHBOARD_OTLP_ENDPOINT_URL", "http://localhost:4317");
         }
 
         public AspireServerConfigurationBuilder WithAspireDashboardOtlpEndpoint(string url)
