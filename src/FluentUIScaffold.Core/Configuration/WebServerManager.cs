@@ -151,7 +151,7 @@ namespace FluentUIScaffold.Core.Configuration
             }
         }
 
-        public static async Task StartServerAsync(Launchers.LaunchPlan plan)
+        public static async Task StartServerPlanAsync(Launchers.LaunchPlan plan)
         {
             if (plan == null) throw new ArgumentNullException(nameof(plan));
 

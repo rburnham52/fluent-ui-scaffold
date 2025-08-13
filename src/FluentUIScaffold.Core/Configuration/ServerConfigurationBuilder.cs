@@ -453,7 +453,7 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
     using System.Diagnostics;
     using System.Linq;
 
-    public class ServerProcessBuilder
+    public class ServerProcessBuilder<TSelf> where TSelf : ServerProcessBuilder<TSelf>
     {
         private readonly Dictionary<string, string> _environment = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, string?> _namedArguments = new(StringComparer.Ordinal);
@@ -469,25 +469,27 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
         private TimeSpan _pollInterval = TimeSpan.FromMilliseconds(200);
         private bool _streamOutput = true;
 
-        public ServerProcessBuilder WithBaseUrl(Uri baseUrl) { _baseUrl = baseUrl; return this; }
-        public ServerProcessBuilder WithProjectPath(string projectPath) { _workingDirectory ??= System.IO.Path.GetDirectoryName(projectPath); return this; }
-        public ServerProcessBuilder WithWorkingDirectory(string workingDirectory) { _workingDirectory = workingDirectory; return this; }
-        public ServerProcessBuilder WithProcessName(string processName) { _processName = processName; return this; }
-        public ServerProcessBuilder WithExecutable(string executable) { _executable = executable; return this; }
-        public ServerProcessBuilder WithArgument(string name, string? value = null) { _namedArguments[name] = value; return this; }
-        public ServerProcessBuilder WithArguments(params string[] args) { _positionalArguments.AddRange(args); return this; }
-        public ServerProcessBuilder WithEnvironmentVariable(string key, string value) { _environment[key] = value; return this; }
-        public ServerProcessBuilder WithEnvironmentVariables(IDictionary<string,string> env) { foreach (var kv in env) _environment[kv.Key] = kv.Value; return this; }
-        public ServerProcessBuilder WithStartupTimeout(TimeSpan timeout) { _startupTimeout = timeout; return this; }
-        public ServerProcessBuilder WithHealthCheckEndpoints(params string[] endpoints) { _healthEndpoints.Clear(); _healthEndpoints.AddRange(endpoints); return this; }
-        public ServerProcessBuilder WithReadiness(IReadinessProbe probe, TimeSpan? initialDelay = null, TimeSpan? pollInterval = null)
+        protected TSelf This => (TSelf)this;
+
+        public TSelf WithBaseUrl(Uri baseUrl) { _baseUrl = baseUrl; return This; }
+        public TSelf WithProjectPath(string projectPath) { _workingDirectory ??= System.IO.Path.GetDirectoryName(projectPath); return This; }
+        public TSelf WithWorkingDirectory(string workingDirectory) { _workingDirectory = workingDirectory; return This; }
+        public TSelf WithProcessName(string processName) { _processName = processName; return This; }
+        public TSelf WithExecutable(string executable) { _executable = executable; return This; }
+        public TSelf WithArgument(string name, string? value = null) { _namedArguments[name] = value; return This; }
+        public TSelf WithArguments(params string[] args) { _positionalArguments.AddRange(args); return This; }
+        public TSelf WithEnvironmentVariable(string key, string value) { _environment[key] = value; return This; }
+        public TSelf WithEnvironmentVariables(IDictionary<string,string> env) { foreach (var kv in env) _environment[kv.Key] = kv.Value; return This; }
+        public TSelf WithStartupTimeout(TimeSpan timeout) { _startupTimeout = timeout; return This; }
+        public TSelf WithHealthCheckEndpoints(params string[] endpoints) { _healthEndpoints.Clear(); _healthEndpoints.AddRange(endpoints); return This; }
+        public TSelf WithReadiness(IReadinessProbe probe, TimeSpan? initialDelay = null, TimeSpan? pollInterval = null)
         {
             _readinessProbe = probe ?? _readinessProbe;
             if (initialDelay.HasValue) _initialDelay = initialDelay.Value;
             if (pollInterval.HasValue) _pollInterval = pollInterval.Value;
-            return this;
+            return This;
         }
-        public ServerProcessBuilder WithProcessOutputLogging(bool enabled = true) { _streamOutput = enabled; return this; }
+        public TSelf WithProcessOutputLogging(bool enabled = true) { _streamOutput = enabled; return This; }
 
         public LaunchPlan Build()
         {
@@ -524,7 +526,7 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
         }
     }
 
-    public class DotNetServerConfigurationBuilder2 : ServerProcessBuilder
+    public class DotNetServerConfigurationBuilder2 : ServerProcessBuilder<DotNetServerConfigurationBuilder2>
     {
         public DotNetServerConfigurationBuilder2()
         {
@@ -537,12 +539,12 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
 
         public DotNetServerConfigurationBuilder2 WithFramework(string tfm)
         {
-            return (DotNetServerConfigurationBuilder2)WithArgument("--framework", tfm);
+            return WithArgument("--framework", tfm);
         }
 
         public DotNetServerConfigurationBuilder2 WithConfiguration(string config)
         {
-            return (DotNetServerConfigurationBuilder2)WithArgument("--configuration", config);
+            return WithArgument("--configuration", config);
         }
 
         public DotNetServerConfigurationBuilder2 WithAspNetCoreUrls(string urls)
@@ -580,7 +582,7 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
         }
     }
 
-    public class NodeJsServerConfigurationBuilder2 : ServerProcessBuilder
+    public class NodeJsServerConfigurationBuilder2 : ServerProcessBuilder<NodeJsServerConfigurationBuilder2>
     {
         public NodeJsServerConfigurationBuilder2(Uri baseUrl)
         {
@@ -592,7 +594,7 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
 
         public NodeJsServerConfigurationBuilder2 WithNpmScript(string script = "start")
         {
-            return (NodeJsServerConfigurationBuilder2)WithArguments("run", script);
+            return WithArguments("run", script);
         }
 
         public NodeJsServerConfigurationBuilder2 WithNodeEnvironment(string env = "development")

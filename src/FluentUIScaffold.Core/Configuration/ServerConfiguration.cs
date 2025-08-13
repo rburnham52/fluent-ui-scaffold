@@ -103,10 +103,11 @@ namespace FluentUIScaffold.Core.Configuration
 
         public static FluentUIScaffold.Core.Configuration.Launchers.AspireServerConfigurationBuilder2 CreateAspireServerV2(Uri baseUrl, string projectPath)
         {
-            return new FluentUIScaffold.Core.Configuration.Launchers.AspireServerConfigurationBuilder2(baseUrl)
-                .WithBaseUrl(baseUrl)
-                .WithProjectPath(projectPath)
-                .WithHealthCheckEndpoints("/", "/health");
+            var builder = new FluentUIScaffold.Core.Configuration.Launchers.AspireServerConfigurationBuilder2(baseUrl);
+            builder.WithBaseUrl(baseUrl);
+            builder.WithProjectPath(projectPath);
+            builder.WithHealthCheckEndpoints("/", "/health");
+            return builder;
         }
 
         public static FluentUIScaffold.Core.Configuration.Launchers.DotNetServerConfigurationBuilder2 CreateDotNetServerV2(Uri baseUrl, string projectPath)

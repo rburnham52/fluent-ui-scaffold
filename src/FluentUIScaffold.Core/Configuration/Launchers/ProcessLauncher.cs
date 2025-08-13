@@ -74,7 +74,8 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
             }
             catch (Exception ex)
             {
-                logger?.LogDebug(ex, "Error streaming process {(isError ? "stderr" : "stdout")}");
+                var streamName = isError ? "stderr" : "stdout";
+                logger?.LogDebug(ex, "Error streaming process {Stream}", streamName);
             }
         }
 
