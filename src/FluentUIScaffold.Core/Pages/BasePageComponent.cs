@@ -214,7 +214,7 @@ namespace FluentUIScaffold.Core.Pages
         public TDriver TestDriver => Driver;
 
         // Verification access - using the fluent verification context
-        public IVerificationContext Verify => new VerificationContext(Driver, Options, Logger);
+        public IVerificationContext<TPage> Verify => new VerificationContext<TPage>(Driver, Options, Logger, (TPage)(object)this);
 
         // Helper methods
         protected ElementBuilder Element(string selector)

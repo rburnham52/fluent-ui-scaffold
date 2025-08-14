@@ -7,119 +7,106 @@ using Microsoft.Extensions.Logging;
 
 namespace FluentUIScaffold.Core.Configuration
 {
+    // Legacy non-generic VerificationContext removed as part of Verify v2 cleanup.
+
     /// <summary>
-    /// Implementation of IVerificationContext that provides fluent verification methods.
+    /// Page-aware, chainable verification context.
     /// </summary>
-    public class VerificationContext : IVerificationContext
+    /// <typeparam name="TPage">Page type for fluent element selectors and And return</typeparam>
+    public sealed class VerificationContext<TPage> : IVerificationContext<TPage>
     {
         private readonly IUIDriver _driver;
         private readonly FluentUIScaffoldOptions _options;
         private readonly ILogger _logger;
+        private readonly TPage _page;
 
-        public VerificationContext(IUIDriver driver, FluentUIScaffoldOptions options, ILogger logger)
+        public VerificationContext(IUIDriver driver, FluentUIScaffoldOptions options, ILogger logger, TPage page)
         {
             _driver = driver ?? throw new ArgumentNullException(nameof(driver));
             _options = options ?? throw new ArgumentNullException(nameof(options));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _page = page ?? throw new ArgumentNullException(nameof(page));
         }
 
-        public IVerificationContext ElementIsVisible(string selector)
+        public TPage And => _page;
+
+        // Legacy bridge removed as we no longer expose the non-generic interface publicly.
+
+        // New richer, chainable APIs
+        public IVerificationContext<TPage> UrlIs(string url)
         {
-            _logger.LogInformation($"Verifying element '{selector}' is visible");
-            if (!_driver.IsVisible(selector))
+            _logger.LogInformation($"Verifying URL is '{url}'");
+            var current = _driver.CurrentUrl?.ToString() ?? string.Empty;
+            if (!string.Equals(current, url, StringComparison.Ordinal))
             {
-                throw new VerificationException($"Element '{selector}' is not visible");
+                throw new VerificationException($"Expected URL to be '{url}', but was '{current}'");
             }
             return this;
         }
 
-        public IVerificationContext ElementIsHidden(string selector)
+        public IVerificationContext<TPage> UrlContains(string segment)
         {
-            _logger.LogInformation($"Verifying element '{selector}' is hidden");
-            if (_driver.IsVisible(selector))
+            _logger.LogInformation($"Verifying URL contains '{segment}'");
+            var current = _driver.CurrentUrl?.ToString() ?? string.Empty;
+            if (!current.Contains(segment, StringComparison.Ordinal))
             {
-                throw new VerificationException($"Element '{selector}' is visible but should be hidden");
+                throw new VerificationException($"Expected URL to contain '{segment}', but was '{current}'");
             }
             return this;
         }
 
-        public IVerificationContext ElementIsEnabled(string selector)
+        public IVerificationContext<TPage> TitleIs(string title)
         {
-            _logger.LogInformation($"Verifying element '{selector}' is enabled");
-            if (!_driver.IsEnabled(selector))
+            _logger.LogInformation($"Verifying title is '{title}'");
+            var actual = _driver.GetPageTitle();
+            if (!string.Equals(actual, title, StringComparison.Ordinal))
             {
-                throw new VerificationException($"Element '{selector}' is not enabled");
+                throw new VerificationException($"Expected title to be '{title}', but was '{actual}'");
             }
             return this;
         }
 
-        public IVerificationContext ElementIsDisabled(string selector)
+        public IVerificationContext<TPage> TitleContains(string text)
         {
-            _logger.LogInformation($"Verifying element '{selector}' is disabled");
-            if (_driver.IsEnabled(selector))
+            _logger.LogInformation($"Verifying title contains '{text}'");
+            var actual = _driver.GetPageTitle();
+            if (!actual.Contains(text, StringComparison.Ordinal))
             {
-                throw new VerificationException($"Element '{selector}' is enabled but should be disabled");
+                throw new VerificationException($"Expected title to contain '{text}', but was '{actual}'");
             }
             return this;
         }
 
-        public IVerificationContext ElementContainsText(string selector, string text)
+        public IVerificationContext<TPage> TextContains(Func<TPage, IElement> elementSelector, string contains)
         {
-            _logger.LogInformation($"Verifying element '{selector}' contains text '{text}'");
-            var elementText = _driver.GetText(selector);
-            if (!elementText.Contains(text))
+            var element = elementSelector(_page);
+            _logger.LogInformation($"Verifying element '{element.Selector}' contains text '{contains}'");
+            var actual = _driver.GetText(element.Selector);
+            if (!actual.Contains(contains, StringComparison.Ordinal))
             {
-                throw new VerificationException($"Element '{selector}' text '{elementText}' does not contain '{text}'");
+                throw new VerificationException($"Element '{element.Selector}' text '{actual}' does not contain '{contains}'");
             }
             return this;
         }
 
-        public IVerificationContext ElementHasAttribute(string selector, string attribute, string value)
+        public IVerificationContext<TPage> Visible(Func<TPage, IElement> elementSelector)
         {
-            _logger.LogInformation($"Verifying element '{selector}' has attribute '{attribute}' with value '{value}'");
-            // This would need to be implemented in the driver
-            throw new NotImplementedException("ElementHasAttribute not yet implemented");
-        }
-
-        public IVerificationContext UrlMatches(string pattern)
-        {
-            _logger.LogInformation($"Verifying URL matches pattern '{pattern}'");
-            var currentUrl = _driver.CurrentUrl?.ToString() ?? "";
-            if (!currentUrl.Contains(pattern))
+            var element = elementSelector(_page);
+            _logger.LogInformation($"Verifying element '{element.Selector}' is visible");
+            if (!_driver.IsVisible(element.Selector))
             {
-                throw new VerificationException($"Current URL '{currentUrl}' does not match pattern '{pattern}'");
+                throw new VerificationException($"Element '{element.Selector}' is not visible");
             }
             return this;
         }
 
-        public IVerificationContext TitleContains(string text)
+        public IVerificationContext<TPage> NotVisible(Func<TPage, IElement> elementSelector)
         {
-            _logger.LogInformation($"Verifying page title contains '{text}'");
-            var pageTitle = _driver.GetPageTitle();
-            if (!pageTitle.Contains(text))
+            var element = elementSelector(_page);
+            _logger.LogInformation($"Verifying element '{element.Selector}' is not visible");
+            if (_driver.IsVisible(element.Selector))
             {
-                throw new VerificationException($"Page title '{pageTitle}' does not contain '{text}'");
-            }
-            return this;
-        }
-
-        public IVerificationContext That(Func<bool> condition, string description)
-        {
-            _logger.LogInformation($"Verifying custom condition: {description}");
-            if (!condition())
-            {
-                throw new VerificationException($"Custom verification failed: {description}");
-            }
-            return this;
-        }
-
-        public IVerificationContext That<T>(Func<T> actual, Func<T, bool> condition, string description)
-        {
-            _logger.LogInformation($"Verifying custom condition with value: {description}");
-            var actualValue = actual();
-            if (!condition(actualValue))
-            {
-                throw new VerificationException($"Custom verification failed: {description}. Actual value: {actualValue}");
+                throw new VerificationException($"Element '{element.Selector}' is visible but should be hidden");
             }
             return this;
         }

@@ -46,5 +46,5 @@ public interface IPageComponent<TDriver, TPage>
     /// <summary>
     /// Gets the verification context for this page component.
     /// </summary>
-    IVerificationContext Verify { get; }
+    IVerificationContext<TPage> Verify { get; }
 }

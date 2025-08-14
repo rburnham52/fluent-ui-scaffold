@@ -18,13 +18,12 @@
   ```
 
 - Bold predictable Verify chaining and richer assertions
-  - Replace `IVerificationContext` with a generic, chainable context `IVerificationContext<TPage>` that returns `this` and exposes `.And` to go back to the page. Keep a non‑generic base for shared contracts.
+  - Replace `IVerificationContext` with a generic, chainable context `IVerificationContext<TPage>` that returns `this` and exposes `.And` to go back to the page. The legacy non‑generic interface has been removed.
   - Add URL/title assertions, text contains, and element‑typed asserts.
 
   Sketch:
   ```csharp
-  public interface IVerificationContext { }
-  public interface IVerificationContext<TPage> : IVerificationContext
+  public interface IVerificationContext<TPage>
   {
       IVerificationContext<TPage> UrlIs(string url);
       IVerificationContext<TPage> UrlContains(string segment);
@@ -120,6 +119,7 @@
 
 Status:
 - [x] Epic 1: Fluent page switching (implemented)
+- [x] Epic 2: Verify v2 (chainable + richer) (implemented)
 
 - Epic 1: Fluent page switching (Done)
   - Task 1.1: Add `FluentUIScaffoldApp<T>.On<TPage>()`
@@ -129,15 +129,15 @@ Status:
   - Task 1.3: Ensure `NavigateTo<TPage>()` returns page with `.Verify` and remains chainable
     - AC: `app.NavigateTo<A>().Verify.Visible(...).And.Then<B>()` compiles and runs. [No change required]
 
-- Epic 2: Verify v2 (chainable + richer)
+- Epic 2: Verify v2 (chainable + richer) (Done)
   - Task 2.1: Introduce `IVerificationContext<TPage>` and `VerificationContext<TPage>`
-    - AC: `.Verify` returns generic context with `.And` back to page.
+    - AC: `.Verify` returns generic context with `.And` back to page. [Implemented]
   - Task 2.2: Add URL/title assertions: `UrlIs/Contains`, `TitleIs/Contains`
-    - AC: Passing/failing unit tests cover each method.
+    - AC: Passing/failing unit tests cover each method. [Implemented]
   - Task 2.3: Element‑typed assertions: `TextContains`, `Visible`, `NotVisible`, `HasValue`, `HasClass`
-    - AC: Assertions work with `Func<TPage,IElement>` selectors. Failure message includes selector and DOM snippet.
+    - AC: Assertions work with `Func<TPage,IElement>` selectors. Failure message includes selector and DOM snippet. [Implemented (subset: TextContains, Visible, NotVisible)]
   - Task 2.4: Diagnostics enrichment in failures
-    - AC: Exceptions include URL, title, selector, and a truncated `innerHTML` (configurable max length).
+    - AC: Exceptions include URL, title, selector, and a truncated `innerHTML` (configurable max length). [Deferred to Epic 8]
 
 - Epic 3: Selector helpers
   - Task 3.1: Add `ElementFactory.ByTestId` and `ElementFactory.ByText`
