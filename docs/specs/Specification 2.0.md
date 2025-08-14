@@ -165,7 +165,7 @@ public abstract class BasePageComponent<TDriver, TPage> : IPageComponent<TDriver
     protected TDriver Driver { get; private set; }
     
     // Verification access
-    public IVerificationContext Verify => new VerificationContext(Driver, Options, Logger);
+    public IVerificationContext<TPage> Verify => new VerificationContext<TPage>(Driver, Options, Logger, (TPage)(object)this);
     
     // Generic verification methods for common scenarios
     public virtual TPage Verify<TValue>(Func<IElement, TValue> elementSelector, TValue expectedValue, string description = null)
@@ -478,50 +478,19 @@ public class SeleniumPlugin : IUITestingFrameworkPlugin
 ## Verification System
 
 ```csharp
-public interface IVerificationContext
+public interface IVerificationContext<TPage>
 {
-    // Element verifications
-    IVerificationContext ElementIsVisible(string selector);
-    IVerificationContext ElementIsHidden(string selector);
-    IVerificationContext ElementIsEnabled(string selector);
-    IVerificationContext ElementIsDisabled(string selector);
-    IVerificationContext ElementContainsText(string selector, string text);
-    IVerificationContext ElementHasAttribute(string selector, string attribute, string value);
-    
-    // Page verifications
-    IVerificationContext PageTitleContains(string text);
-    IVerificationContext UrlMatches(string pattern);
-    
-    // Custom verifications
-    IVerificationContext That(Func<bool> condition, string description);
-    IVerificationContext That<T>(Func<T> actual, Func<T, bool> condition, string description);
+    IVerificationContext<TPage> UrlIs(string url);
+    IVerificationContext<TPage> UrlContains(string segment);
+    IVerificationContext<TPage> TitleIs(string title);
+    IVerificationContext<TPage> TitleContains(string text);
+    IVerificationContext<TPage> TextContains(Func<TPage, IElement> el, string contains);
+    IVerificationContext<TPage> Visible(Func<TPage, IElement> el);
+    IVerificationContext<TPage> NotVisible(Func<TPage, IElement> el);
+    TPage And { get; }
 }
 
-public class VerificationContext : IVerificationContext
-{
-    private readonly IUIDriver _driver;
-    private readonly FluentUIScaffoldOptions _options;
-    private readonly ILogger _logger;
-    
-    public VerificationContext(IUIDriver driver, FluentUIScaffoldOptions options, ILogger logger)
-    {
-        _driver = driver;
-        _options = options;
-        _logger = logger;
-    }
-    
-    public IVerificationContext ElementIsVisible(string selector)
-    {
-        _logger.LogInformation($"Verifying element '{selector}' is visible");
-        if (!_driver.IsVisible(selector))
-        {
-            throw new VerificationException($"Element '{selector}' is not visible");
-        }
-        return this;
-    }
-    
-    // Implement other verification methods...
-}
+public sealed class VerificationContext<TPage> : IVerificationContext<TPage> { /* see core implementation */ }
 
 // Internal fluent verification API
 public interface IElementVerificationBuilder

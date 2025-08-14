@@ -186,13 +186,13 @@ namespace SampleApp.Tests.Pages
         // Verification methods as specified in the story
         public LoginPage VerifyLoginSuccess(string expectedWelcomeMessage)
         {
-            Verify.ElementContainsText("#success-message", expectedWelcomeMessage);
+            Verify.TextContains(p => p.SuccessMessage, expectedWelcomeMessage);
             return this;
         }
 
         public LoginPage VerifyLoginError(string expectedError)
         {
-            Verify.ElementContainsText("#error-message", expectedError);
+            Verify.TextContains(p => p.ErrorMessage, expectedError);
             return this;
         }
     }

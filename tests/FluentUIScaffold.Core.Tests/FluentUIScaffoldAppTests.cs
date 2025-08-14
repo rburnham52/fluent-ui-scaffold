@@ -15,6 +15,12 @@ namespace FluentUIScaffold.Core.Tests
     [TestFixture]
     public class FluentUIScaffoldAppTests
     {
+        [SetUp]
+        public void TestSetup()
+        {
+            PluginRegistry.ClearForTests();
+        }
+
         private sealed class FakeDriver : IUIDriver
         {
             public Uri? CurrentUrl { get; private set; }

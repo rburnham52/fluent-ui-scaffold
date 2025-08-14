@@ -555,7 +555,7 @@ public interface IPageComponent<TDriver, TPage>
     bool IsCurrentPage();
     void ValidateCurrentPage();
     TTarget NavigateTo<TTarget>() where TTarget : BasePageComponent<TDriver, TTarget>;
-    IVerificationContext Verify { get; }
+    IVerificationContext<TPage> Verify { get; }
 }
 ```
 

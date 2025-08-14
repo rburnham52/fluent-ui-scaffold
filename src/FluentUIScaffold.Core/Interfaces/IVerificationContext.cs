@@ -3,85 +3,51 @@ using System;
 
 namespace FluentUIScaffold.Core.Interfaces;
 
+// Legacy non-generic IVerificationContext removed.
+
 /// <summary>
-/// Interface for verification context that provides fluent verification methods.
+/// Chainable, page-aware verification context that supports richer assertions and fluent return to page via And.
 /// </summary>
-public interface IVerificationContext
+/// <typeparam name="TPage">The page type this verification context is associated with</typeparam>
+public interface IVerificationContext<TPage>
 {
     /// <summary>
-    /// Verifies that an element is visible.
+    /// Verifies that the current URL is exactly the specified URL.
     /// </summary>
-    /// <param name="selector">The CSS selector or other identifier for the element.</param>
-    /// <returns>The verification context for method chaining.</returns>
-    IVerificationContext ElementIsVisible(string selector);
+    IVerificationContext<TPage> UrlIs(string url);
 
     /// <summary>
-    /// Verifies that an element is hidden.
+    /// Verifies that the current URL contains the specified segment.
     /// </summary>
-    /// <param name="selector">The CSS selector or other identifier for the element.</param>
-    /// <returns>The verification context for method chaining.</returns>
-    IVerificationContext ElementIsHidden(string selector);
+    IVerificationContext<TPage> UrlContains(string segment);
 
     /// <summary>
-    /// Verifies that an element is enabled.
+    /// Verifies that the page title is exactly the specified value.
     /// </summary>
-    /// <param name="selector">The CSS selector or other identifier for the element.</param>
-    /// <returns>The verification context for method chaining.</returns>
-    IVerificationContext ElementIsEnabled(string selector);
-
-    /// <summary>
-    /// Verifies that an element is disabled.
-    /// </summary>
-    /// <param name="selector">The CSS selector or other identifier for the element.</param>
-    /// <returns>The verification context for method chaining.</returns>
-    IVerificationContext ElementIsDisabled(string selector);
-
-    /// <summary>
-    /// Verifies that an element contains the specified text.
-    /// </summary>
-    /// <param name="selector">The CSS selector or other identifier for the element.</param>
-    /// <param name="text">The text that the element should contain.</param>
-    /// <returns>The verification context for method chaining.</returns>
-    IVerificationContext ElementContainsText(string selector, string text);
-
-    /// <summary>
-    /// Verifies that an element has the specified attribute with the specified value.
-    /// </summary>
-    /// <param name="selector">The CSS selector or other identifier for the element.</param>
-    /// <param name="attribute">The name of the attribute to check.</param>
-    /// <param name="value">The expected value of the attribute.</param>
-    /// <returns>The verification context for method chaining.</returns>
-    IVerificationContext ElementHasAttribute(string selector, string attribute, string value);
-
-    /// <summary>
-    /// Verifies that the current URL matches the specified pattern.
-    /// </summary>
-    /// <param name="pattern">The URL pattern to match against.</param>
-    /// <returns>The verification context for method chaining.</returns>
-    IVerificationContext UrlMatches(string pattern);
+    IVerificationContext<TPage> TitleIs(string title);
 
     /// <summary>
     /// Verifies that the page title contains the specified text.
     /// </summary>
-    /// <param name="text">The text that the title should contain.</param>
-    /// <returns>The verification context for method chaining.</returns>
-    IVerificationContext TitleContains(string text);
+    IVerificationContext<TPage> TitleContains(string text);
 
     /// <summary>
-    /// Verifies a custom condition.
+    /// Verifies that the element's text contains the specified text.
     /// </summary>
-    /// <param name="condition">The condition to verify.</param>
-    /// <param name="description">A description of the verification.</param>
-    /// <returns>The verification context for method chaining.</returns>
-    IVerificationContext That(Func<bool> condition, string description);
+    IVerificationContext<TPage> TextContains(Func<TPage, IElement> elementSelector, string contains);
 
     /// <summary>
-    /// Verifies a custom condition with a value.
+    /// Verifies that the specified element is visible.
     /// </summary>
-    /// <typeparam name="T">The type of the value to verify.</typeparam>
-    /// <param name="actual">A function that returns the actual value.</param>
-    /// <param name="condition">The condition to verify against the actual value.</param>
-    /// <param name="description">A description of the verification.</param>
-    /// <returns>The verification context for method chaining.</returns>
-    IVerificationContext That<T>(Func<T> actual, Func<T, bool> condition, string description);
+    IVerificationContext<TPage> Visible(Func<TPage, IElement> elementSelector);
+
+    /// <summary>
+    /// Verifies that the specified element is not visible.
+    /// </summary>
+    IVerificationContext<TPage> NotVisible(Func<TPage, IElement> elementSelector);
+
+    /// <summary>
+    /// Returns the page for continued chaining.
+    /// </summary>
+    TPage And { get; }
 }

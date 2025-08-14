@@ -133,7 +133,14 @@ namespace FluentUIScaffold.Core
         /// <returns>The driver instance</returns>
         public TDriver Framework<TDriver>() where TDriver : class
         {
-            return _serviceProvider.GetRequiredService<TDriver>() ?? throw new InvalidOperationException($"Service of type {typeof(TDriver).Name} is not registered.");
+            // Prefer the actual driver instance when requesting IUIDriver or compatible type
+            if (_driver is TDriver compatibleDriver)
+            {
+                return compatibleDriver;
+            }
+
+            return _serviceProvider.GetRequiredService<TDriver>()
+                ?? throw new InvalidOperationException($"Service of type {typeof(TDriver).Name} is not registered.");
         }
 
         /// <summary>
@@ -150,6 +157,30 @@ namespace FluentUIScaffold.Core
             if (navigateMethod != null)
             {
                 navigateMethod.Invoke(page, null);
+            }
+
+            return page;
+        }
+
+
+        /// <summary>
+        /// Attaches to a page component of the specified type without navigating.
+        /// </summary>
+        /// <typeparam name="TPage">The type of the page component.</typeparam>
+        /// <param name="validate">If true, attempts to validate the current page state.</param>
+        /// <returns>The page component instance.</returns>
+        public TPage On<TPage>(bool validate = false) where TPage : class
+        {
+            var page = _serviceProvider.GetRequiredService<TPage>() ?? throw new InvalidOperationException($"Service of type {typeof(TPage).Name} is not registered.");
+
+            if (validate)
+            {
+                // Use reflection to call ValidateCurrentPage() if it exists
+                var validateMethod = page.GetType().GetMethod("ValidateCurrentPage");
+                if (validateMethod != null)
+                {
+                    validateMethod.Invoke(page, null);
+                }
             }
 
             return page;

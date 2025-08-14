@@ -68,7 +68,7 @@ public abstract class BasePageComponent<TDriver, TPage> : IPageComponent<TDriver
     public TDriver TestDriver => Driver;
     
     // Verification access
-    public IVerificationContext Verify { get; }
+    public IVerificationContext<TPage> Verify { get; }
     
     // Helper methods
     protected ElementBuilder Element(string selector);
@@ -368,25 +368,24 @@ public override bool IsCurrentPage()
 public LoginPage VerifyLoginForm()
 {
     Verify
-        .ElementIsVisible("#email")
-        .ElementIsVisible("#password")
-        .ElementIsEnabled("#login-btn")
-        .ElementIsHidden(".error-message");
+        .Visible(p => p.EmailInput)
+        .Visible(p => p.PasswordInput)
+        .Visible(p => p.LoginButton)
+        .NotVisible(p => p.ErrorMessage);
     
     return this;
 }
 
 public LoginPage VerifyErrorMessage(string expectedMessage)
 {
-    Verify.ElementContainsText(".error-message", expectedMessage);
+    Verify.TextContains(p => p.ErrorMessage, expectedMessage);
     return this;
 }
 
 public LoginPage VerifyPageLoaded()
 {
     Verify
-        .CurrentPageIs<LoginPage>()
-        .UrlMatches("/login")
+        .UrlContains("/login")
         .TitleContains("Login");
     
     return this;
