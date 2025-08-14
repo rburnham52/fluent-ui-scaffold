@@ -197,6 +197,16 @@ namespace FluentUIScaffold.Core.Pages
             return targetPage;
         }
 
+        /// <summary>
+        /// Alias for NavigateTo to improve readability in fluent chains.
+        /// </summary>
+        /// <typeparam name="TTarget">The type of the target page component.</typeparam>
+        /// <returns>The target page component instance.</returns>
+        public virtual TTarget Then<TTarget>() where TTarget : BasePageComponent<TDriver, TTarget>
+        {
+            return NavigateTo<TTarget>();
+        }
+
         // Framework-specific access - direct driver access
         protected TDriver FrameworkDriver => Driver;
 
