@@ -8,6 +8,7 @@ using FluentUIScaffold.Core.Exceptions;
 using FluentUIScaffold.Core.Interfaces;
 using FluentUIScaffold.Core.Pages;
 using FluentUIScaffold.Core.Plugins;
+using FluentUIScaffold.Core.Server;
 
 
 using Microsoft.Extensions.DependencyInjection;
@@ -83,6 +84,21 @@ namespace FluentUIScaffold.Core
             _serviceProvider = services.BuildServiceProvider();
             _logger = _serviceProvider.GetRequiredService<ILogger<FluentUIScaffoldApp<TApp>>>();
             _pluginManager = _serviceProvider.GetRequiredService<PluginManager>();
+
+            // Start server if a plan is provided
+            if (_options.ServerLaunchPlan is { } plan)
+            {
+                try
+                {
+                    var serverManager = _serviceProvider.GetRequiredService<IServerManager>();
+                    serverManager.EnsureStartedAsync(plan, _logger, System.Threading.CancellationToken.None).GetAwaiter().GetResult();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to ensure server started");
+                    throw;
+                }
+            }
 
             // Create driver using PluginManager
             _driver = _pluginManager.CreateDriver(_options);
@@ -283,6 +299,13 @@ namespace FluentUIScaffold.Core
 
             // Register PluginManager singleton instance
             services.AddSingleton(unifiedPluginManager);
+
+            // Lifecycle manager and dependencies
+            services.AddSingleton<Configuration.Launchers.IReadinessProbe, Configuration.Launchers.HttpReadinessProbe>();
+            services.AddSingleton<Configuration.Launchers.ProcessLauncher>();
+            services.AddSingleton<IProcessRegistry, ProcessRegistry>();
+            services.AddSingleton<IConfigHasher, ConfigHasher>();
+            services.AddSingleton<IServerManager, AspireServerManager>();
 
             // Auto-discover and register pages
             AutoDiscoverPages(services, options);

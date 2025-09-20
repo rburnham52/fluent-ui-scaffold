@@ -36,5 +36,10 @@ namespace FluentUIScaffold.Core.Configuration
         /// When set, the plugin selection will prefer plugins that can handle this driver type.
         /// </summary>
         public Type? RequestedDriverType { get; set; }
+
+        /// <summary>
+        /// Optional: Launch plan to start a server via the lifecycle manager.
+        /// </summary>
+        public Launchers.LaunchPlan? ServerLaunchPlan { get; set; }
     }
 }

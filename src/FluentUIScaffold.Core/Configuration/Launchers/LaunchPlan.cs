@@ -14,6 +14,9 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
         public TimeSpan InitialDelay { get; }
         public TimeSpan PollInterval { get; }
         public bool StreamProcessOutput { get; }
+        public bool ForceRestartOnConfigChange { get; init; }
+        public bool KillOrphansOnStart { get; init; } = true;
+        public Func<CancellationToken, Task>? AssetsBuild { get; init; }
 
         public LaunchPlan(
             ProcessStartInfo startInfo,

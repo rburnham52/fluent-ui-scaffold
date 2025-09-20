@@ -20,6 +20,9 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
         private TimeSpan _initialDelay = TimeSpan.FromSeconds(2);
         private TimeSpan _pollInterval = TimeSpan.FromMilliseconds(200);
         private bool _streamOutput = true;
+        private bool _forceRestartOnConfigChange = false;
+        private bool _killOrphansOnStart = true;
+        private Func<System.Threading.CancellationToken, System.Threading.Tasks.Task>? _assetsBuild;
 
         protected TSelf This => (TSelf)this;
 
@@ -51,6 +54,18 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
         }
         public TSelf WithProcessOutputLogging(bool enabled = true) { _streamOutput = enabled; return This; }
 
+        public TSelf WithForceRestartOnConfigChange(bool on = true) { _forceRestartOnConfigChange = on; return This; }
+        public TSelf WithKillOrphansOnStart(bool on = true) { _killOrphansOnStart = on; return This; }
+        public TSelf WithAssetsBuild(Func<System.Threading.CancellationToken, System.Threading.Tasks.Task>? buildAsync) { _assetsBuild = buildAsync; return This; }
+        public TSelf WithHeadless(bool on = true)
+        {
+            // Disables SpaProxy when headless/CI
+            WithEnvironmentVariable("ASPNETCORE_HOSTINGSTARTUPASSEMBLIES", on ? string.Empty : "Microsoft.AspNetCore.SpaProxy");
+            // Propagate common PW envs for plugins if needed
+            if (on) WithEnvironmentVariable("PWDEBUG", "0");
+            return This;
+        }
+
         public LaunchPlan Build()
         {
             if (_baseUrl == null) throw new InvalidOperationException("BaseUrl must be provided");
@@ -81,7 +96,12 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
             }
 
             var endpoints = _healthEndpoints.Count > 0 ? _healthEndpoints : new List<string> { "/" };
-            return new LaunchPlan(startInfo, _baseUrl, _startupTimeout, _readinessProbe, endpoints, _initialDelay, _pollInterval, _streamOutput);
+            return new LaunchPlan(startInfo, _baseUrl, _startupTimeout, _readinessProbe, endpoints, _initialDelay, _pollInterval, _streamOutput)
+            {
+                ForceRestartOnConfigChange = _forceRestartOnConfigChange,
+                KillOrphansOnStart = _killOrphansOnStart,
+                AssetsBuild = _assetsBuild
+            };
         }
     }
 
