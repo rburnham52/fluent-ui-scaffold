@@ -56,7 +56,6 @@ public class PlaywrightPlugin : IUITestingFrameworkPlugin
     {
         services.AddSingleton<PlaywrightPlugin>();
         services.AddTransient<PlaywrightDriver>();
-        services.AddSingleton<Microsoft.Playwright.IPlaywright>(provider => Microsoft.Playwright.Playwright.CreateAsync().Result);
 
         // Register IUIDriver with PlaywrightDriver implementation
         services.AddTransient<IUIDriver, PlaywrightDriver>();
