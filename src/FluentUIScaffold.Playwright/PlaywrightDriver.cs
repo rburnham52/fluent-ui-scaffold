@@ -35,7 +35,9 @@ public class PlaywrightDriver : IUIDriver, IDisposable
     public PlaywrightDriver(FluentUIScaffoldOptions options)
     {
         _options = options ?? throw new ArgumentNullException(nameof(options));
-        _playwright = Microsoft.Playwright.Playwright.CreateAsync().Result;
+        _playwright = Task.Run(() => Microsoft.Playwright.Playwright.CreateAsync())
+                          .GetAwaiter()
+                          .GetResult();
         InitializeBrowser();
     }
 
@@ -48,7 +50,9 @@ public class PlaywrightDriver : IUIDriver, IDisposable
     {
         _options = options ?? throw new ArgumentNullException(nameof(options));
         _logger = logger;
-        _playwright = Microsoft.Playwright.Playwright.CreateAsync().Result;
+        _playwright = Task.Run(() => Microsoft.Playwright.Playwright.CreateAsync())
+                          .GetAwaiter()
+                          .GetResult();
         InitializeBrowser();
     }
 
