@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 
 using FluentUIScaffold.Core;
 using FluentUIScaffold.Core.Configuration;
+using FluentUIScaffold.Playwright;
 
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -18,20 +19,24 @@ namespace SampleApp.Tests.Examples
     [TestClass]
     public class HomePageTests
     {
-        private FluentUIScaffoldApp<WebApp>? _app;
+        private AppScaffold<WebApp>? _app;
         private HomePage? _homePage;
 
         [TestInitialize]
         public async Task Setup()
         {
             // Arrange - Set up the application and page objects
-            var options = new FluentUIScaffoldOptionsBuilder()
-                .WithBaseUrl(TestConfiguration.BaseUri)
-                .WithDefaultWaitTimeout(TimeSpan.FromSeconds(30))
-                .Build();
+            _app = new FluentUIScaffoldBuilder()
+                .UsePlaywright()
+                .Web<WebApp>(options =>
+                {
+                    options.BaseUrl = TestConfiguration.BaseUri;
+                    options.DefaultWaitTimeout = TimeSpan.FromSeconds(30);
+                })
+                .WithAutoPageDiscovery()
+                .Build<WebApp>();
 
-            _app = new FluentUIScaffoldApp<WebApp>(options);
-            await _app.InitializeAsync();
+            await _app.StartAsync();
 
             // Create the home page object
             _homePage = new HomePage(_app.ServiceProvider);
@@ -39,9 +44,12 @@ namespace SampleApp.Tests.Examples
         }
 
         [TestCleanup]
-        public void Cleanup()
+        public async Task Cleanup()
         {
-            _app?.Dispose();
+            if (_app != null)
+            {
+                await _app.DisposeAsync();
+            }
         }
 
         [TestMethod]
@@ -177,17 +185,23 @@ namespace SampleApp.Tests.Examples
         public async Task FrameworkInitialization_WhenValidOptionsProvided_InitializesSuccessfully()
         {
             // Arrange & Act - Test that the framework can be initialized
-            var options = new FluentUIScaffoldOptionsBuilder()
-                .WithBaseUrl(TestConfiguration.BaseUri)
-                .WithDefaultWaitTimeout(TimeSpan.FromSeconds(30))
-                .Build();
+            var app = new FluentUIScaffoldBuilder()
+                .UsePlaywright()
+                .Web<WebApp>(options =>
+                {
+                    options.BaseUrl = TestConfiguration.BaseUri;
+                    options.DefaultWaitTimeout = TimeSpan.FromSeconds(30);
+                })
+                .WithAutoPageDiscovery()
+                .Build<WebApp>();
 
-            using var app = new FluentUIScaffoldApp<WebApp>(options);
-            await app.InitializeAsync();
+            await app.StartAsync();
 
             // Assert - Verify the framework initialized successfully
-            Assert.IsNotNull(app, "FluentUIScaffoldApp should be created");
+            Assert.IsNotNull(app, "AppScaffold should be created");
             Assert.IsNotNull(app.ServiceProvider, "ServiceProvider should be available");
+
+            await app.DisposeAsync();
 
             // Note: This test verifies framework initialization without requiring a running web app
             // In a real scenario, you would start the web application before running UI tests
@@ -197,13 +211,17 @@ namespace SampleApp.Tests.Examples
         public async Task WebAppNotRunning_WhenAttemptingToNavigate_HandlesGracefully()
         {
             // Arrange
-            var options = new FluentUIScaffoldOptionsBuilder()
-                .WithBaseUrl(TestConfiguration.BaseUri)
-                .WithDefaultWaitTimeout(TimeSpan.FromSeconds(5)) // Shorter timeout for this test
-                .Build();
+            var app = new FluentUIScaffoldBuilder()
+                .UsePlaywright()
+                .Web<WebApp>(options =>
+                {
+                    options.BaseUrl = TestConfiguration.BaseUri;
+                    options.DefaultWaitTimeout = TimeSpan.FromSeconds(5); // Shorter timeout for this test
+                })
+                .WithAutoPageDiscovery()
+                .Build<WebApp>();
 
-            using var app = new FluentUIScaffoldApp<WebApp>(options);
-            await app.InitializeAsync();
+            await app.StartAsync();
 
             var homePage = new HomePage(app.ServiceProvider);
 
@@ -212,6 +230,8 @@ namespace SampleApp.Tests.Examples
             await homePage.NavigateToHomeAsync();
             var hasExpectedContent = await homePage.HasExpectedContentAsync();
             Assert.IsTrue(hasExpectedContent, "Home should load when the web app is running");
+
+            await app.DisposeAsync();
         }
     }
 }

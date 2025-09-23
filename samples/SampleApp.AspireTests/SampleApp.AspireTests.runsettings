@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RunSettings>
+  <!-- MSTest configuration -->
+  <MSTest>
+    <!-- Set default timeout for all test methods to 2 minutes (120000 ms) -->
+    <TestTimeout>120000</TestTimeout>
+  </MSTest>
+  
+  <!-- Test run configuration -->
+  <RunConfiguration>
+    <!-- Set maximum test execution time to 2 minutes -->
+    <MaxCpuCount>1</MaxCpuCount>
+    <TestSessionTimeout>120000</TestSessionTimeout>
+  </RunConfiguration>
+</RunSettings>
+

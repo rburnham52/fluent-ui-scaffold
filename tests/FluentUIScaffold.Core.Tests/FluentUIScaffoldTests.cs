@@ -12,50 +12,13 @@ using NUnit.Framework;
 namespace FluentUIScaffold.Core.Tests
 {
     /// <summary>
-    /// Unit tests for the FluentUIScaffold class using the new auto-discovery pattern.
+    /// Unit tests for FluentUIScaffold configuration options.
     /// </summary>
     [TestFixture]
     public class FluentUIScaffoldTests
     {
-        [OneTimeSetUp]
-        public void GlobalSetup()
-        {
-            // Ensure a plugin is available for driver creation in these unit tests
-            FluentUIScaffoldBuilder.UsePlugin(new MockPlugin());
-        }
-
         [Test]
-        public void Constructor_WithValidOptions_CreatesInstance()
-        {
-            // Arrange
-            var options = new FluentUIScaffoldOptions
-            {
-                BaseUrl = new Uri("http://localhost:5000"),
-                DefaultWaitTimeout = TimeSpan.FromSeconds(30)
-            };
-
-            // Act
-            var app = new FluentUIScaffoldApp<object>(options);
-
-            // Assert
-            Assert.That(app, Is.Not.Null);
-        }
-
-        [Test]
-        public void Constructor_WithNullOptions_ThrowsException()
-        {
-            // Arrange
-            var options = new FluentUIScaffoldOptions
-            {
-                BaseUrl = new Uri("http://localhost:5000")
-            };
-
-            // Act & Assert
-            Assert.Throws<ArgumentNullException>(() => new FluentUIScaffoldApp<object>(null!));
-        }
-
-        [Test]
-        public void WithBaseUrl_WithValidUrl_SetsBaseUrl()
+        public void Options_WithValidBaseUrl_SetsBaseUrl()
         {
             // Arrange
             var options = new FluentUIScaffoldOptions
@@ -68,7 +31,7 @@ namespace FluentUIScaffold.Core.Tests
         }
 
         [Test]
-        public void WithDefaultWaitTimeout_WithValidTimeout_SetsDefaultWaitTimeout()
+        public void Options_WithValidTimeout_SetsDefaultWaitTimeout()
         {
             // Arrange
             var options = new FluentUIScaffoldOptions
@@ -80,16 +43,8 @@ namespace FluentUIScaffold.Core.Tests
             Assert.That(options.DefaultWaitTimeout, Is.EqualTo(TimeSpan.FromSeconds(60)));
         }
 
-        // Removed debug/extra timeout API; covered by Headless/SlowMo
-
         [Test]
-        public void WebServerProjectPath_Removed_FromOptions()
-        {
-            Assert.Pass("Server project path removed from options; managed by WebServerManager");
-        }
-
-        [Test]
-        public void HeadlessMode_WithValidValue_SetsHeadlessMode()
+        public void Builder_WithHeadlessMode_SetsHeadlessMode()
         {
             // Arrange
             var builder = new FluentUIScaffoldOptionsBuilder();
@@ -108,7 +63,7 @@ namespace FluentUIScaffold.Core.Tests
         }
 
         [Test]
-        public void HeadlessMode_WithNullValue_SetsHeadlessModeToNull()
+        public void Builder_WithHeadlessMode_Null_SetsHeadlessModeToNull()
         {
             // Arrange
             var builder = new FluentUIScaffoldOptionsBuilder();
@@ -126,7 +81,7 @@ namespace FluentUIScaffold.Core.Tests
         }
 
         [Test]
-        public void SlowMo_WithValidValue_SetsSlowMo()
+        public void Builder_WithSlowMo_SetsSlowMo()
         {
             // Arrange
             var builder = new FluentUIScaffoldOptionsBuilder();
@@ -145,7 +100,7 @@ namespace FluentUIScaffold.Core.Tests
         }
 
         [Test]
-        public void SlowMo_WithNullValue_SetsSlowMoToNull()
+        public void Builder_WithSlowMo_Null_SetsSlowMoToNull()
         {
             // Arrange
             var builder = new FluentUIScaffoldOptionsBuilder();
@@ -163,15 +118,51 @@ namespace FluentUIScaffold.Core.Tests
         }
 
         [Test]
-        public void ServerConfiguration_Removed_FromOptions()
+        public async Task Builder_UsePlugin_RegistersPlugin()
         {
-            Assert.Pass("Server configuration removed from options; managed by WebServerManager");
+            // Arrange
+            var builder = new FluentUIScaffoldBuilder();
+            var plugin = new MockPlugin();
+
+            // Act
+            var result = builder.UsePlugin(plugin);
+
+            // Assert
+            Assert.That(result, Is.SameAs(builder));
+
+            // Verify plugin is registered by building and checking
+            var app = builder
+                .Web<WebApp>(opts => opts.BaseUrl = new Uri("http://localhost"))
+                .Build<WebApp>();
+
+            await app.StartAsync();
+            var driver = app.GetService<Interfaces.IUIDriver>();
+            Assert.That(driver, Is.InstanceOf<MockUIDriver>());
+            await app.DisposeAsync();
         }
 
         [Test]
-        public void Placeholder_NoOp_ToMaintainTestStructure()
+        public async Task Builder_Web_ConfiguresOptions()
         {
-            Assert.Pass();
+            // Arrange & Act
+            var app = new FluentUIScaffoldBuilder()
+                .UsePlugin(new MockPlugin())
+                .Web<WebApp>(opts =>
+                {
+                    opts.BaseUrl = new Uri("http://test.local:8080");
+                    opts.DefaultWaitTimeout = TimeSpan.FromSeconds(45);
+                })
+                .Build<WebApp>();
+
+            await app.StartAsync();
+
+            var options = app.GetService<FluentUIScaffoldOptions>();
+
+            // Assert
+            Assert.That(options.BaseUrl, Is.EqualTo(new Uri("http://test.local:8080")));
+            Assert.That(options.DefaultWaitTimeout, Is.EqualTo(TimeSpan.FromSeconds(45)));
+
+            await app.DisposeAsync();
         }
     }
 }

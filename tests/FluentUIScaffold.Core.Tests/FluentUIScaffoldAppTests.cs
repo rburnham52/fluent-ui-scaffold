@@ -13,14 +13,8 @@ using NUnit.Framework;
 namespace FluentUIScaffold.Core.Tests
 {
     [TestFixture]
-    public class FluentUIScaffoldAppTests
+    public class AppScaffoldTests
     {
-        [SetUp]
-        public void TestSetup()
-        {
-            PluginRegistry.ClearForTests();
-        }
-
         private sealed class FakeDriver : IUIDriver
         {
             public Uri? CurrentUrl { get; private set; }
@@ -64,31 +58,80 @@ namespace FluentUIScaffold.Core.Tests
         }
 
         [Test]
-        public async Task Builder_Web_Creates_App_And_Allows_BaseUrl_And_Navigation()
+        public async Task Builder_Creates_AppScaffold_And_Allows_Navigation()
         {
-            PluginRegistry.Register(new FakePlugin());
-            var app = FluentUIScaffoldBuilder.Web<WebApp>(opts =>
-            {
-                opts.WithBaseUrl(new Uri("http://localhost:7555"));
-            });
+            var app = new FluentUIScaffoldBuilder()
+                .UsePlugin(new FakePlugin())
+                .Web<WebApp>(opts =>
+                {
+                    opts.BaseUrl = new Uri("http://localhost:7555");
+                })
+                .Build<WebApp>();
 
             Assert.That(app, Is.Not.Null);
-            await app.InitializeAsync();
+            await app.StartAsync();
 
             var newBase = new Uri("http://localhost:7666");
             app.WithBaseUrl(newBase).NavigateToUrl(newBase);
-            Assert.That((app.Framework<IUIDriver>()).CurrentUrl, Is.EqualTo(newBase));
+            Assert.That(app.Framework<IUIDriver>().CurrentUrl, Is.EqualTo(newBase));
 
-            app.Dispose();
+            await app.DisposeAsync();
         }
 
         [Test]
-        public void Builder_Web_Throws_On_Null_BaseUrl_In_WithBaseUrl()
+        public async Task Builder_WithBaseUrl_Throws_On_Null()
         {
-            PluginRegistry.Register(new FakePlugin());
-            var app = FluentUIScaffoldBuilder.Web<WebApp>(_ => { });
+            var app = new FluentUIScaffoldBuilder()
+                .UsePlugin(new FakePlugin())
+                .Web<WebApp>(opts =>
+                {
+                    opts.BaseUrl = new Uri("http://localhost:7555");
+                })
+                .Build<WebApp>();
+
+            await app.StartAsync();
             Assert.That(() => app.WithBaseUrl(null!), Throws.Exception);
-            app.Dispose();
+            await app.DisposeAsync();
+        }
+
+        [Test]
+        public async Task GetService_Returns_Registered_Service()
+        {
+            var app = new FluentUIScaffoldBuilder()
+                .UsePlugin(new FakePlugin())
+                .Web<WebApp>(opts =>
+                {
+                    opts.BaseUrl = new Uri("http://localhost:7555");
+                })
+                .Build<WebApp>();
+
+            await app.StartAsync();
+
+            var driver = app.GetService<IUIDriver>();
+            Assert.That(driver, Is.Not.Null);
+            Assert.That(driver, Is.InstanceOf<FakeDriver>());
+
+            await app.DisposeAsync();
+        }
+
+        [Test]
+        public async Task Framework_Returns_Driver()
+        {
+            var app = new FluentUIScaffoldBuilder()
+                .UsePlugin(new FakePlugin())
+                .Web<WebApp>(opts =>
+                {
+                    opts.BaseUrl = new Uri("http://localhost:7555");
+                })
+                .Build<WebApp>();
+
+            await app.StartAsync();
+
+            var driver = app.Framework<IUIDriver>();
+            Assert.That(driver, Is.Not.Null);
+            Assert.That(driver, Is.InstanceOf<FakeDriver>());
+
+            await app.DisposeAsync();
         }
     }
 }

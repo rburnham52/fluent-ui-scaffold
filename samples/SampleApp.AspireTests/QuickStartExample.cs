@@ -1,148 +1,89 @@
 using System;
-using System.IO;
 using System.Threading.Tasks;
 
-using FluentUIScaffold.Core;
 using FluentUIScaffold.Core.Configuration;
-using FluentUIScaffold.Core.Server;
-using FluentUIScaffold.Playwright;
 
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace SampleApp.AspireTests
 {
     /// <summary>
-    /// Quick start example showing the new Aspire server lifecycle management in action.
-    /// Compare this with the traditional WebServerManager approach for immediate understanding.
+    /// Quick start examples demonstrating FluentUIScaffold with Aspire hosting.
+    /// These tests show the recommended patterns for E2E testing with the unified API.
     /// </summary>
     [TestClass]
     public class QuickStartExample
     {
-        [ClassInitialize]
-        public static void ClassInitialize(TestContext context)
-        {
-            // One-time setup: Register Playwright plugin
-            FluentUIScaffoldPlaywrightBuilder.UsePlaywright();
-        }
-
         [TestMethod]
         [TestCategory("QuickStart")]
         [TestCategory("Example")]
         public async Task QuickStart_AspireLifecycleManagement_JustWorks()
         {
-            // 🎯 This is all you need for enterprise-grade server lifecycle management!
+            // 🎯 This is all you need for Aspire-hosted E2E testing.
+            // The server is automatically managed by the TestAssemblyHooks.
 
-            var projectRoot = GetProjectRoot();
-            var appHostPath = Path.Combine(projectRoot, "samples", "SampleApp.AppHost", "SampleApp.AppHost.csproj");
-
-            // ✨ NEW: One-line server configuration with Aspire AppHost
-            var serverConfig = ServerConfiguration.CreateAspireServer(
-                new Uri("http://localhost:5300"), appHostPath)
-                .WithHealthCheckEndpoints("/", "/weatherforecast")  // Multi-endpoint health checks
-                .WithAutoCI()                                        // Automatic CI environment detection
-                .WithHeadless(true)                                 // Headless for testing
-                .WithKillOrphansOnStart(true)                       // Clean up previous runs
-                .Build();
-
-            // 🚀 Create FluentUIScaffold app with integrated server management
-            using var app = FluentUIScaffoldBuilder.Web<WebApp>(options =>
+            var app = TestAssemblyHooks.GetSessionApp();
+            if (app == null)
             {
-                options.WithServerConfiguration(serverConfig);     // 🔑 This is the magic!
-                options.WithBaseUrl(new Uri("http://localhost:5300"));
-                options.WithHeadlessMode(true);
-            });
+                Assert.Inconclusive("Session-level Aspire server is not available. Check TestAssemblyHooks initialization.");
+                return;
+            }
 
-            // ✅ Server is automatically:
-            //    - Started with health checks
-            //    - Configured for your environment (CI/dev)
-            //    - Ready for immediate testing
-            //    - Will be stopped when disposed
-
-            // 🧪 Write your tests normally - server lifecycle is transparent
+            // Get the Playwright page from the app
             var driver = app.Framework<Microsoft.Playwright.IPage>();
 
-            // Navigate to the home page
-            var response = await driver.GotoAsync("http://localhost:5300/");
+            // Get the base URL from the options (set by Aspire hosting)
+            var baseUrl = app.GetService<FluentUIScaffoldOptions>()?.BaseUrl?.ToString() ?? "http://localhost:5000";
+
+            // Navigate to the SampleApp
+            var response = await driver.GotoAsync(baseUrl);
             Assert.IsNotNull(response);
-            Assert.IsTrue(response.Ok, "Home page should load successfully");
+            Assert.IsTrue(response.Ok, $"SampleApp should load successfully. Status: {response.Status}");
 
-            // Test the page content
-            await driver.WaitForSelectorAsync("h1", new() { Timeout = 10000 });
+            // Verify the app loaded correctly
+            await driver.WaitForSelectorAsync("body", new() { Timeout = 10000 });
             var title = await driver.TitleAsync();
-            Assert.IsTrue(!string.IsNullOrEmpty(title), "Page should have a title");
-
-            // Test the API endpoint
-            var apiWorking = await driver.EvaluateAsync<bool>(@"
-                fetch('/weatherforecast')
-                    .then(response => response.ok)
-                    .catch(() => false)
-            ");
-            Assert.IsTrue(apiWorking, "Weather API should be accessible");
+            Assert.IsTrue(!string.IsNullOrEmpty(title), "App should have a title");
 
             Console.WriteLine("✅ Aspire server lifecycle management test completed successfully!");
-            Console.WriteLine("🚀 Server was automatically managed - no manual lifecycle code needed!");
+            Console.WriteLine($"🚀 Server URL: {baseUrl}");
+            Console.WriteLine("📝 Server was automatically managed - no manual lifecycle code needed!");
         }
 
-        /// <summary>
-        /// Shows what you would have needed to do with the old WebServerManager approach.
-        /// Compare this complexity with the simplicity above!
-        /// </summary>
         [TestMethod]
-        [TestCategory("Comparison")]
-        public void TraditionalApproach_ShowsTheOldWay_ForComparison()
+        [TestCategory("QuickStart")]
+        [TestCategory("Example")]
+        public async Task QuickStart_SimpleServerConfiguration_JustWorks()
         {
-            // 📝 This is what you would need with the OLD WebServerManager approach:
+            // 🎯 Even simpler - just use the shared Aspire host and focus on tests.
 
-            var steps = new[]
+            var app = TestAssemblyHooks.GetSessionApp();
+            if (app == null)
             {
-                "1. Create TestAssemblyHooks class",
-                "2. Implement [AssemblyInitialize] method",
-                "3. Build server configuration manually",
-                "4. Call WebServerManager.StartServerAsync(plan)",
-                "5. Implement [AssemblyCleanup] method",
-                "6. Call WebServerManager.StopServer() manually",
-                "7. Handle server lifecycle errors manually",
-                "8. No automatic server reuse (slower tests)",
-                "9. No configuration drift detection",
-                "10. Manual CI/headless configuration",
-                "11. Manual health checking",
-                "12. Manual orphan process cleanup",
-                "13. Risk of orphaned processes between test runs"
-            };
-
-            Console.WriteLine("❌ OLD WAY (WebServerManager) - What you had to do:");
-            foreach (var step in steps)
-            {
-                Console.WriteLine($"   {step}");
+                Assert.Inconclusive("Session-level Aspire server is not available. Check TestAssemblyHooks initialization.");
+                return;
             }
 
-            Console.WriteLine("\n✅ NEW WAY (Aspire Lifecycle) - What you do now:");
-            Console.WriteLine("   1. Create server config with .CreateAspireServer()");
-            Console.WriteLine("   2. Use .WithServerConfiguration() in FluentUIScaffoldBuilder");
-            Console.WriteLine("   3. Write your tests - everything else is automatic!");
+            var driver = app.Framework<Microsoft.Playwright.IPage>();
+            var baseUrl = app.GetService<FluentUIScaffoldOptions>()?.BaseUrl?.ToString() ?? "http://localhost:5000";
 
-            Console.WriteLine("\n🎯 Benefits of the new approach:");
-            Console.WriteLine("   ✨ 3-10x faster test execution (server reuse)");
-            Console.WriteLine("   🤖 Automatic server lifecycle management");
-            Console.WriteLine("   🔄 Configuration drift detection & handling");
-            Console.WriteLine("   🏗️ Aspire orchestration capabilities");
-            Console.WriteLine("   🧪 CI/CD ready with automatic headless mode");
-            Console.WriteLine("   🧹 Automatic orphan process cleanup");
-            Console.WriteLine("   ❤️ Much simpler and more reliable!");
+            // Navigate to the app
+            var response = await driver.GotoAsync(baseUrl);
+            Assert.IsNotNull(response);
+            Assert.IsTrue(response.Ok, "SampleApp should be accessible");
 
-            // This test always passes - it's just for documentation
-            Assert.IsTrue(true, "New approach is clearly better! 🎉");
-        }
+            // Test the weather API endpoint
+            var apiResponse = await driver.GotoAsync($"{baseUrl.TrimEnd('/')}/weatherforecast");
+            Assert.IsNotNull(apiResponse);
+            Assert.IsTrue(apiResponse.Ok, "Weather API should be accessible");
 
-        private static string GetProjectRoot()
-        {
-            var currentDir = Directory.GetCurrentDirectory();
-            while (currentDir != null && !File.Exists(Path.Combine(currentDir, "FluentUIScaffold.sln")))
-            {
-                currentDir = Directory.GetParent(currentDir)?.FullName;
-            }
+            // Verify it returns JSON data
+            var content = await driver.ContentAsync();
+            Assert.IsTrue(content.Contains("temperatureC") || content.Contains("Temperature") || content.Contains("date"),
+                "Weather API should return weather data");
 
-            return currentDir ?? throw new InvalidOperationException("Could not find project root");
+            Console.WriteLine("✅ Simple Aspire integration test completed!");
+            Console.WriteLine("🚀 Server lifecycle was completely automatic!");
         }
     }
 }

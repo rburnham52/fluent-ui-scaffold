@@ -393,31 +393,36 @@ var slowElement = Element("#slow-loading-element")
 ### 4. Element Organization
 
 ```csharp
-public class WellOrganizedPage : BasePageComponent<WebApp>
+public class WellOrganizedPage : Page<WellOrganizedPage>
 {
     // Group related elements
-    private IElement _emailInput;
-    private IElement _passwordInput;
-    private IElement _loginButton;
-    
+    public IElement EmailInput { get; private set; } = null!;
+    public IElement PasswordInput { get; private set; } = null!;
+    public IElement LoginButton { get; private set; } = null!;
+
+    public WellOrganizedPage(IServiceProvider sp, Uri url) : base(sp, url) { }
+
     protected override void ConfigureElements()
     {
         ConfigureLoginElements();
     }
-    
+
     private void ConfigureLoginElements()
     {
-        _emailInput = Element("#email")
+        EmailInput = Element("#email")
             .WithDescription("Email Input")
-            .WithWaitStrategy(WaitStrategy.Visible);
-            
-        _passwordInput = Element("#password")
+            .WithWaitStrategy(WaitStrategy.Visible)
+            .Build();
+
+        PasswordInput = Element("#password")
             .WithDescription("Password Input")
-            .WithWaitStrategy(WaitStrategy.Visible);
-            
-        _loginButton = Element("#login-btn")
+            .WithWaitStrategy(WaitStrategy.Visible)
+            .Build();
+
+        LoginButton = Element("#login-btn")
             .WithDescription("Login Button")
-            .WithWaitStrategy(WaitStrategy.Clickable);
+            .WithWaitStrategy(WaitStrategy.Clickable)
+            .Build();
     }
 }
 ```
@@ -455,24 +460,28 @@ var homeLink = ElementPatterns.Link("Home");
 ### Element Caching
 
 ```csharp
-public class OptimizedPage : BasePageComponent<WebApp>
+public class OptimizedPage : Page<OptimizedPage>
 {
-    private readonly Dictionary<string, IElement> _elementCache = new();
-    
+    public IElement Button { get; private set; } = null!;
+    public IElement Input { get; private set; } = null!;
+
+    public OptimizedPage(IServiceProvider sp, Uri url) : base(sp, url) { }
+
     protected override void ConfigureElements()
     {
         // Elements are automatically cached by ElementFactory
-        _button = Element("#button");
-        _input = Element("#input");
+        Button = Element("#button").Build();
+        Input = Element("#input").Build();
     }
-    
-    public void ClickButtonMultipleTimes(int times)
+
+    public OptimizedPage ClickButtonMultipleTimes(int times)
     {
         // Element is cached, no need to re-find
         for (int i = 0; i < times; i++)
         {
-            _button.Click();
+            Button.Click();
         }
+        return this;
     }
 }
 ```
@@ -480,16 +489,21 @@ public class OptimizedPage : BasePageComponent<WebApp>
 ### Lazy Loading
 
 ```csharp
-public class LazyPage : BasePageComponent<WebApp>
+public class LazyPage : Page<LazyPage>
 {
-    private IElement _lazyElement;
-    
-    private IElement LazyElement => _lazyElement ??= Element("#lazy-loaded-element");
-    
-    public void InteractWithLazyElement()
+    private IElement? _lazyElement;
+
+    public LazyPage(IServiceProvider sp, Uri url) : base(sp, url) { }
+
+    protected override void ConfigureElements() { }
+
+    private IElement LazyElement => _lazyElement ??= Element("#lazy-loaded-element").Build();
+
+    public LazyPage InteractWithLazyElement()
     {
         // Element is only found when first accessed
         LazyElement.Click();
+        return this;
     }
 }
 ```
@@ -497,24 +511,30 @@ public class LazyPage : BasePageComponent<WebApp>
 ### Batch Operations
 
 ```csharp
-public class BatchPage : BasePageComponent<WebApp>
+public class BatchPage : Page<BatchPage>
 {
-    public void FillMultipleInputs(Dictionary<string, string> data)
+    public BatchPage(IServiceProvider sp, Uri url) : base(sp, url) { }
+
+    protected override void ConfigureElements() { }
+
+    public BatchPage FillMultipleInputs(Dictionary<string, string> data)
     {
         foreach (var item in data)
         {
-            var element = Element($"#{item.Key}");
+            var element = Element($"#{item.Key}").Build();
             element.Type(item.Value);
         }
+        return this;
     }
-    
-    public void ClickMultipleButtons(List<string> buttonIds)
+
+    public BatchPage ClickMultipleButtons(List<string> buttonIds)
     {
         foreach (var id in buttonIds)
         {
-            var element = Element($"#{id}");
+            var element = Element($"#{id}").Build();
             element.Click();
         }
+        return this;
     }
 }
 ```
@@ -524,21 +544,25 @@ public class BatchPage : BasePageComponent<WebApp>
 ### Element Not Found
 
 ```csharp
-public class RobustPage : BasePageComponent<WebApp>
+public class RobustPage : Page<RobustPage>
 {
-    public void ClickButtonSafely()
+    public RobustPage(IServiceProvider sp, Uri url) : base(sp, url) { }
+
+    protected override void ConfigureElements() { }
+
+    public RobustPage ClickButtonSafely()
     {
         try
         {
-            var button = Element("#button");
+            var button = Element("#button").Build();
             button.Click();
         }
         catch (ElementTimeoutException ex)
         {
-            Logger.LogWarning($"Button not found: {ex.Selector}");
-            // Fallback logic
+            // Log and use fallback logic
             Driver.ExecuteScript("document.querySelector('#button').click();");
         }
+        return this;
     }
 }
 ```
@@ -546,15 +570,19 @@ public class RobustPage : BasePageComponent<WebApp>
 ### Retry Logic
 
 ```csharp
-public class RetryPage : BasePageComponent<WebApp>
+public class RetryPage : Page<RetryPage>
 {
+    public RetryPage(IServiceProvider sp, Uri url) : base(sp, url) { }
+
+    protected override void ConfigureElements() { }
+
     public IElement GetElementWithRetry(string selector, int maxRetries = 3)
     {
         for (int i = 0; i < maxRetries; i++)
         {
             try
             {
-                var element = Element(selector);
+                var element = Element(selector).Build();
                 element.WaitFor();
                 return element;
             }
@@ -564,7 +592,7 @@ public class RetryPage : BasePageComponent<WebApp>
                 Thread.Sleep(1000);
             }
         }
-        
+
         throw new ElementTimeoutException($"Element {selector} not found after {maxRetries} attempts");
     }
 }
@@ -620,34 +648,41 @@ public class ElementConfigurationTests
 [TestClass]
 public class ElementInteractionTests
 {
-    private FluentUIScaffoldApp<WebApp> _fluentUI;
-    
-    [TestInitialize]
-    public void Setup()
+    private static AppScaffold<WebApp>? _app;
+
+    [ClassInitialize]
+    public static async Task ClassInitialize(TestContext context)
     {
-        _fluentUI = FluentUIScaffoldBuilder.Web(options =>
-        {
-            options.BaseUrl = new Uri("https://your-app.com");
-        });
+        _app = new FluentUIScaffoldBuilder()
+            .UsePlugin(new PlaywrightPlugin())
+            .Web<WebApp>(opts =>
+            {
+                opts.BaseUrl = new Uri("https://your-app.com");
+            })
+            .WithAutoPageDiscovery()
+            .Build<WebApp>();
+
+        await _app.StartAsync();
     }
-    
+
     [TestMethod]
-    public async Task Can_Interact_With_Configured_Element()
+    public void Can_Interact_With_Configured_Element()
     {
         // Arrange
-        var page = _fluentUI.NavigateTo<TestPage>();
-        
+        var page = _app!.NavigateTo<TestPage>();
+
         // Act
         page.InteractWithConfiguredElement();
-        
+
         // Assert
-        page.Verify.ElementIsVisible("#result");
+        page.Verify.Visible(p => p.ResultElement);
     }
-    
-    [TestCleanup]
-    public void Cleanup()
+
+    [ClassCleanup]
+    public static async Task ClassCleanup()
     {
-        _fluentUI?.Dispose();
+        if (_app != null)
+            await _app.DisposeAsync();
     }
 }
 ```

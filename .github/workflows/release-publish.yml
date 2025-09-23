@@ -83,6 +83,9 @@ jobs:
           7.0.x
           8.0.x
 
+    - name: Install Aspire workload
+      run: dotnet workload install aspire
+
     - name: Validate release is from main branch
       run: |
         # Ensure the release is from main branch
@@ -221,6 +224,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: [extract-version, validate-release]
     if: needs.validate-release.result == 'success'
+    permissions:
+      contents: read
+      packages: write
     environment: 
       name: github-packages
       url: https://github.com/${{ github.repository }}/packages

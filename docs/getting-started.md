@@ -4,8 +4,6 @@
 
 This guide will help you get started with FluentUIScaffold, a framework-agnostic E2E testing library that provides a fluent API for building maintainable and reusable UI test automation.
 
-**Status**: The framework is actively developed with Example 1 (User Registration and Login Flow) fully implemented and tested. See the [roadmap](roadmap/README.md) for current development status.
-
 ## Prerequisites
 
 Before you begin, ensure you have the following installed:
@@ -42,238 +40,108 @@ dotnet add package FluentUIScaffold.Playwright
 
 ### 1. Create Your First Test
 
-Create a new test project and add the following code:
+Create a new test project and set up assembly-level initialization:
 
 ```csharp
 using FluentUIScaffold.Core;
 using FluentUIScaffold.Core.Configuration;
-using Microsoft.Extensions.Logging;
+using FluentUIScaffold.Playwright;
 
 [TestClass]
-public class MyFirstTest
+public class TestAssemblyHooks
 {
-    private FluentUIScaffoldApp<WebApp> _fluentUI;
+    private static AppScaffold<WebApp>? _app;
 
-    [TestInitialize]
-    public void Setup()
+    [AssemblyInitialize]
+    public static async Task AssemblyInitialize(TestContext context)
     {
-        // Register the UI framework plugin explicitly (typically once per test assembly)
-        FluentUIScaffold.Playwright.FluentUIScaffoldPlaywrightBuilder.UsePlaywright();
+        _app = new FluentUIScaffoldBuilder()
+            .UsePlugin(new PlaywrightPlugin())
+            .Web<WebApp>(opts =>
+            {
+                opts.BaseUrl = new Uri("https://your-app.com");
+                opts.DefaultWaitTimeout = TimeSpan.FromSeconds(60);
+            })
+            .WithAutoPageDiscovery()
+            .Build<WebApp>();
 
-        _fluentUI = FluentUIScaffoldBuilder.Web(options =>
-        {
-            options.BaseUrl = new Uri("https://your-app.com");
-            options.DefaultWaitTimeout = TimeSpan.FromSeconds(60);
-            options.HeadlessMode = true;  // Optional: explicit override
-        });
+        await _app.StartAsync();
     }
 
+    [AssemblyCleanup]
+    public static async Task AssemblyCleanup()
+    {
+        if (_app != null)
+            await _app.DisposeAsync();
+    }
+
+    public static AppScaffold<WebApp> App => _app!;
+}
+```
+
+### 2. Write Your First Test
+
+```csharp
+[TestClass]
+public class HomePageTests
+{
     [TestMethod]
-    public async Task Can_Navigate_To_Home_Page()
+    public void Can_Navigate_To_Home_Page()
     {
-        // Arrange
-        var homePage = _fluentUI.NavigateTo<HomePage>();
+        // Arrange & Act
+        var homePage = TestAssemblyHooks.App.NavigateTo<HomePage>();
 
-        // Act & Assert
-        homePage.Verify.ElementIsVisible("#welcome-message");
-    }
-
-    [TestCleanup]
-    public void Cleanup()
-    {
-        _fluentUI?.Dispose();
+        // Assert
+        homePage.Verify
+            .Visible(p => p.WelcomeMessage)
+            .TitleContains("Welcome");
     }
 }
 ```
 
-### 2. Web Server Launching (Optional)
-
-For applications that need to be launched before testing, you can configure automatic web server launching using the new flexible server configuration system:
+### 3. Create Your First Page Object
 
 ```csharp
-[TestInitialize]
-public async Task Setup()
-{
-    // Build server configuration and start server
-    var serverConfig = ServerConfiguration.CreateDotNetServer(
-            new Uri("https://your-app.com"),
-            "./path/to/your/project.csproj"
-        )
-        .WithFramework("net8.0")
-        .WithConfiguration("Debug")
-        .WithSpaProxy(true)
-        .WithAspNetCoreEnvironment("Development")
-        .WithStartupTimeout(TimeSpan.FromSeconds(120))
-        .Build();
-
-    await WebServerManager.StartServerAsync(serverConfig);
-
-    // Create framework options separately
-    var options = new FluentUIScaffoldOptionsBuilder()
-        .WithBaseUrl(new Uri("https://your-app.com"))
-        .WithDefaultWaitTimeout(TimeSpan.FromSeconds(30))
-        .WithHeadlessMode(true)
-        .Build();
-
-    _fluentUI = new FluentUIScaffoldApp<WebApp>(options);
-    await _fluentUI.InitializeAsync();
-}
-```
-
-#### Server Configuration Options
-
-The framework supports multiple server types with flexible configuration:
-
-**ASP.NET Core Server:**
-```csharp
-var serverConfig = ServerConfiguration.CreateDotNetServer(
-    new Uri("https://localhost:5001"), 
-    "path/to/your/project.csproj")
-    .WithAspNetCoreEnvironment("Development")
-    .WithAspNetCoreUrls("https://localhost:5001")
-    .Build();
-await WebServerManager.StartServerAsync(serverConfig);
-```
-
-**Aspire App Host:**
-```csharp
-var serverConfig = ServerConfiguration.CreateAspireServer(
-    new Uri("http://localhost:5000"), 
-    "path/to/your/AppHost.csproj")
-    .WithDotNetEnvironment("Development")
-    .WithAspireDashboardOtlpEndpoint("https://localhost:21097")
-    .WithAspireResourceServiceEndpoint("https://localhost:22268")
-    .Build();
-await WebServerManager.StartServerAsync(serverConfig);
-```
-
-**Node.js:**
-```csharp
-var serverConfig = ServerConfiguration.CreateNodeJsServer(
-    new Uri("http://localhost:3000"),
-    "path/to/your/package.json")
-    .WithNpmScript("start")
-    .WithNodeEnvironment("development")
-    .WithStartupTimeout(TimeSpan.FromSeconds(90))
-    .Build();
-await WebServerManager.StartServerAsync(serverConfig);
-```
-
-**WebApplicationFactory (Option A):**
-
-Use this when you want in-process hosting in tests. In this scaffold, the WebApplicationFactory launcher gracefully falls back to the standard ASP.NET process launcher for cross-platform stability. You still declare the server type through the builder:
-
-```csharp
-var serverConfig = new DotNetServerConfigurationBuilder(ServerType.WebApplicationFactory,
-        new Uri("http://localhost:5000"),
-        "./samples/SampleApp/SampleApp.csproj")
-    .WithFramework("net8.0")
-    .WithConfiguration("Release")
-    .WithAspNetCoreEnvironment("Development")
-    .WithStartupTimeout(TimeSpan.FromSeconds(120))
-    .Build();
-
-await WebServerManager.StartServerAsync(serverConfig);
-```
-
-Launcher selection
-
-- ASP.NET Core: default for .NET projects; good general choice.
-- WebApplicationFactory: in-process style; currently falls back to ASP.NET launcher by default for portability.
-- Node.js: for pure SPA/Node servers.
-- Aspire: for .NET Aspire App Host.
-
-#### Log Level Control
-
-Note: per-option web server log level has been removed; launcher output is managed by the chosen server launcher.
-
-### 4. Headless and SlowMo Defaults
-
-For easier debugging during development, debug mode automatically:
-- Disables headless mode to show the browser window
-- Sets SlowMo to 1000ms to slow down interactions for better visibility
-- Provides detailed logging of browser actions
-- **Automatically enables when a debugger is attached** (no configuration needed!)
-
-```csharp
-[TestInitialize]
-public async Task Setup()
-{
-    var options = new FluentUIScaffoldOptionsBuilder()
-        .WithBaseUrl(new Uri("https://your-app.com"))
-        .WithDefaultWaitTimeout(TimeSpan.FromSeconds(30))
-        .WithHeadlessMode(false) // Optional override
-        .WithSlowMo(250)         // Optional override
-        .Build();
-
-    _fluentUI = new FluentUIScaffoldApp<WebApp>(options);
-    await _fluentUI.InitializeAsync();
-}
-```
-
-Defaults: when a debugger is attached, drivers default to headless disabled and a slight SlowMo (e.g., 250ms). In CI/non-debug, default is headless and 0ms SlowMo unless overridden.
-
-For easier debugging during development, debug mode automatically:
-- Disables headless mode to show the browser window
-- Sets SlowMo to 1000ms to slow down interactions for better visibility
-- Provides detailed logging of browser actions
-- **Automatically enables when a debugger is attached** (no configuration needed!)
-
-```csharp
-[TestInitialize]
-public async Task Setup()
-{
-    var options = new FluentUIScaffoldOptions
-    {
-        BaseUrl = new Uri("https://your-app.com"),
-        DefaultWaitTimeout = TimeSpan.FromSeconds(30)
-        // HeadlessMode/SlowMo can be overridden via the builder if needed
-    };
-
-    _fluentUI = new FluentUIScaffoldApp<WebApp>(options);
-    await _fluentUI.InitializeAsync();
-}
-```
-
-See defaults note above; the old DebugMode option has been removed.
-
-### 5. Create Your First Page Object
-using FluentUIScaffold.Core;
 using FluentUIScaffold.Core.Pages;
+using FluentUIScaffold.Core.Interfaces;
 
-public class HomePage : BasePageComponent<WebApp>
+public class HomePage : Page<HomePage>
 {
-    public override string UrlPattern => "/home";
-    
-    private IElement _welcomeMessage;
-    private IElement _loginButton;
-    
+    public IElement WelcomeMessage { get; private set; } = null!;
+    public IElement LoginButton { get; private set; } = null!;
+
+    public HomePage(IServiceProvider serviceProvider, Uri urlPattern)
+        : base(serviceProvider, urlPattern)
+    {
+    }
+
     protected override void ConfigureElements()
     {
-        _welcomeMessage = Element("#welcome-message")
+        WelcomeMessage = Element("#welcome-message")
             .WithDescription("Welcome Message")
-            .WithWaitStrategy(WaitStrategy.Visible);
-            
-        _loginButton = Element("#login-button")
+            .WithWaitStrategy(WaitStrategy.Visible)
+            .Build();
+
+        LoginButton = Element("#login-button")
             .WithDescription("Login Button")
-            .WithWaitStrategy(WaitStrategy.Clickable);
+            .WithWaitStrategy(WaitStrategy.Clickable)
+            .Build();
     }
-    
+
     public HomePage VerifyWelcomeMessage()
     {
-        _welcomeMessage.WaitFor();
-        return this;
+        return WaitForVisible(p => p.WelcomeMessage);
     }
-    
+
     public LoginPage ClickLogin()
     {
-        _loginButton.Click();
+        Click(p => p.LoginButton);
         return NavigateTo<LoginPage>();
     }
 }
 ```
 
-### 3. Run Your Tests
+### 4. Run Your Tests
 
 ```bash
 # Run all tests
@@ -281,6 +149,217 @@ dotnet test
 
 # Run specific test
 dotnet test --filter "Can_Navigate_To_Home_Page"
+```
+
+## Hosting Strategies
+
+FluentUIScaffold supports multiple hosting strategies for different scenarios:
+
+### Using Aspire Hosting (Recommended for Distributed Apps)
+
+```csharp
+[AssemblyInitialize]
+public static async Task AssemblyInitialize(TestContext context)
+{
+    _app = new FluentUIScaffoldBuilder()
+        .UseAspireHosting<Projects.SampleApp_AppHost>(
+            appHost => { /* configure distributed app */ },
+            "sampleapp")
+        .Web<WebApp>(options => { options.UsePlaywright(); })
+        .Build<WebApp>();
+
+    await _app.StartAsync();
+}
+```
+
+### Using External Server (Pre-started)
+
+For CI environments or staging servers that are already running:
+
+```csharp
+_app = new FluentUIScaffoldBuilder()
+    .UsePlugin(new PlaywrightPlugin())
+    .Web<WebApp>(opts => opts.BaseUrl = new Uri("https://staging.your-app.com"))
+    .Build<WebApp>();
+
+await _app.StartAsync();
+```
+
+## Headless and SlowMo Defaults
+
+For easier debugging during development, debug mode automatically:
+- Disables headless mode to show the browser window
+- Sets SlowMo to slow down interactions for better visibility
+- **Automatically enables when a debugger is attached** (no configuration needed!)
+
+You can override these defaults:
+
+```csharp
+var options = new FluentUIScaffoldOptionsBuilder()
+    .WithBaseUrl(new Uri("https://your-app.com"))
+    .WithDefaultWaitTimeout(TimeSpan.FromSeconds(30))
+    .WithHeadlessMode(false) // Force visible browser
+    .WithSlowMo(250)         // Custom SlowMo delay
+    .Build();
+```
+
+## Element Configuration
+
+### Basic Element Setup
+
+```csharp
+// Simple element
+var button = Element("#submit-button").Build();
+
+// Element with description
+var input = Element("#email-input")
+    .WithDescription("Email Input Field")
+    .Build();
+
+// Element with timeout
+var dropdown = Element("#country-select")
+    .WithTimeout(TimeSpan.FromSeconds(10))
+    .Build();
+
+// Element with wait strategy
+var loadingSpinner = Element(".loading-spinner")
+    .WithWaitStrategy(WaitStrategy.Hidden)
+    .Build();
+```
+
+### Advanced Element Configuration
+
+```csharp
+var complexElement = Element("[data-testid='user-card']")
+    .WithDescription("User Card Component")
+    .WithTimeout(TimeSpan.FromSeconds(15))
+    .WithWaitStrategy(WaitStrategy.Visible)
+    .WithRetryInterval(TimeSpan.FromMilliseconds(200))
+    .Build();
+```
+
+## Wait Strategies
+
+### Available Wait Strategies
+
+```csharp
+// No waiting
+var element = Element("#button").WithWaitStrategy(WaitStrategy.None).Build();
+
+// Wait for visibility
+var visibleElement = Element("#modal").WithWaitStrategy(WaitStrategy.Visible).Build();
+
+// Wait for clickability
+var clickableElement = Element("#submit").WithWaitStrategy(WaitStrategy.Clickable).Build();
+
+// Wait for text
+var textElement = Element("#message").WithWaitStrategy(WaitStrategy.TextPresent).Build();
+
+// Smart waiting (framework-specific)
+var smartElement = Element("#dynamic-content").WithWaitStrategy(WaitStrategy.Smart).Build();
+```
+
+## Page Object Pattern
+
+### Creating Page Objects
+
+```csharp
+public class LoginPage : Page<LoginPage>
+{
+    public IElement EmailInput { get; private set; } = null!;
+    public IElement PasswordInput { get; private set; } = null!;
+    public IElement LoginButton { get; private set; } = null!;
+    public IElement ErrorMessage { get; private set; } = null!;
+
+    public LoginPage(IServiceProvider serviceProvider, Uri urlPattern)
+        : base(serviceProvider, urlPattern)
+    {
+    }
+
+    protected override void ConfigureElements()
+    {
+        EmailInput = Element("#email")
+            .WithDescription("Email Input")
+            .WithWaitStrategy(WaitStrategy.Visible)
+            .Build();
+
+        PasswordInput = Element("#password")
+            .WithDescription("Password Input")
+            .WithWaitStrategy(WaitStrategy.Visible)
+            .Build();
+
+        LoginButton = Element("#login-btn")
+            .WithDescription("Login Button")
+            .WithWaitStrategy(WaitStrategy.Clickable)
+            .Build();
+
+        ErrorMessage = Element(".error-message")
+            .WithDescription("Error Message")
+            .WithWaitStrategy(WaitStrategy.Visible)
+            .Build();
+    }
+
+    public LoginPage EnterEmail(string email)
+    {
+        return Type(p => p.EmailInput, email);
+    }
+
+    public LoginPage EnterPassword(string password)
+    {
+        return Type(p => p.PasswordInput, password);
+    }
+
+    public HomePage ClickLogin()
+    {
+        Click(p => p.LoginButton);
+        return NavigateTo<HomePage>();
+    }
+
+    public LoginPage VerifyErrorMessage(string expectedMessage)
+    {
+        Verify.TextContains(p => p.ErrorMessage, expectedMessage);
+        return this;
+    }
+}
+```
+
+### Page Navigation
+
+```csharp
+// Navigate to specific page
+var homePage = app.NavigateTo<HomePage>();
+
+// Get current page without navigating
+var currentPage = app.On<HomePage>();
+
+// Wait for page to be ready
+app.WaitFor<HomePage>();
+
+// Navigate with parameters via page methods
+var userProfilePage = app.NavigateTo<UserProfilePage>();
+userProfilePage.NavigateToUserProfile(123);
+```
+
+## Verification
+
+### Using the Verify Property
+
+```csharp
+// Chain verifications
+page.Verify
+    .TitleContains("Dashboard")
+    .UrlContains("/dashboard")
+    .Visible(p => p.WelcomeMessage)
+    .TextContains(p => p.UserGreeting, "Hello")
+    .And  // Returns to page for continued interaction
+    .Click(p => p.LogoutButton);
+```
+
+### Custom Verification
+
+```csharp
+// Custom condition
+page.Verify.That(() => page.GetElementCount() > 0, "Should have elements");
 ```
 
 ## Sample Application
@@ -310,372 +389,30 @@ The sample application includes:
 
 - **Modern Web Application**: ASP.NET Core backend with Svelte frontend
 - **User Registration and Login**: Complete form interactions and validation
-- **Comprehensive Testing**: 43 passing tests covering all scenarios
+- **Comprehensive Testing**: Full test coverage demonstrating framework features
 - **Framework Features**: Navigation, form interactions, verification, error handling
 
 ### Example Test
 
 ```csharp
 [TestMethod]
-public async Task Can_Register_New_User_With_Valid_Data()
+public void Can_Register_New_User_With_Valid_Data()
 {
     // Arrange
-    var homePage = _fluentUI!.NavigateTo<HomePage>();
+    var homePage = TestAssemblyHooks.App.NavigateTo<HomePage>();
     homePage.NavigateToRegisterSection();
 
     // Act
     homePage
-        .Type(e => e.EmailInput, "test@example.com")
-        .Type(e => e.PasswordInput, "SecurePass123!")
-        .Type(e => e.FirstNameInput, "Test")
-        .Type(e => e.LastNameInput, "User")
-        .Click(e => e.RegisterButton);
+        .Type(p => p.EmailInput, "test@example.com")
+        .Type(p => p.PasswordInput, "SecurePass123!")
+        .Type(p => p.FirstNameInput, "Test")
+        .Type(p => p.LastNameInput, "User")
+        .Click(p => p.RegisterButton);
 
     // Assert
-    homePage.Verify.ElementContainsText("#success-message", "Registration successful!");
+    homePage.Verify.TextContains(p => p.SuccessMessage, "Registration successful!");
 }
-```
-
-## Web Server Launch
-
-FluentUIScaffold can automatically launch various types of web servers for testing. This is particularly useful for integration testing where you need to test against a running application.
-
-### Basic Web Server Launch
-
-```csharp
-var fluentUI = FluentUIScaffoldBuilder.Web(options =>
-{
-    options.BaseUrl = new Uri("https://localhost:5001");
-    options.WithServerConfiguration(ServerConfiguration.CreateAspNetCore(
-        new Uri("https://localhost:5001"), 
-        "./path/to/your/project.csproj"));
-    options.DefaultWaitTimeout = TimeSpan.FromSeconds(60);
-});
-```
-
-### Visibility and Interaction Speed During Development
-
-When running tests during development, you can enable debug mode to see the browser and slow down interactions:
-
-```csharp
-var fluentUI = FluentUIScaffoldBuilder.Web(options =>
-{
-    options.BaseUrl = new Uri("https://localhost:5001");
-    options.WithServerConfiguration(ServerConfiguration.CreateAspNetCore(
-        new Uri("https://localhost:5001"), 
-        "./path/to/your/project.csproj"));
-    // When debugging, rely on defaults (headless off + slight SlowMo) or override:
-    options.WithHeadlessMode(false).WithSlowMo(250);
-});
-```
-
-### Server Configuration Options
-
-| Server Type | Factory Method | Description |
-|-------------|----------------|-------------|
-| ASP.NET Core | `ServerConfiguration.CreateAspNetCore()` | Standard ASP.NET Core applications |
-| Aspire App Host | `ServerConfiguration.CreateAspire()` | .NET Aspire applications with dashboard |
-| Node.js | `ServerConfiguration.CreateNodeJs()` | Node.js applications using npm scripts |
-
-### Advanced Server Configuration
-
-**ASP.NET Core with SPA Proxy:**
-```csharp
-.WithServerConfiguration(ServerConfiguration.CreateAspNetCore(
-    new Uri("https://localhost:5001"), 
-    "./path/to/your/project.csproj")
-    .WithAspNetCoreEnvironment("Development")
-    .WithAspNetCoreUrls("https://localhost:5001")
-    .WithAspNetCoreForwardedHeaders(true)
-    .Build())
-```
-
-**Aspire with Custom Environment:**
-```csharp
-.WithServerConfiguration(ServerConfiguration.CreateAspire(
-    new Uri("https://localhost:5001"), 
-    "./path/to/your/aspire-project.csproj")
-    .WithAspNetCoreEnvironment("Development")
-    .WithDotNetEnvironment("Development")
-    .WithAspireDashboardOtlpEndpoint("https://localhost:21097")
-    .WithAspireResourceServiceEndpoint("https://localhost:22268")
-    .Build())
-```
-
-**Node.js with Custom Script:**
-```csharp
-.WithServerConfiguration(ServerConfiguration.CreateNodeJs(
-    new Uri("http://localhost:3000"), 
-    "./path/to/your/package.json")
-    .WithNpmScript("dev")
-    .WithNodeEnvironment("development")
-    .Build())
-```
-
-## Configuration
-
-### Basic Configuration
-
-```csharp
-var options = new FluentUIScaffoldOptionsBuilder()
-    .WithBaseUrl(new Uri("https://your-app.com"))
-    .WithDefaultWaitTimeout(TimeSpan.FromSeconds(60))
-    .WithHeadlessMode(true)  // Explicit headless control
-    // DebugMode has been removed; use explicit HeadlessMode/SlowMo
-    .WithServerConfiguration(ServerConfiguration.CreateAspNetCore(
-        new Uri("https://your-app.com"), 
-        "./path/to/your/project.csproj"))
-    .Build();
-```
-
-### Framework-Specific Configuration
-
-```csharp
-// Headless and SlowMo control with automatic defaults
-var options = new FluentUIScaffoldOptionsBuilder()
-    .WithBaseUrl(new Uri("https://your-app.com"))
-    .WithHeadlessMode(false)  // Force visible browser
-    .WithSlowMo(1000)         // Custom SlowMo delay
-    // DebugMode has been removed; use explicit HeadlessMode/SlowMo
-    .Build();
-```
-
-### Server Configuration Examples
-
-**ASP.NET Core with SPA:**
-```csharp
-.WithServerConfiguration(ServerConfiguration.CreateAspNetCore(
-    new Uri("https://localhost:5001"), 
-    "./path/to/your/project.csproj")
-    .WithAspNetCoreEnvironment("Development")
-    .WithAspNetCoreUrls("https://localhost:5001")
-    .WithAspNetCoreForwardedHeaders(true)
-    .Build())
-```
-
-**Aspire App Host:**
-```csharp
-.WithServerConfiguration(ServerConfiguration.CreateAspire(
-    new Uri("https://localhost:5001"), 
-    "./path/to/your/aspire-project.csproj")
-    .WithAspNetCoreEnvironment("Development")
-    .WithDotNetEnvironment("Development")
-    .WithAspireDashboardOtlpEndpoint("https://localhost:21097")
-    .WithAspireResourceServiceEndpoint("https://localhost:22268")
-    .Build())
-```
-
-**Node.js Development Server:**
-```csharp
-.WithServerConfiguration(ServerConfiguration.CreateNodeJs(
-    new Uri("http://localhost:3000"), 
-    "./path/to/your/package.json")
-    .WithNpmScript("dev")
-    .WithNodeEnvironment("development")
-    .Build())
-```
-
-## Element Configuration
-
-### Basic Element Setup
-
-```csharp
-// Simple element
-var button = Element("#submit-button");
-
-// Element with description
-var input = Element("#email-input")
-    .WithDescription("Email Input Field");
-
-// Element with timeout
-var dropdown = Element("#country-select")
-    .WithTimeout(TimeSpan.FromSeconds(10));
-
-// Element with wait strategy
-var loadingSpinner = Element(".loading-spinner")
-    .WithWaitStrategy(WaitStrategy.Hidden);
-```
-
-### Advanced Element Configuration
-
-```csharp
-var complexElement = Element("[data-testid='user-card']")
-    .WithDescription("User Card Component")
-    .WithTimeout(TimeSpan.FromSeconds(15))
-    .WithWaitStrategy(WaitStrategy.Visible)
-    .WithRetryInterval(TimeSpan.FromMilliseconds(200));
-```
-
-## Wait Strategies
-
-### Available Wait Strategies
-
-```csharp
-// No waiting
-var element = Element("#button").WithWaitStrategy(WaitStrategy.None);
-
-// Wait for visibility
-var visibleElement = Element("#modal").WithWaitStrategy(WaitStrategy.Visible);
-
-// Wait for clickability
-var clickableElement = Element("#submit").WithWaitStrategy(WaitStrategy.Clickable);
-
-// Wait for text
-var textElement = Element("#message").WithWaitStrategy(WaitStrategy.TextPresent);
-
-// Smart waiting (framework-specific)
-var smartElement = Element("#dynamic-content").WithWaitStrategy(WaitStrategy.Smart);
-```
-
-### Custom Wait Conditions
-
-```csharp
-// Wait for custom condition
-var element = Element("#status")
-    .WithWaitStrategy(WaitStrategy.Custom)
-    .WithCustomWaitCondition(e => e.GetText() == "Complete");
-```
-
-## Page Object Pattern
-
-### Creating Page Objects
-
-```csharp
-public class LoginPage : BasePageComponent<WebApp>
-{
-    public override string UrlPattern => "/login";
-    
-    private IElement _emailInput;
-    private IElement _passwordInput;
-    private IElement _loginButton;
-    private IElement _errorMessage;
-    
-    protected override void ConfigureElements()
-    {
-        _emailInput = Element("#email")
-            .WithDescription("Email Input")
-            .WithWaitStrategy(WaitStrategy.Visible);
-            
-        _passwordInput = Element("#password")
-            .WithDescription("Password Input")
-            .WithWaitStrategy(WaitStrategy.Visible);
-            
-        _loginButton = Element("#login-btn")
-            .WithDescription("Login Button")
-            .WithWaitStrategy(WaitStrategy.Clickable);
-            
-        _errorMessage = Element(".error-message")
-            .WithDescription("Error Message")
-            .WithWaitStrategy(WaitStrategy.Visible);
-    }
-    
-    public LoginPage EnterEmail(string email)
-    {
-        _emailInput.Type(email);
-        return this;
-    }
-    
-    public LoginPage EnterPassword(string password)
-    {
-        _passwordInput.Type(password);
-        return this;
-    }
-    
-    public HomePage ClickLogin()
-    {
-        _loginButton.Click();
-        return NavigateTo<HomePage>();
-    }
-    
-    public LoginPage VerifyErrorMessage(string expectedMessage)
-    {
-        Verify.ElementContainsText(".error-message", expectedMessage);
-        return this;
-    }
-}
-```
-
-### Page Navigation
-
-```csharp
-// Navigate to specific page
-var homePage = fluentUI.NavigateTo<HomePage>();
-
-// Navigate with parameters
-var userProfilePage = fluentUI.NavigateTo<UserProfilePage>();
-
-// Check current page
-if (homePage.IsCurrentPage())
-{
-    // Current page logic
-}
-
-// Validate current page
-homePage.ValidateCurrentPage();
-```
-
-### Advanced Navigation
-
-For more complex navigation scenarios, you can use custom navigation methods:
-
-```csharp
-// Navigate to specific user profile
-var profilePage = fluentUI.NavigateTo<UserProfilePage>();
-profilePage.NavigateToUserProfile(123);
-
-// Navigate with query parameters
-var searchPage = fluentUI.NavigateTo<SearchPage>();
-searchPage.NavigateWithQuery("test query", "category");
-
-// Direct URL navigation
-fluentUI.NavigateToUrl(new Uri("https://your-app.com/specific-path"));
-```
-
-For detailed navigation patterns, see the [Page Object Pattern](page-object-pattern.md) documentation.
-
-## Verification
-
-### Element Verification
-
-```csharp
-// Verify element is visible
-page.Verify.ElementIsVisible("#submit-button");
-
-// Verify element contains text
-page.Verify.ElementContainsText("#message", "Success");
-
-// Verify element has attribute
-page.Verify.ElementHasAttribute("#link", "href", "https://example.com");
-
-// Verify element is enabled
-page.Verify.ElementIsEnabled("#input-field");
-```
-
-### Page Verification
-
-```csharp
-// Verify current page type
-page.Verify.CurrentPageIs<HomePage>();
-
-// Verify URL matches pattern
-page.Verify.UrlMatches("/home");
-
-// Verify title contains text
-page.Verify.TitleContains("Welcome");
-```
-
-### Custom Verification
-
-```csharp
-// Custom condition
-page.Verify.That(() => page.GetElementCount() > 0, "Should have elements");
-
-// Custom condition with actual value
-page.Verify.That(
-    () => page.GetElementText("#counter"),
-    text => int.Parse(text) > 5,
-    "Counter should be greater than 5"
-);
 ```
 
 ## Playwright Integration
@@ -684,35 +421,13 @@ page.Verify.That(
 
 ```csharp
 // Get Playwright driver
-var playwrightDriver = fluentUI.Framework<PlaywrightDriver>();
+var playwrightDriver = app.Framework<PlaywrightDriver>();
 
 // Take screenshot
 await playwrightDriver.TakeScreenshotAsync("screenshot.png");
 
-// Intercept network requests
-playwrightDriver.InterceptNetworkRequests("/api/*", response =>
-{
-    // Handle intercepted response
-});
-
 // Set viewport size
 playwrightDriver.SetViewportSize(1920, 1080);
-
-// Set user agent
-playwrightDriver.SetUserAgent("Custom User Agent");
-```
-
-### Advanced Playwright Features
-
-```csharp
-// Generate PDF
-await playwrightDriver.GeneratePdfAsync("page.pdf");
-
-// Set geolocation
-playwrightDriver.SetGeolocation(40.7128, -74.0060);
-
-// Set permissions
-playwrightDriver.SetPermissions(new[] { "geolocation", "notifications" });
 ```
 
 ## Testing Best Practices
@@ -723,26 +438,12 @@ playwrightDriver.SetPermissions(new[] { "geolocation", "notifications" });
 [TestClass]
 public class UserManagementTests
 {
-    private FluentUIScaffoldApp<WebApp> _fluentUI;
-
-    [TestInitialize]
-    public void Setup()
-    {
-        _fluentUI = FluentUIScaffoldBuilder.Web(options =>
-        {
-            options.BaseUrl = new Uri("https://your-app.com");
-            options.DefaultWaitTimeout = TimeSpan.FromSeconds(60);
-            options.HeadlessMode = true;
-            options.WebServerProjectPath = "./path/to/your/project.csproj";
-        });
-    }
-
     [TestMethod]
-    public async Task Can_Create_New_User()
+    public void Can_Create_New_User()
     {
         // Arrange
         var user = new User { Name = "John Doe", Email = "john@example.com" };
-        var userPage = _fluentUI.NavigateTo<UserManagementPage>();
+        var userPage = TestAssemblyHooks.App.NavigateTo<UserManagementPage>();
 
         // Act
         var resultPage = userPage
@@ -753,14 +454,7 @@ public class UserManagementTests
 
         // Assert
         resultPage.Verify
-            .ElementContainsText("#success-message", "User created successfully")
-            .CurrentPageIs<UserListPage>();
-    }
-
-    [TestCleanup]
-    public void Cleanup()
-    {
-        _fluentUI?.Dispose();
+            .TextContains(p => p.SuccessMessage, "User created successfully");
     }
 }
 ```
@@ -769,12 +463,12 @@ public class UserManagementTests
 
 ```csharp
 [TestMethod]
-public async Task Handles_Network_Errors()
+public void Handles_Network_Errors()
 {
     try
     {
-        var page = _fluentUI.NavigateTo<HomePage>();
-        page.Verify.ElementIsVisible("#content");
+        var page = TestAssemblyHooks.App.NavigateTo<HomePage>();
+        page.Verify.Visible(p => p.Content);
     }
     catch (ElementTimeoutException ex)
     {
@@ -797,10 +491,10 @@ public async Task Handles_Network_Errors()
 
 ```csharp
 // Check if selector is correct
-var element = Element("#correct-selector");
+var element = Element("#correct-selector").Build();
 
 // Use more specific selectors
-var element = Element("[data-testid='unique-id']");
+var element = Element("[data-testid='unique-id']").Build();
 
 // Wait for element to be present
 element.WithWaitStrategy(WaitStrategy.Visible);
@@ -819,38 +513,11 @@ element.WithWaitStrategy(WaitStrategy.Smart);
 element.WithRetryInterval(TimeSpan.FromMilliseconds(500));
 ```
 
-#### Framework-Specific Issues
-
-```csharp
-// Check Playwright driver
-var playwrightDriver = fluentUI.Framework<PlaywrightDriver>();
-
-// Enable debugging
-options.LogLevel = LogLevel.Debug;
-
-// Capture screenshots on failure
-options.CaptureScreenshotsOnFailure = true;
-```
-
-### Debugging
-
-```csharp
-// Enable debug mode (overrides headless mode and sets SlowMo)
-options.DebugMode = true;
-
-// Enable detailed logging
-options.LogLevel = LogLevel.Debug;
-
-// Set custom web server project path
-options.WebServerProjectPath = "./path/to/your/project.csproj";
-```
-
 ## Next Steps
 
 - Read the [API Reference](api-reference.md) for complete documentation
-- Explore the [Sample Application](sample-application.md) for real-world examples
+- Explore the [Sample Application](../samples/README.md) for real-world examples
 - Learn about [Page Object Pattern](page-object-pattern.md) best practices
-- Check out [Testing Best Practices](testing-best-practices.md) for advanced techniques
 
 ## Support
 

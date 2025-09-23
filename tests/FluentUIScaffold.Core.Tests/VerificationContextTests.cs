@@ -63,7 +63,7 @@ namespace FluentUIScaffold.Core.Tests
             return services.BuildServiceProvider();
         }
 
-        private sealed class TestPage : BasePageComponent<IUIDriver, TestPage>
+        private sealed class TestPage : Page<TestPage>
         {
             public IElement Header { get; private set; } = null!;
             public TestPage(IServiceProvider sp, Uri url) : base(sp, url) { }

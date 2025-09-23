@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 
 using FluentUIScaffold.Core;
 using FluentUIScaffold.Core.Configuration;
+using FluentUIScaffold.Playwright;
 
 using Microsoft.Extensions.Logging;
 
@@ -11,14 +12,14 @@ namespace SampleApp.Tests.Examples
     /// <summary>
     /// Base class for BDD (Behavior Driven Development) step definitions that demonstrates
     /// the shared options pattern for FluentUIScaffold integration with Reqnroll.
-    /// This ensures consistent options between WebServerManager and FluentUIScaffoldApp.
+    /// This ensures consistent options between WebServerManager and AppScaffold.
     /// </summary>
-    public abstract class BDDStepDefinitionsBase
+    public abstract class BDDStepDefinitionsBase : IAsyncDisposable
     {
         /// <summary>
-        /// Gets the FluentUIScaffoldApp instance with shared options.
+        /// Gets the AppScaffold instance with shared options.
         /// </summary>
-        public FluentUIScaffoldApp<WebApp> FluentUi { get; }
+        public AppScaffold<WebApp> FluentUi { get; }
 
         /// <summary>
         /// Initializes a new instance of BDDStepDefinitionsBase with shared options.
@@ -26,32 +27,37 @@ namespace SampleApp.Tests.Examples
         protected BDDStepDefinitionsBase()
         {
             // Create framework options; server lifecycle is handled by WebServerManager
-            var options = new FluentUIScaffoldOptionsBuilder()
-                .WithBaseUrl(TestConfiguration.BaseUri)
-                .WithDefaultWaitTimeout(TimeSpan.FromSeconds(30))
-                .WithHeadlessMode(false)
-                .WithSlowMo(250)
-                .Build();
-
-            // FluentUIScaffoldApp uses only framework options; server is managed separately
-            FluentUi = new FluentUIScaffoldApp<WebApp>(options);
+            FluentUi = new FluentUIScaffoldBuilder()
+                .UsePlaywright()
+                .Web<WebApp>(options =>
+                {
+                    options.BaseUrl = TestConfiguration.BaseUri;
+                    options.DefaultWaitTimeout = TimeSpan.FromSeconds(30);
+                    options.HeadlessMode = TestConfiguration.IsHeadlessMode;
+                    options.SlowMo = 250;
+                })
+                .WithAutoPageDiscovery()
+                .Build<WebApp>();
         }
 
         /// <summary>
-        /// Initializes the FluentUIScaffoldApp asynchronously.
+        /// Initializes the AppScaffold asynchronously.
         /// </summary>
         /// <returns>A task that completes when initialization is done.</returns>
         public async Task InitializeAsync()
         {
-            await FluentUi.InitializeAsync();
+            await FluentUi.StartAsync();
         }
 
         /// <summary>
-        /// Disposes the FluentUIScaffoldApp.
+        /// Disposes the AppScaffold asynchronously.
         /// </summary>
-        public void Dispose()
+        public async ValueTask DisposeAsync()
         {
-            FluentUi?.Dispose();
+            if (FluentUi != null)
+            {
+                await FluentUi.DisposeAsync();
+            }
         }
     }
 
@@ -59,7 +65,7 @@ namespace SampleApp.Tests.Examples
     /// Example Reqnroll steps class that inherits from BDDStepDefinitionsBase.
     /// This demonstrates how to use the shared options pattern in BDD scenarios.
     /// </summary>
-    public class HomePageBDDSteps : BDDStepDefinitionsBase, IDisposable
+    public class HomePageBDDSteps : BDDStepDefinitionsBase
     {
         // Example Reqnroll step definitions would go here
         // [Given(@"I am on the home page")]
@@ -82,10 +88,5 @@ namespace SampleApp.Tests.Examples
         //     var playwright = FluentUi.Framework<FluentUIScaffold.Playwright.PlaywrightDriver>();
         //     // Verify UI elements
         // }
-
-        public new void Dispose()
-        {
-            base.Dispose();
-        }
     }
 }

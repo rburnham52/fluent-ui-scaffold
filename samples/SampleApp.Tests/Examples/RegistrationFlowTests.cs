@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 
 using FluentUIScaffold.Core;
 using FluentUIScaffold.Core.Configuration;
+using FluentUIScaffold.Playwright;
 
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -18,20 +19,24 @@ namespace SampleApp.Tests.Examples
     [TestClass]
     public class RegistrationFlowTests
     {
-        private FluentUIScaffoldApp<WebApp>? _app;
+        private AppScaffold<WebApp>? _app;
         private RegistrationPage? _registrationPage;
 
         [TestInitialize]
         public async Task Setup()
         {
             // Arrange - Set up the application and page objects
-            var options = new FluentUIScaffoldOptionsBuilder()
-                .WithBaseUrl(TestConfiguration.BaseUri)
-                .WithDefaultWaitTimeout(TimeSpan.FromSeconds(30))
-                .Build();
+            _app = new FluentUIScaffoldBuilder()
+                .UsePlaywright()
+                .Web<WebApp>(options =>
+                {
+                    options.BaseUrl = TestConfiguration.BaseUri;
+                    options.DefaultWaitTimeout = TimeSpan.FromSeconds(30);
+                })
+                .WithAutoPageDiscovery()
+                .Build<WebApp>();
 
-            _app = new FluentUIScaffoldApp<WebApp>(options);
-            await _app.InitializeAsync();
+            await _app.StartAsync();
 
             // Create the registration page object using the driver directly
             var playwright = _app.Framework<FluentUIScaffold.Playwright.PlaywrightDriver>();
@@ -40,9 +45,12 @@ namespace SampleApp.Tests.Examples
         }
 
         [TestCleanup]
-        public void Cleanup()
+        public async Task Cleanup()
         {
-            _app?.Dispose();
+            if (_app != null)
+            {
+                await _app.DisposeAsync();
+            }
         }
 
         [TestMethod]

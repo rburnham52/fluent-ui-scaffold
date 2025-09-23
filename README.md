@@ -6,17 +6,19 @@
 
 A framework-agnostic E2E testing library that provides a fluent API for building maintainable and reusable UI test automation. FluentUIScaffold abstracts underlying testing frameworks (Playwright) while providing a consistent developer experience.
 
-## ✨ Features
+## Features
 
 - **Framework Agnostic**: Abstract underlying testing frameworks (Playwright) while providing consistent developer experience
 - **Fluent API**: Intuitive, chainable API similar to [fluent-test-scaffold](https://github.com/rburnham52/fluent-test-scaffold)
 - **Multi-Target Support**: Support .NET 6, 7, 8, 9
-- **Page Object Pattern**: Comprehensive page object implementation with navigation and validation
+- **Page Object Pattern**: Comprehensive `Page<TSelf>` implementation with navigation and verification
 - **Element Configuration**: Flexible element definition with wait strategies and timeouts
 - **Plugin System**: Extensible plugin architecture for different testing frameworks
+- **Hosting Strategies**: Pluggable hosting for .NET, Node, External, and Aspire apps
+- **Async-First Design**: Modern async lifecycle with `AppScaffold<TApp>`
 - **Comprehensive Testing**: TDD approach with comprehensive unit tests for all public APIs
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 
@@ -43,26 +45,54 @@ dotnet build
 ```csharp
 using FluentUIScaffold.Core;
 using FluentUIScaffold.Core.Configuration;
+using FluentUIScaffold.Playwright;
 
-// Configure FluentUIScaffold
-var options = new FluentUIScaffoldOptions
+// Set up assembly-level initialization
+[TestClass]
+public class TestAssemblyHooks
 {
-    BaseUrl = new Uri("https://your-app.com"),
-    DefaultWaitTimeout = TimeSpan.FromSeconds(30),
-    HeadlessMode = true,
-    SlowMo = 0
-};
+    private static AppScaffold<WebApp>? _app;
 
-var fluentUI = new FluentUIScaffoldApp<WebApp>(options);
+    [AssemblyInitialize]
+    public static async Task AssemblyInitialize(TestContext context)
+    {
+        _app = new FluentUIScaffoldBuilder()
+            .UsePlugin(new PlaywrightPlugin())
+            .Web<WebApp>(opts =>
+            {
+                opts.BaseUrl = new Uri("https://your-app.com");
+                opts.DefaultWaitTimeout = TimeSpan.FromSeconds(30);
+            })
+            .WithAutoPageDiscovery()
+            .Build<WebApp>();
 
-// Navigate and interact
-fluentUI.NavigateTo<HomePage>()
-    .WaitFor(e => e.CounterButton)
-    .ClickCounter()
-    .VerifyText(e => e.CounterValue, "1");
+        await _app.StartAsync();
+    }
+
+    [AssemblyCleanup]
+    public static async Task AssemblyCleanup()
+    {
+        if (_app != null)
+            await _app.DisposeAsync();
+    }
+
+    public static AppScaffold<WebApp> App => _app!;
+}
+
+// Write your tests
+[TestMethod]
+public void Can_Navigate_And_Interact()
+{
+    var homePage = TestAssemblyHooks.App.NavigateTo<HomePage>();
+
+    homePage
+        .WaitForVisible(p => p.CounterButton)
+        .Click(p => p.CounterButton)
+        .Verify.TextContains(p => p.CounterValue, "1");
+}
 ```
 
-## 📚 Documentation
+## Documentation
 
 - **[API Reference](docs/api-reference.md)**: Complete API documentation
 - **[Getting Started](docs/getting-started.md)**: Step-by-step setup guide
@@ -70,10 +100,9 @@ fluentUI.NavigateTo<HomePage>()
 - **[Element Configuration](docs/element-configuration.md)**: Element setup and wait strategies
 - **[Playwright Integration](docs/playwright-integration.md)**: Playwright-specific features
 - **[Sample Application](samples/README.md)**: Complete example with tests
-- **[Configuration Guide](docs/api-reference.md#configuration)**: Framework configuration options
 - **[Testing Strategy](docs/testing-strategy.md)**: Guidelines and best practices for writing tests
 
-## 🎯 Sample Application
+## Sample Application
 
 The `samples/` directory contains a comprehensive example application that demonstrates:
 
@@ -99,85 +128,104 @@ cd ../SampleApp.Tests
 dotnet test
 ```
 
-## 🏗️ Architecture
+## Architecture
 
 ### Core Components
 
-- **FluentUIScaffoldApp<TApp>**: Main entry point for the testing framework
-- **BasePageComponent<TApp>**: Base class for all page objects
+- **AppScaffold<TApp>**: Unified async-first application orchestrator
+- **FluentUIScaffoldBuilder**: Fluent configuration builder
+- **Page<TSelf>**: Base class for all page objects
 - **IElement**: Interface for element interactions
 - **ElementBuilder**: Fluent API for element configuration
-- **Plugin System**: Extensible architecture for different testing frameworks
+- **IHostingStrategy**: Pluggable hosting abstraction
+
+### Hosting Strategies
+
+| Strategy | Description | Use Case |
+|----------|-------------|----------|
+| `DotNetHostingStrategy` | Manages .NET app via `dotnet run` | Standard .NET apps |
+| `NodeHostingStrategy` | Manages Node.js app via `npm run` | Node.js/SPA apps |
+| `ExternalHostingStrategy` | Health check only | CI/staging environments |
+| `AspireHostingStrategy` | Wraps Aspire testing builder | Aspire distributed apps |
 
 ### Framework Support
 
-- **Playwright**: ✅ Full support with advanced features
-- **Selenium**: 🔄 Planned for future releases
-- **Mobile**: 🔄 Planned for future releases
+- **Playwright**: Full support with advanced features
+- **Selenium**: Planned for future releases
+- **Mobile**: Planned for future releases
 
-## 🔧 Configuration
+## Configuration
 
 ### Basic Configuration
 
 ```csharp
-var options = new FluentUIScaffoldOptionsBuilder()
-    .WithBaseUrl(new Uri("https://your-app.com"))
-    .WithDefaultWaitTimeout(TimeSpan.FromSeconds(30))
-    .WithHeadlessMode(true)
-    .WithSlowMo(0)
-    .Build();
+var app = new FluentUIScaffoldBuilder()
+    .UsePlugin(new PlaywrightPlugin())
+    .Web<WebApp>(opts =>
+    {
+        opts.BaseUrl = new Uri("https://your-app.com");
+        opts.DefaultWaitTimeout = TimeSpan.FromSeconds(30);
+        opts.HeadlessMode = true;
+    })
+    .WithAutoPageDiscovery()
+    .Build<WebApp>();
+
+await app.StartAsync();
 ```
 
-### Server Configuration
+### Aspire Hosting
 
 ```csharp
-var serverConfig = ServerConfiguration.CreateDotNetServer(
-        new Uri("https://localhost:5001"),
-        "./path/to/your/project.csproj")
-    .WithAspNetCoreEnvironment("Development")
-    .Build();
+var app = new FluentUIScaffoldBuilder()
+    .UseAspireHosting<Projects.SampleApp_AppHost>(
+        appHost => { /* configure */ },
+        "sampleapp")
+    .Web<WebApp>(opts => { opts.UsePlaywright(); })
+    .Build<WebApp>();
 
-await WebServerManager.StartServerAsync(serverConfig);
+await app.StartAsync();
 ```
 
 ### Page Object Pattern
 
 ```csharp
-public class HomePage : BasePageComponent<PlaywrightDriver, HomePage>
+public class HomePage : Page<HomePage>
 {
-    private IElement _button;
+    public IElement Button { get; private set; } = null!;
+
+    public HomePage(IServiceProvider sp, Uri url) : base(sp, url) { }
 
     protected override void ConfigureElements()
     {
-        _button = Element("[data-testid='my-button']")
+        Button = Element("[data-testid='my-button']")
             .WithDescription("My Button")
-            .WithWaitStrategy(WaitStrategy.Clickable);
+            .WithWaitStrategy(WaitStrategy.Clickable)
+            .Build();
     }
 
     public HomePage ClickButton()
     {
-        _button.Click();
-        return this;
+        return Click(p => p.Button);
     }
 }
 ```
 
-## 🧪 Testing
+## Testing
 
 ### Writing Tests
 
 ```csharp
 [TestMethod]
-public async Task Can_Interact_With_Button()
+public void Can_Interact_With_Button()
 {
     // Arrange
-    var homePage = _fluentUI.NavigateTo<HomePage>();
+    var homePage = TestAssemblyHooks.App.NavigateTo<HomePage>();
 
     // Act
     homePage.ClickButton();
 
     // Assert
-    homePage.Verify.ElementIsVisible("[data-testid='my-button']");
+    homePage.Verify.Visible(p => p.Button);
 }
 ```
 
@@ -192,29 +240,48 @@ public async Task Can_Interact_With_Button()
 - `TextPresent`: Wait for specific text to be present
 - `Smart`: Framework-specific intelligent waiting
 
-## 📊 Development Status
+## Development Status
 
-### Phase 1: Foundation & Core Architecture (MVP) - 100% Complete ✅
+### Phase 1: Foundation & Core Architecture (MVP) - 100% Complete
 
-- ✅ **Project Structure Setup** - Complete
-- ✅ **Core Interfaces & Abstractions** - Complete
-- ✅ **Fluent Entry Point** - Complete
-- ✅ **Element Configuration System** - Complete
-- ✅ **Playwright Plugin Implementation** - Complete
-- ✅ **Base Page Component Implementation** - Complete
-- ✅ **Page Navigation and Validation** - Complete
-- ✅ **Sample App Integration** - Complete
+- Project Structure Setup
+- Core Interfaces & Abstractions
+- Fluent Entry Point
+- Element Configuration System
+- Playwright Plugin Implementation
+- Base Page Component Implementation
+- Page Navigation and Validation
+- Sample App Integration
 
-### Phase 2: Advanced Features & Verification - 100% Complete ✅
+### Phase 2: Advanced Features & Verification - 100% Complete
 
-- ✅ **Verification System** - Complete
-- ✅ **Advanced Wait Strategies** - Complete
-- ✅ **Error Handling and Debugging** - Complete
-- ✅ **Logging Integration** - Complete
+- Verification System
+- Advanced Wait Strategies
+- Error Handling and Debugging
+- Logging Integration
+
+### Phase 3: API Unification - 100% Complete
+
+- IHostingStrategy abstraction
+- Unified AppScaffold<TApp>
+- Simplified Page<TSelf> base class
+- Async-first design
 
 See [Roadmap](docs/roadmap/README.md) for current development plans and story tracking.
 
-## 🤝 Contributing
+## Project Structure
+
+- **src\FluentUIScaffold.Core**: Core framework-independent library
+- **src\FluentUIScaffold.Playwright**: Playwright plugin
+- **src\FluentUIScaffold.AspireHosting**: Aspire hosting extensions
+- **samples\SampleApp**: Sample ASP.NET Core app with Svelte frontend
+- **samples\SampleApp.AppHost**: Aspire AppHost for distributed testing
+- **samples\SampleApp.AspireTests**: Sample Aspire-hosted tests
+- **samples\SampleApp.Tests**: Sample standard .NET tests
+- **tests\FluentUIScaffold.Core.Tests**: Core framework tests
+- **tests\FluentUIScaffold.Playwright.Tests**: Playwright plugin tests
+
+## Contributing
 
 We welcome contributions! Please see our [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
@@ -230,17 +297,17 @@ We welcome contributions! Please see our [CONTRIBUTING.md](CONTRIBUTING.md) for 
 
 See [Story Tracking](docs/roadmap/story-tracking.md) for current development status and available stories to work on.
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - Inspired by [fluent-test-scaffold](https://github.com/rburnham52/fluent-test-scaffold)
 - Built with [Playwright](https://playwright.dev/) for reliable browser automation
 - Uses Microsoft.Extensions.Logging for comprehensive logging
 
-## 📞 Support
+## Support
 
 - Issues: GitHub Issues
 - Discussions: GitHub Discussions
@@ -248,4 +315,4 @@ This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md
 
 ---
 
-**FluentUIScaffold** - Making E2E testing fluent and maintainable. 🚀 
+**FluentUIScaffold** - Making E2E testing fluent and maintainable.

@@ -3,7 +3,6 @@ using System;
 using FluentUIScaffold.Core.Configuration;
 using FluentUIScaffold.Core.Interfaces;
 using FluentUIScaffold.Core.Pages;
-using FluentUIScaffold.Playwright;
 
 namespace SampleApp.Tests.Pages
 {
@@ -11,7 +10,7 @@ namespace SampleApp.Tests.Pages
     /// Page object for the login page of the FluentUIScaffold sample application.
     /// Demonstrates form interactions and validation for user login.
     /// </summary>
-    public class LoginPage : BasePageComponent<PlaywrightDriver, LoginPage>
+    public class LoginPage : Page<LoginPage>
     {
         public IElement EmailInput { get; set; } = null!;
         public IElement PasswordInput { get; set; } = null!;

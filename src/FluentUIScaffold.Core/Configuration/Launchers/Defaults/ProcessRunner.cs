@@ -1,9 +1,11 @@
-namespace FluentUIScaffold.Core.Configuration.Launchers
+using System;
+using System.Diagnostics;
+using System.IO;
+using System.Threading.Tasks;
+
+using FluentUIScaffold.Core.Configuration.Launchers.Abstractions;
+namespace FluentUIScaffold.Core.Configuration.Launchers.Defaults
 {
-    using System;
-    using System.Diagnostics;
-    using System.IO;
-    using System.Threading.Tasks;
 
     internal sealed class DiagnosticsProcessAdapter : IProcess
     {

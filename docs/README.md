@@ -4,13 +4,26 @@ Welcome to the documentation for the FluentUIScaffold E2E Testing Framework. Thi
 
 ## 📚 Documentation Index
 
+### Getting Started
 - [Getting Started Guide](getting-started.md)
-- Initialization Pattern (coming soon)
+- [Initialization Pattern](new-initialization-pattern.md)
+- [Architecture Overview](architecture.md)
+
+### Core Concepts
 - [API Reference](api-reference.md)
 - [Page Object Pattern](page-object-pattern.md)
 - [Element Configuration & Wait Strategies](element-configuration.md)
+- [Headless & SlowMo Configuration](headless-slowmo-configuration.md)
+
+### Framework Integration
 - [Playwright Integration](playwright-integration.md)
+- [Hosting Strategies](flexible-server-startup-framework.md)
+
+### Examples
 - [Sample Application Guide](../samples/README.md)
+- [Testing Strategy](testing-strategy.md)
+
+### Roadmap & Development
 - [Roadmap & Story Tracking](roadmap/README.md)
 - [Developer Quick Start](roadmap/developer-quick-start.md)
 - [Story Tracking Board](roadmap/story-tracking.md)

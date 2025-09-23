@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 
 using FluentUIScaffold.Core;
 using FluentUIScaffold.Core.Configuration;
+using FluentUIScaffold.Playwright;
 
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -18,29 +19,27 @@ namespace SampleApp.Tests.Examples
     [TestClass]
     public class AdvancedNavigationTests
     {
-        private FluentUIScaffoldApp<WebApp>? _app;
+        private AppScaffold<WebApp>? _app;
         private HomePage? _homePage;
 
         [TestInitialize]
         public async Task Setup()
         {
             // Arrange - Set up the application and page objects
-            var options = new FluentUIScaffoldOptionsBuilder()
-                .WithBaseUrl(TestConfiguration.BaseUri)
-                .WithDefaultWaitTimeout(TimeSpan.FromSeconds(30))
-                .Build();
-
-            _app = new FluentUIScaffoldApp<WebApp>(options);
-            await _app.InitializeAsync();
+            _app = TestAssemblyHooks.CreateApp();
+            await _app.StartAsync();
 
             // Create page objects
             _homePage = new HomePage(_app.ServiceProvider);
         }
 
         [TestCleanup]
-        public void Cleanup()
+        public async Task Cleanup()
         {
-            _app?.Dispose();
+            if (_app != null)
+            {
+                await _app.DisposeAsync();
+            }
         }
 
         [TestMethod]

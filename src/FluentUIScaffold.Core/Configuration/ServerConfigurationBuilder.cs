@@ -3,7 +3,10 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 
-namespace FluentUIScaffold.Core.Configuration.Launchers
+using FluentUIScaffold.Core.Configuration.Launchers;
+using FluentUIScaffold.Core.Configuration.Launchers.Abstractions;
+using FluentUIScaffold.Core.Configuration.Launchers.Defaults;
+namespace FluentUIScaffold.Core.Configuration
 {
     public class ServerProcessBuilder<TSelf> where TSelf : ServerProcessBuilder<TSelf>
     {
@@ -50,6 +53,48 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
             return This;
         }
         public TSelf WithProcessOutputLogging(bool enabled = true) { _streamOutput = enabled; return This; }
+
+        public TSelf WithHeadless(bool enabled = true)
+        {
+            if (enabled)
+            {
+                // Disable SPA proxy to use prebuilt assets
+                WithEnvironmentVariable("ASPNETCORE_HOSTINGSTARTUPASSEMBLIES", "");
+
+                // Set headless flags for Playwright and other testing tools
+                WithEnvironmentVariable("HEADLESS", "true");
+                WithEnvironmentVariable("PWDEBUG", "0");
+
+                // Use in-memory database for testing if needed
+                WithEnvironmentVariable("USE_INMEMORY_DB", "true");
+            }
+            return This;
+        }
+
+        public TSelf WithMultipleHealthCheckEndpoints(params string[] endpoints)
+        {
+            if (endpoints?.Length > 0)
+            {
+                return WithHealthCheckEndpoints(endpoints);
+            }
+            return This;
+        }
+
+
+        public TSelf WithAutoCI()
+        {
+            var isCI = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("CI")) ||
+                      !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("GITHUB_ACTIONS")) ||
+                      !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("AZURE_PIPELINES")) ||
+                      !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("JENKINS_URL"));
+
+            if (isCI)
+            {
+                WithHeadless(true);
+            }
+
+            return This;
+        }
 
         public LaunchPlan Build()
         {
@@ -137,17 +182,71 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
         }
     }
 
-    public class AspireServerConfigurationBuilder : DotNetServerConfigurationBuilder
+    public class AspireServerConfigurationBuilder : ServerProcessBuilder<AspireServerConfigurationBuilder>
     {
         public AspireServerConfigurationBuilder(Uri baseUrl)
         {
+            // Set up .NET defaults
+            WithExecutable("dotnet");
+            WithArguments("run");
+            WithArgument("--no-launch-profile");
+            WithFramework("net8.0");
+            WithConfiguration("Release");
+
+            // Set up ASP.NET Core defaults
             WithAspNetCoreUrls(baseUrl.ToString());
+            WithAspNetCoreEnvironment("Development");
+            WithDotNetEnvironment("Development");
+            EnableSpaProxy(false);
+
+            // Set up Aspire defaults
             WithStartupTimeout(TimeSpan.FromSeconds(90));
             WithHealthCheckEndpoints("/", "/health");
+
             // Defaults to make Aspire dashboard work in local/dev without extra config
             WithEnvironmentVariable("ASPIRE_ALLOW_UNSECURED_TRANSPORT", "true");
+            WithEnvironmentVariable("DOTNET_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS", "true");
             // Provide at least one OTLP endpoint (gRPC) so Dashboard doesn't fail startup
             WithEnvironmentVariable("DOTNET_DASHBOARD_OTLP_ENDPOINT_URL", "http://localhost:4317");
+        }
+
+        public AspireServerConfigurationBuilder WithDashboardUrl(string url)
+        {
+            return WithAspNetCoreUrls(url);
+        }
+
+        public AspireServerConfigurationBuilder WithFramework(string tfm)
+        {
+            return WithArgument("--framework", tfm);
+        }
+
+        public AspireServerConfigurationBuilder WithConfiguration(string config)
+        {
+            return WithArgument("--configuration", config);
+        }
+
+        public AspireServerConfigurationBuilder WithAspNetCoreUrls(string urls)
+        {
+            WithEnvironmentVariable("ASPNETCORE_URLS", urls);
+            return this;
+        }
+
+        public AspireServerConfigurationBuilder WithAspNetCoreEnvironment(string env = "Development")
+        {
+            WithEnvironmentVariable("ASPNETCORE_ENVIRONMENT", env);
+            return this;
+        }
+
+        public AspireServerConfigurationBuilder WithDotNetEnvironment(string env = "Development")
+        {
+            WithEnvironmentVariable("DOTNET_ENVIRONMENT", env);
+            return this;
+        }
+
+        public AspireServerConfigurationBuilder EnableSpaProxy(bool enabled = true)
+        {
+            WithEnvironmentVariable("ASPNETCORE_HOSTINGSTARTUPASSEMBLIES", enabled ? "Microsoft.AspNetCore.SpaProxy" : "");
+            return this;
         }
 
         public AspireServerConfigurationBuilder WithAspireDashboardOtlpEndpoint(string url)
@@ -161,6 +260,13 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
             WithEnvironmentVariable("DOTNET_RESOURCE_SERVICE_ENDPOINT_URL", url);
             return this;
         }
+
+        public AspireServerConfigurationBuilder WithAspNetCoreForwardedHeaders(bool enabled)
+        {
+            WithEnvironmentVariable("ASPNETCORE_FORWARDEDHEADERS_ENABLED", enabled ? "true" : "false");
+            return this;
+        }
+
     }
 
     public class NodeJsServerConfigurationBuilder : ServerProcessBuilder<NodeJsServerConfigurationBuilder>

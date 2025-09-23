@@ -1,3 +1,4 @@
+using FluentUIScaffold.Core.Configuration.Launchers.Abstractions;
 namespace FluentUIScaffold.Core.Configuration.Launchers
 {
     using System;

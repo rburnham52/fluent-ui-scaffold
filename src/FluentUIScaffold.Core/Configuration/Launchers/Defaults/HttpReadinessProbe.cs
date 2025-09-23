@@ -4,9 +4,10 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 
-using Microsoft.Extensions.Logging;
+using FluentUIScaffold.Core.Configuration.Launchers.Abstractions;
 
-namespace FluentUIScaffold.Core.Configuration.Launchers
+using Microsoft.Extensions.Logging;
+namespace FluentUIScaffold.Core.Configuration.Launchers.Defaults
 {
     public sealed class HttpReadinessProbe : IReadinessProbe
     {
@@ -62,6 +63,12 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
                     {
                         logger?.LogDebug("Readiness error at {Url} attempt {Attempt}: {Message}", url, attempt, ex.Message);
                     }
+                }
+
+                // Check if we've exceeded the timeout before waiting
+                if (DateTime.UtcNow - startTime >= plan.StartupTimeout)
+                {
+                    break;
                 }
 
                 await Task.Delay(plan.PollInterval, cancellationToken);

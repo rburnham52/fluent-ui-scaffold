@@ -5,7 +5,6 @@ using FluentUIScaffold.Core;
 using FluentUIScaffold.Core.Configuration;
 using FluentUIScaffold.Core.Interfaces;
 using FluentUIScaffold.Core.Pages;
-using FluentUIScaffold.Playwright;
 
 namespace SampleApp.Tests.Pages
 {
@@ -13,7 +12,7 @@ namespace SampleApp.Tests.Pages
     /// Page Object Model for the Registration page.
     /// Demonstrates how to encapsulate form interactions and validations.
     /// </summary>
-    public class RegistrationPage : BasePageComponent<PlaywrightDriver, RegistrationPage>
+    public class RegistrationPage : Page<RegistrationPage>
     {
         public RegistrationPage(IServiceProvider serviceProvider)
             : base(serviceProvider, TestConfiguration.BaseUri)
@@ -140,7 +139,7 @@ namespace SampleApp.Tests.Pages
         /// </summary>
         public RegistrationPage VerifySuccessMessage()
         {
-            return WaitForElementToBeVisible(e => e.SuccessMessage)
+            return WaitForVisible(e => e.SuccessMessage)
                    .VerifyText(e => e.SuccessMessage, "Registration successful!");
         }
 
@@ -149,7 +148,7 @@ namespace SampleApp.Tests.Pages
         /// </summary>
         public RegistrationPage VerifyErrorMessage(string expectedError)
         {
-            return WaitForElementToBeVisible(e => e.ErrorMessage)
+            return WaitForVisible(e => e.ErrorMessage)
                    .VerifyText(e => e.ErrorMessage, expectedError);
         }
 

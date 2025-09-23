@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 
 using FluentUIScaffold.Core;
 using FluentUIScaffold.Core.Configuration;
+using FluentUIScaffold.Playwright;
 
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -18,19 +19,23 @@ namespace SampleApp.Tests.Examples
     [TestClass]
     public class LoginFlowTests
     {
-        private FluentUIScaffoldApp<WebApp>? _app;
+        private AppScaffold<WebApp>? _app;
         private LoginPage? _loginPage;
 
         [TestInitialize]
         public async Task Setup()
         {
-            var options = new FluentUIScaffoldOptionsBuilder()
-                .WithBaseUrl(TestConfiguration.BaseUri)
-                .WithDefaultWaitTimeout(TimeSpan.FromSeconds(30))
-                .Build();
+            _app = new FluentUIScaffoldBuilder()
+                .UsePlaywright()
+                .Web<WebApp>(options =>
+                {
+                    options.BaseUrl = TestConfiguration.BaseUri;
+                    options.DefaultWaitTimeout = TimeSpan.FromSeconds(30);
+                })
+                .WithAutoPageDiscovery()
+                .Build<WebApp>();
 
-            _app = new FluentUIScaffoldApp<WebApp>(options);
-            await _app.InitializeAsync();
+            await _app.StartAsync();
 
             _loginPage = new LoginPage(_app.ServiceProvider, TestConfiguration.BaseUri);
 
@@ -39,9 +44,12 @@ namespace SampleApp.Tests.Examples
         }
 
         [TestCleanup]
-        public void Cleanup()
+        public async Task Cleanup()
         {
-            _app?.Dispose();
+            if (_app != null)
+            {
+                await _app.DisposeAsync();
+            }
         }
 
         [TestMethod]

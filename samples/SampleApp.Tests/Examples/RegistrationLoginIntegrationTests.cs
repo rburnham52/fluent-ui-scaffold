@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 
 using FluentUIScaffold.Core;
 using FluentUIScaffold.Core.Configuration;
+using FluentUIScaffold.Playwright;
 
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -18,7 +19,7 @@ namespace SampleApp.Tests.Examples
     [TestClass]
     public class RegistrationLoginIntegrationTests
     {
-        private FluentUIScaffoldApp<WebApp>? _app;
+        private AppScaffold<WebApp>? _app;
         private RegistrationPage? _registrationPage;
         private LoginPage? _loginPage;
 
@@ -26,13 +27,17 @@ namespace SampleApp.Tests.Examples
         public async Task Setup()
         {
             // Arrange - Set up the application and page objects
-            var options = new FluentUIScaffoldOptionsBuilder()
-                .WithBaseUrl(TestConfiguration.BaseUri)
-                .WithDefaultWaitTimeout(TimeSpan.FromSeconds(30))
-                .Build();
+            _app = new FluentUIScaffoldBuilder()
+                .UsePlaywright()
+                .Web<WebApp>(options =>
+                {
+                    options.BaseUrl = TestConfiguration.BaseUri;
+                    options.DefaultWaitTimeout = TimeSpan.FromSeconds(30);
+                })
+                .WithAutoPageDiscovery()
+                .Build<WebApp>();
 
-            _app = new FluentUIScaffoldApp<WebApp>(options);
-            await _app.InitializeAsync();
+            await _app.StartAsync();
 
             // Create page objects
             _registrationPage = new RegistrationPage(_app.ServiceProvider);
@@ -40,9 +45,12 @@ namespace SampleApp.Tests.Examples
         }
 
         [TestCleanup]
-        public void Cleanup()
+        public async Task Cleanup()
         {
-            _app?.Dispose();
+            if (_app != null)
+            {
+                await _app.DisposeAsync();
+            }
         }
 
         [TestMethod]

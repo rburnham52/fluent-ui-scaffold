@@ -2,121 +2,157 @@
 
 ## Overview
 
-The FluentUIScaffold framework uses a simplified initialization pattern with auto-discovery of plugins and pages, similar to FluentTestScaffold. This eliminates the need for manual service configuration and makes the framework much easier to use.
+The FluentUIScaffold framework uses a builder-based initialization pattern with `AppScaffold<TApp>` as the central orchestrator. This provides an async-first design with pluggable hosting strategies.
 
-## Constructor
+## Builder Pattern
 
-The constructor takes a `FluentUIScaffoldOptions` object and automatically:
-
-1. **Auto-discovers plugins** from loaded assemblies
-2. **Auto-discovers pages** from loaded assemblies  
-3. **Configures the IOC container** with all discovered components
-4. **Creates the driver** using the discovered plugins
+The `FluentUIScaffoldBuilder` provides a fluent API for configuring and building the application scaffold:
 
 ```csharp
-var options = new FluentUIScaffoldOptions
-{
-    BaseUrl = TestConfiguration.BaseUri,
-    DefaultWaitTimeout = TimeSpan.FromSeconds(10),
-    LogLevel = LogLevel.Information,
-    HeadlessMode = true, // Run in headless mode for CI/CD
-    DebugMode = false, // Set to true for debugging (disables headless, sets SlowMo = 1000)
-    // Optional: Enable web server launching
-    EnableWebServerLaunch = true,
-    WebServerProjectPath = "path/to/your/web/app",
-    ReuseExistingServer = false
-};
+var app = new FluentUIScaffoldBuilder()
+    .UsePlugin(new PlaywrightPlugin())
+    .Web<WebApp>(opts =>
+    {
+        opts.BaseUrl = new Uri("https://localhost:5001");
+        opts.DefaultWaitTimeout = TimeSpan.FromSeconds(30);
+        opts.HeadlessMode = true;
+    })
+    .WithAutoPageDiscovery()
+    .Build<WebApp>();
 
-var fluentUIApp = new FluentUIScaffoldApp<WebApp>(options);
-await fluentUIApp.InitializeAsync(options); // Initialize with web server launch if enabled
+await app.StartAsync();
+```
+
+## Hosting Strategies
+
+The framework supports pluggable hosting strategies for different application types:
+
+### DotNetHostingStrategy
+
+For .NET applications started with `dotnet run`:
+
+```csharp
+var app = new FluentUIScaffoldBuilder()
+    .UsePlugin(new PlaywrightPlugin())
+    .UseDotNetHosting(new Uri("https://localhost:5001"), "path/to/project.csproj", opts =>
+    {
+        opts.WithFramework("net8.0");
+        opts.WithConfiguration("Release");
+    })
+    .WithAutoPageDiscovery()
+    .Build<WebApp>();
+
+await app.StartAsync();
+```
+
+### NodeHostingStrategy
+
+For Node.js applications started with `npm run`:
+
+```csharp
+var app = new FluentUIScaffoldBuilder()
+    .UsePlugin(new PlaywrightPlugin())
+    .UseNodeHosting(new Uri("http://localhost:3000"), "path/to/client-app", opts =>
+    {
+        opts.WithScript("dev");
+    })
+    .WithAutoPageDiscovery()
+    .Build<WebApp>();
+
+await app.StartAsync();
+```
+
+### ExternalHostingStrategy
+
+For pre-started servers (CI environments, staging):
+
+```csharp
+var app = new FluentUIScaffoldBuilder()
+    .UsePlugin(new PlaywrightPlugin())
+    .UseExternalServer(new Uri("https://staging.example.com"))
+    .WithAutoPageDiscovery()
+    .Build<WebApp>();
+
+await app.StartAsync();
+```
+
+### AspireHostingStrategy
+
+For Aspire distributed applications:
+
+```csharp
+var app = new FluentUIScaffoldBuilder()
+    .UseAspireHosting<Projects.MyApp_AppHost>(
+        appHost => { /* configure */ },
+        "myapp")
+    .Web<WebApp>(opts => { opts.UsePlaywright(); })
+    .Build<WebApp>();
+
+await app.StartAsync();
 ```
 
 ## Auto-Discovery Features
 
-### Plugin Auto-Discovery
+### Plugin Registration
 
-The framework automatically discovers and registers plugins from all loaded assemblies:
-
-- **Skips test assemblies** to avoid test plugins
-- **Skips plugins with "Test" or "Mock" in their names** to avoid test plugins
-- **Falls back to MockPlugin** if no valid plugins are found
-- **Handles exceptions gracefully** and continues with other plugins
-
-### Web Server Launching
-
-The framework supports automatic web server launching for applications that need to be started before testing:
-
-- **Automatic Launch**: Uses `dotnet run` to launch the web application
-- **Wait for Readiness**: Waits for the server to be accessible at the configured base URL
-- **Process Management**: Automatically cleans up the server process when tests complete
-- **Reuse Option**: Can reuse an already running server to avoid conflicts
+Plugins must be explicitly registered:
 
 ```csharp
-var options = new FluentUIScaffoldOptions
-{
-    BaseUrl = new Uri("https://localhost:5001"),
-    EnableWebServerLaunch = true,
-    WebServerProjectPath = "path/to/your/web/app",
-    ReuseExistingServer = false
-};
+// Register Playwright plugin
+builder.UsePlugin(new PlaywrightPlugin());
 ```
 
-### Debug Mode
-
-The framework supports a debug mode that makes testing easier during development:
-
-- **Non-Headless Mode**: Automatically disables headless mode to show the browser window
-- **SlowMo**: Sets SlowMo to 1000ms to slow down interactions for better visibility
-- **Detailed Logging**: Provides enhanced logging of browser actions
-- **Automatic Detection**: Automatically enables when a debugger is attached (no configuration needed!)
-
-```csharp
-var options = new FluentUIScaffoldOptions
-{
-    BaseUrl = new Uri("https://localhost:5001"),
-    // DebugMode automatically enables when debugger is attached
-    // You can also explicitly set it: DebugMode = true
-    // When DebugMode is true:
-    // - HeadlessMode is automatically set to false
-    // - SlowMo is automatically automatically set to 1000ms
-};
-```
-
-**Debug Mode Behavior:**
-- **Development**: Automatically activates when you run tests in debug mode (F5 in Visual Studio, or when a debugger is attached)
-- **CI/CD**: Remains disabled in CI/CD environments where no debugger is attached
-- **Manual Control**: You can explicitly set `DebugMode = true` for manual control
-- **Fallback**: You can still set `HeadlessMode` and `FrameworkOptions["SlowMo"]` manually for more control
 ### Page Auto-Discovery
 
-The framework automatically discovers and registers pages from all loaded assemblies:
+The framework can automatically discover and register page objects:
 
-- **Finds all types inheriting from `BasePageComponent<,>`**
-- **Registers them as transient services** in the IOC container
-- **Determines URL patterns** using convention-based mapping
-- **Handles exceptions gracefully** and continues with other pages
+```csharp
+builder.WithAutoPageDiscovery();
+```
 
-### URL Pattern Convention
+This finds all types inheriting from `Page<TSelf>` and registers them with the DI container.
 
-Pages are automatically mapped to URLs using this convention:
+### Manual Page Registration
 
-- **HomePage** → `/home`
-- **LoginPage** → `/login`  
-- **RegistrationPage** → `/registration`
-- **DashboardPage** → `/dashboard`
+Alternatively, register pages explicitly:
 
-The framework converts PascalCase to kebab-case and removes the "Page" suffix.
+```csharp
+builder.RegisterPage<HomePage>();
+builder.RegisterPage<LoginPage>();
+builder.RegisterPage<RegistrationPage>();
+```
+
+## Debug Mode
+
+The framework supports automatic debug detection:
+
+- **Non-Headless Mode**: Automatically disables headless mode when debugger is attached
+- **SlowMo**: Sets SlowMo to 1000ms for better visibility during debugging
+- **Detailed Logging**: Provides enhanced logging of browser actions
+
+```csharp
+var app = new FluentUIScaffoldBuilder()
+    .UsePlugin(new PlaywrightPlugin())
+    .Web<WebApp>(opts =>
+    {
+        opts.BaseUrl = new Uri("https://localhost:5001");
+        // HeadlessMode and SlowMo auto-detect based on debugger attachment
+    })
+    .Build<WebApp>();
+```
 
 ## Fluent API Usage
 
-With the initialization, you can use a clean fluent API:
+With the initialized app, use a clean fluent API:
 
 ```csharp
-fluentUIApp.NavigateTo<HomePage>() // Resolves page from IOC and returns its fluent API
-    .WaitFor(e => e.UsernameInput) // Uses base PageObject's common methods
-    .LoginAsAdmin() // Use HomePage's custom method
-    .WaitFor<Dashboard>() // Resolve from IOC and returns dashboard FluentAPI
-    .VerifyUserIsLoggedIn(); // Use Dashboard's custom method
+app.NavigateTo<HomePage>()
+    .WaitForVisible(p => p.LoginButton)
+    .Click(p => p.LoginButton)
+    .NavigateTo<LoginPage>()
+    .Type(p => p.UsernameInput, "admin")
+    .Type(p => p.PasswordInput, "password")
+    .Click(p => p.SubmitButton);
 ```
 
 ### WaitFor Methods
@@ -125,73 +161,100 @@ The framework provides convenient `WaitFor` methods:
 
 ```csharp
 // Wait for a specific element on a page
-fluentUIApp.WaitFor<HomePage>(e => e.CounterButton);
+app.WaitFor<HomePage>(p => p.CounterButton);
 
 // Wait for a page to be ready
-fluentUIApp.WaitFor<Dashboard>();
+app.WaitFor<Dashboard>();
 ```
 
 ## Benefits
 
-1. **Simplified Setup**: No manual service configuration required
-2. **Auto-Discovery**: Plugins and pages are automatically found and registered
-3. **Convention-Based**: URL patterns are automatically determined
-4. **Error Handling**: Graceful handling of discovery failures
-5. **Fallback Support**: MockPlugin fallback ensures tests always work
-6. **Clean API**: Fluent API with `WaitFor` methods for better readability
+1. **Async-First**: Modern async lifecycle with `StartAsync()` and `DisposeAsync()`
+2. **Pluggable Hosting**: Support for .NET, Node.js, External servers, and Aspire
+3. **Auto-Discovery**: Optional automatic page object discovery
+4. **Clean API**: Fluent API with type-safe element selectors
+5. **Debug Support**: Automatic debug detection for development
 
 ## Usage Examples
 
-### Basic Setup
+### Basic Test Setup
 
 ```csharp
-[Test]
-public async Task BasicTest()
+[TestClass]
+public class TestAssemblyHooks
 {
-    var options = new FluentUIScaffoldOptions
-    {
-        BaseUrl = TestConfiguration.BaseUri,
-        DefaultWaitTimeout = TimeSpan.FromSeconds(10),
-        LogLevel = LogLevel.Information,
-        HeadlessMode = true
-    };
+    private static AppScaffold<WebApp>? _app;
 
-    using var fluentUIApp = new FluentUIScaffoldApp<WebApp>(options);
-    await fluentUIApp.InitializeAsync(options);
-    
-    // Use fluent API...
-    fluentUIApp.NavigateTo<HomePage>()
-        .WaitFor(e => e.CounterButton)
-        .ClickCounter();
+    [AssemblyInitialize]
+    public static async Task AssemblyInitialize(TestContext context)
+    {
+        _app = new FluentUIScaffoldBuilder()
+            .UsePlugin(new PlaywrightPlugin())
+            .Web<WebApp>(opts =>
+            {
+                opts.BaseUrl = new Uri("https://localhost:5001");
+                opts.DefaultWaitTimeout = TimeSpan.FromSeconds(30);
+            })
+            .WithAutoPageDiscovery()
+            .Build<WebApp>();
+
+        await _app.StartAsync();
+    }
+
+    [AssemblyCleanup]
+    public static async Task AssemblyCleanup()
+    {
+        if (_app != null)
+            await _app.DisposeAsync();
+    }
+
+    public static AppScaffold<WebApp> App => _app!;
 }
 ```
 
-### Advanced Usage with Web Server Launching
+### Writing Tests
 
 ```csharp
-[Test]
-public async Task AdvancedTest()
+[TestMethod]
+public void Can_Navigate_And_Interact()
 {
-    var options = new FluentUIScaffoldOptions
-    {
-        BaseUrl = TestConfiguration.BaseUri,
-        DefaultWaitTimeout = TimeSpan.FromSeconds(10),
-        LogLevel = LogLevel.Information,
-        HeadlessMode = true,
-        // Enable web server launching
-        EnableWebServerLaunch = true,
-        WebServerProjectPath = "path/to/your/web/app",
-        ReuseExistingServer = false
-    };
+    var homePage = TestAssemblyHooks.App.NavigateTo<HomePage>();
 
-    using var fluentUIApp = new FluentUIScaffoldApp<WebApp>(options);
-    await fluentUIApp.InitializeAsync(options); // This will launch the web server
-    
-    // Navigate and perform actions
-    fluentUIApp.NavigateTo<HomePage>()
-        .WaitFor(e => e.UsernameInput)
-        .LoginAsAdmin()
-        .WaitFor<Dashboard>()
-        .VerifyUserIsLoggedIn();
+    homePage
+        .WaitForVisible(p => p.CounterButton)
+        .Click(p => p.CounterButton)
+        .Verify.TextContains(p => p.CounterValue, "1");
 }
-``` 
+```
+
+### Aspire Testing Setup
+
+```csharp
+[TestClass]
+public class AspireTestAssemblyHooks
+{
+    private static AppScaffold<WebApp>? _app;
+
+    [AssemblyInitialize]
+    public static async Task AssemblyInitialize(TestContext context)
+    {
+        _app = new FluentUIScaffoldBuilder()
+            .UseAspireHosting<Projects.SampleApp_AppHost>(
+                appHost => { /* configure */ },
+                "sampleapp")
+            .Web<WebApp>(opts => { opts.UsePlaywright(); })
+            .Build<WebApp>();
+
+        await _app.StartAsync();
+    }
+
+    [AssemblyCleanup]
+    public static async Task AssemblyCleanup()
+    {
+        if (_app != null)
+            await _app.DisposeAsync();
+    }
+
+    public static AppScaffold<WebApp> App => _app!;
+}
+```

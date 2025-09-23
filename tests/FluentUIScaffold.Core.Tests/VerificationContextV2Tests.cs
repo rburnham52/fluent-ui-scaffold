@@ -5,7 +5,6 @@ using FluentUIScaffold.Core.Exceptions;
 using FluentUIScaffold.Core.Interfaces;
 using FluentUIScaffold.Core.Pages;
 using FluentUIScaffold.Core.Tests.Mocks;
-using FluentUIScaffold.Core.Tests.Mocks;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -78,7 +77,7 @@ namespace FluentUIScaffold.Core.Tests
             Assert.Throws<VerificationException>(() => page.Verify.NotVisible(p => p.Header));
         }
 
-        private sealed class TestVerifyPage : BasePageComponent<MockUIDriver, TestVerifyPage>
+        private sealed class TestVerifyPage : Page<TestVerifyPage>
         {
             public IElement Header { get; private set; } = null!;
 
@@ -93,5 +92,3 @@ namespace FluentUIScaffold.Core.Tests
         }
     }
 }
-
-

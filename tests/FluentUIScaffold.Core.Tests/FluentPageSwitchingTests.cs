@@ -1,10 +1,13 @@
 using System;
+using System.Threading.Tasks;
 
 using FluentUIScaffold.Core;
 using FluentUIScaffold.Core.Configuration;
 using FluentUIScaffold.Core.Pages;
-using FluentUIScaffold.Core.Plugins;
 using FluentUIScaffold.Core.Tests.Mocks;
+using FluentUIScaffold.Playwright;
+
+using Microsoft.Extensions.DependencyInjection;
 
 using NUnit.Framework;
 
@@ -13,25 +16,42 @@ namespace FluentUIScaffold.Core.Tests
     [TestFixture]
     public class FluentPageSwitchingTests
     {
+        private AppScaffold<WebApp> _app;
+
         [SetUp]
-        public void Setup()
+        public async Task Setup()
         {
-            PluginRegistry.ClearForTests();
-            PluginRegistry.Register(new MockPlugin());
+            _app = new FluentUIScaffoldBuilder()
+                .ConfigureServices(services =>
+                {
+                    services.AddSingleton<MockUIDriver>();
+                    services.AddSingleton<Interfaces.IUIDriver>(sp => sp.GetRequiredService<MockUIDriver>());
+                })
+                .Web<WebApp>(opts =>
+                {
+                    opts.BaseUrl = new Uri("http://localhost");
+                })
+                .WithAutoPageDiscovery()
+                .Build<WebApp>();
+
+            await _app.StartAsync();
+        }
+
+        [TearDown]
+        public async Task TearDown()
+        {
+            if (_app != null)
+            {
+                await _app.DisposeAsync();
+            }
         }
 
         [Test]
         public void On_AttachesWithoutNavigation_AndOptionalValidate()
         {
-            // Arrange
-            var app = FluentUIScaffoldBuilder.Web<WebApp>(opts =>
-            {
-                opts.WithBaseUrl(new Uri("http://localhost"));
-            });
-
             // Act
-            var pageNoValidate = app.On<TestFakePageA>();
-            var pageWithValidate = app.On<TestFakePageA>(validate: true);
+            var pageNoValidate = _app.On<TestFakePageA>();
+            var pageWithValidate = _app.On<TestFakePageA>(validate: true);
 
             // Assert
             Assert.That(pageNoValidate, Is.Not.Null);
@@ -45,14 +65,8 @@ namespace FluentUIScaffold.Core.Tests
         [Test]
         public void NavigateTo_InvokesNavigate_AndReturnsPage()
         {
-            // Arrange
-            var app = FluentUIScaffoldBuilder.Web<WebApp>(opts =>
-            {
-                opts.WithBaseUrl(new Uri("http://localhost"));
-            });
-
             // Act
-            var page = app.NavigateTo<TestFakePageA>();
+            var page = _app.NavigateTo<TestFakePageA>();
 
             // Assert
             Assert.That(page, Is.Not.Null);
@@ -63,12 +77,7 @@ namespace FluentUIScaffold.Core.Tests
         public void Then_ChainsToTargetPage()
         {
             // Arrange
-            var app = FluentUIScaffoldBuilder.Web<WebApp>(opts =>
-            {
-                opts.WithBaseUrl(new Uri("http://localhost"));
-            });
-
-            var pageA = app.On<TestFakePageA>();
+            var pageA = _app.On<TestFakePageA>();
 
             // Act
             var pageB = pageA.Then<TestFakePageB>();
@@ -83,7 +92,7 @@ namespace FluentUIScaffold.Core.Tests
     /// <summary>
     /// Fake page A for testing fluent page switching.
     /// </summary>
-    public sealed class TestFakePageA : BasePageComponent<MockUIDriver, TestFakePageA>
+    public sealed class TestFakePageA : Page<TestFakePageA>
     {
         public bool NavigateWasCalled { get; private set; }
         public bool ValidateWasCalled { get; private set; }
@@ -113,7 +122,7 @@ namespace FluentUIScaffold.Core.Tests
     /// <summary>
     /// Fake page B for testing fluent page switching.
     /// </summary>
-    public sealed class TestFakePageB : BasePageComponent<MockUIDriver, TestFakePageB>
+    public sealed class TestFakePageB : Page<TestFakePageB>
     {
         public TestFakePageB(IServiceProvider serviceProvider, Uri urlPattern)
             : base(serviceProvider, urlPattern)
@@ -126,5 +135,3 @@ namespace FluentUIScaffold.Core.Tests
         }
     }
 }
-
-
