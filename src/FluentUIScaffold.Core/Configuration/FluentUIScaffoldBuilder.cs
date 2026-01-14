@@ -255,15 +255,38 @@ namespace FluentUIScaffold.Core.Configuration
 
         /// <summary>
         /// Registers a page type with the service collection.
+        /// Pages can use the [Route] attribute to specify their path, which is combined with BaseUrl.
         /// </summary>
         private void RegisterPageType(Type pageType)
         {
             _services.AddTransient(pageType, provider =>
             {
-                // Determine URL pattern for the page
                 var options = provider.GetService<FluentUIScaffoldOptions>();
-                var urlPattern = options?.BaseUrl ?? new Uri("http://localhost");
-                return Activator.CreateInstance(pageType, provider, urlPattern)
+                var baseUrl = options?.BaseUrl ?? new Uri("http://localhost");
+
+                // Check for [Route] attribute to get the page's route path
+                var routeAttribute = pageType.GetCustomAttributes(typeof(Pages.RouteAttribute), inherit: true)
+                    .OfType<Pages.RouteAttribute>()
+                    .FirstOrDefault();
+
+                // Combine base URL with route path
+                Uri pageUrl;
+                if (routeAttribute != null && !string.IsNullOrEmpty(routeAttribute.Path))
+                {
+                    // Combine base URL with route path
+                    var path = routeAttribute.Path;
+                    // Handle both cases: base URL ending with / or not
+                    var baseUrlString = baseUrl.ToString().TrimEnd('/');
+                    var routePath = path.StartsWith("/") ? path : "/" + path;
+                    pageUrl = new Uri(baseUrlString + routePath);
+                }
+                else
+                {
+                    // No route specified, use base URL as-is
+                    pageUrl = baseUrl;
+                }
+
+                return Activator.CreateInstance(pageType, provider, pageUrl)
                     ?? throw new InvalidOperationException($"Failed to create instance of {pageType.Name}");
             });
         }

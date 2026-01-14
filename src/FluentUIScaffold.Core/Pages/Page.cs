@@ -25,16 +25,23 @@ namespace FluentUIScaffold.Core.Pages
         protected ElementFactory ElementFactory { get; }
 
         /// <summary>
-        /// Gets the URL pattern for this page.
+        /// Gets the route template for this page (may contain placeholders like {id}).
         /// </summary>
-        public Uri UrlPattern { get; }
+        public string RouteTemplate { get; }
+
+        /// <summary>
+        /// Gets the full URL for this page (BaseUrl combined with Route).
+        /// If the route contains placeholders, they will not be substituted until Navigate is called with parameters.
+        /// </summary>
+        public Uri PageUrl { get; private set; }
 
         /// <summary>
         /// Creates a new page instance.
         /// </summary>
         /// <param name="serviceProvider">The service provider for dependency injection.</param>
-        /// <param name="urlPattern">The URL pattern for this page.</param>
-        protected Page(IServiceProvider serviceProvider, Uri urlPattern)
+        /// <param name="pageUrl">The full URL for this page (with route template applied).</param>
+        /// <param name="routeTemplate">The route template (may contain placeholders like {id}).</param>
+        protected Page(IServiceProvider serviceProvider, Uri pageUrl, string routeTemplate = "")
         {
             ServiceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
             Driver = serviceProvider.GetRequiredService<IUIDriver>();
@@ -42,7 +49,8 @@ namespace FluentUIScaffold.Core.Pages
             Options = serviceProvider.GetRequiredService<FluentUIScaffoldOptions>();
             ElementFactory = new ElementFactory(Driver, Options);
 
-            UrlPattern = urlPattern ?? throw new ArgumentNullException(nameof(urlPattern));
+            PageUrl = pageUrl ?? throw new ArgumentNullException(nameof(pageUrl));
+            RouteTemplate = routeTemplate ?? "";
             ConfigureElements();
         }
 
@@ -203,12 +211,59 @@ namespace FluentUIScaffold.Core.Pages
         #region Navigation Methods
 
         /// <summary>
-        /// Navigates to the page's URL pattern.
+        /// Navigates to this page's URL.
         /// </summary>
         public virtual TSelf Navigate()
         {
-            Driver.NavigateToUrl(UrlPattern);
+            Driver.NavigateToUrl(PageUrl);
             return Self;
+        }
+
+        /// <summary>
+        /// Navigates to this page's URL with route parameter substitution.
+        /// </summary>
+        /// <param name="routeParams">Anonymous object or dictionary with route parameters (e.g., new { id = "123" }).</param>
+        /// <returns>The page instance for fluent chaining.</returns>
+        public virtual TSelf Navigate(object routeParams)
+        {
+            var resolvedUrl = ResolveRouteParameters(routeParams);
+            PageUrl = resolvedUrl;
+            Driver.NavigateToUrl(resolvedUrl);
+            return Self;
+        }
+
+        /// <summary>
+        /// Resolves route parameters in the PageUrl.
+        /// </summary>
+        /// <param name="routeParams">Anonymous object or dictionary with route parameters.</param>
+        /// <returns>The resolved URL with placeholders replaced.</returns>
+        protected Uri ResolveRouteParameters(object routeParams)
+        {
+            if (routeParams == null)
+                return PageUrl;
+
+            var urlString = PageUrl.ToString();
+
+            // Handle dictionary
+            if (routeParams is IDictionary<string, object> dict)
+            {
+                foreach (var kvp in dict)
+                {
+                    urlString = urlString.Replace($"{{{kvp.Key}}}", Uri.EscapeDataString(kvp.Value?.ToString() ?? ""));
+                }
+            }
+            // Handle anonymous object via reflection
+            else
+            {
+                var properties = routeParams.GetType().GetProperties();
+                foreach (var prop in properties)
+                {
+                    var value = prop.GetValue(routeParams);
+                    urlString = urlString.Replace($"{{{prop.Name}}}", Uri.EscapeDataString(value?.ToString() ?? ""));
+                }
+            }
+
+            return new Uri(urlString);
         }
 
         /// <summary>

@@ -78,11 +78,43 @@ namespace FluentUIScaffold.Core
             var page = _serviceProvider.GetRequiredService<TPage>()
                 ?? throw new InvalidOperationException($"Service of type {typeof(TPage).Name} is not registered.");
 
-            // Use reflection to call Navigate() if the page has that method
-            var navigateMethod = page.GetType().GetMethod("Navigate");
+            // Use reflection to call Navigate() if the page has that method (parameterless overload)
+            var navigateMethod = page.GetType().GetMethod("Navigate", Type.EmptyTypes);
             if (navigateMethod != null)
             {
                 navigateMethod.Invoke(page, null);
+            }
+
+            return page;
+        }
+
+        /// <summary>
+        /// Navigates to a page component of the specified type with route parameters.
+        /// Use this for pages with parameterized routes like [Route("/users/{userId}/profile")].
+        /// </summary>
+        /// <typeparam name="TPage">The type of the page component.</typeparam>
+        /// <param name="routeParams">Anonymous object or dictionary with route parameters (e.g., new { userId = "123" }).</param>
+        /// <returns>The page component instance after navigation.</returns>
+        /// <example>
+        /// <code>
+        /// // For a page with [Route("/users/{userId}/profile")]
+        /// var page = app.NavigateTo&lt;UserProfilePage&gt;(new { userId = "123" });
+        /// // Navigates to: http://localhost:5000/users/123/profile
+        /// </code>
+        /// </example>
+        public TPage NavigateTo<TPage>(object routeParams) where TPage : class
+        {
+            if (routeParams == null)
+                throw new ArgumentNullException(nameof(routeParams));
+
+            var page = _serviceProvider.GetRequiredService<TPage>()
+                ?? throw new InvalidOperationException($"Service of type {typeof(TPage).Name} is not registered.");
+
+            // Use reflection to call Navigate(object routeParams) if the page has that method
+            var navigateMethod = page.GetType().GetMethod("Navigate", new[] { typeof(object) });
+            if (navigateMethod != null)
+            {
+                navigateMethod.Invoke(page, new[] { routeParams });
             }
 
             return page;

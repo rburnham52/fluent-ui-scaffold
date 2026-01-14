@@ -25,12 +25,13 @@ public abstract class Page<TSelf> : IAsyncDisposable
     // Properties
     public IServiceProvider ServiceProvider { get; }
     public IUIDriver Driver { get; }
-    public Uri UrlPattern { get; }
+    public Uri PageUrl { get; }           // Full URL (BaseUrl + Route)
+    public string RouteTemplate { get; }  // The route pattern from [Route] attribute
     protected ILogger Logger { get; }
     protected FluentUIScaffoldOptions Options { get; }
 
     // Constructor
-    protected Page(IServiceProvider serviceProvider, Uri urlPattern);
+    protected Page(IServiceProvider serviceProvider, Uri pageUrl, string routeTemplate = "");
 
     // Element Building
     protected ElementBuilder Element(string selector);
@@ -39,7 +40,8 @@ public abstract class Page<TSelf> : IAsyncDisposable
     protected abstract void ConfigureElements();
 
     // Navigation
-    public virtual TSelf Navigate();
+    public virtual TSelf Navigate();                    // Navigate to PageUrl
+    public virtual TSelf Navigate(object routeParams); // Navigate with parameter substitution
     public TTarget NavigateTo<TTarget>() where TTarget : Page<TTarget>;
 
     // Fluent Interactions (all return TSelf)
@@ -578,54 +580,89 @@ public class StatefulPage : Page<StatefulPage>
 
 ## Navigation Patterns
 
-### 1. Basic URL Pattern Navigation
+### 1. Route Attribute Navigation
 
-The simplest way to navigate is via the `UrlPattern` property and `Navigate()` method:
+The recommended way to define page URLs is using the `[Route]` attribute:
 
 ```csharp
+[Route("/login")]
 public class LoginPage : Page<LoginPage>
 {
-    public LoginPage(IServiceProvider sp, Uri urlPattern) : base(sp, urlPattern) { }
+    public LoginPage(IServiceProvider sp, Uri pageUrl) : base(sp, pageUrl) { }
     protected override void ConfigureElements() { /* ... */ }
 }
 
-// Usage
+// Usage - navigates to http://your-app.com/login
 var loginPage = app.NavigateTo<LoginPage>();
 ```
 
-### 2. Parameterized Navigation
+### 2. Parameterized Routes
 
-For pages that need dynamic paths, create custom navigation methods:
+For pages with dynamic paths, use placeholders in the `[Route]` attribute:
 
 ```csharp
+[Route("/users/{userId}")]
 public class UserProfilePage : Page<UserProfilePage>
 {
-    public UserProfilePage(IServiceProvider sp, Uri urlPattern) : base(sp, urlPattern) { }
-
+    public UserProfilePage(IServiceProvider sp, Uri pageUrl) : base(sp, pageUrl) { }
     protected override void ConfigureElements() { /* ... */ }
-
-    public UserProfilePage NavigateToUserProfile(int userId)
-    {
-        var baseUrl = Options.BaseUrl ?? throw new InvalidOperationException("BaseUrl not configured");
-        Driver.NavigateToUrl(new Uri(baseUrl, $"/profile/{userId}"));
-        return this;
-    }
-
-    public UserProfilePage NavigateToUserProfile(string username)
-    {
-        var baseUrl = Options.BaseUrl ?? throw new InvalidOperationException("BaseUrl not configured");
-        Driver.NavigateToUrl(new Uri(baseUrl, $"/profile/user/{username}"));
-        return this;
-    }
 }
+
+// Usage - pass parameters as an anonymous object
+var userPage = app.NavigateTo<UserProfilePage>(new { userId = "123" });
+// Navigates to: http://your-app.com/users/123
+
+// Multiple parameters
+[Route("/users/{userId}/posts/{postId}")]
+public class UserPostPage : Page<UserPostPage> { /* ... */ }
+
+var postPage = app.NavigateTo<UserPostPage>(new { userId = "123", postId = "456" });
+// Navigates to: http://your-app.com/users/123/posts/456
 ```
 
-### 3. Navigation with Query Parameters
+### 3. Using Dictionary for Route Parameters
+
+```csharp
+// Useful when parameters are determined at runtime
+var routeParams = new Dictionary<string, object>
+{
+    { "userId", GetCurrentUserId() },
+    { "postId", GetSelectedPostId() }
+};
+
+var postPage = app.NavigateTo<UserPostPage>(routeParams);
+```
+
+### 4. Navigation from Page Instance
+
+You can also navigate using the page's `Navigate` method directly:
+
+```csharp
+var userPage = app.On<UserProfilePage>();
+userPage.Navigate(new { userId = "different-user" });
+```
+
+### 5. SPA and Hash-Based Routing
+
+For SPAs with hash-based routing, set the BaseUrl to include the hash:
+
+```csharp
+// Configuration
+.Web<WebApp>(opts => opts.BaseUrl = new Uri("http://localhost:5000/#"))
+
+// Page definition
+[Route("/login")]
+public class LoginPage : Page<LoginPage> { /* ... */ }
+
+// Results in: http://localhost:5000/#/login
+```
+
+### 6. Navigation with Query Parameters
 
 ```csharp
 public class SearchPage : Page<SearchPage>
 {
-    public SearchPage(IServiceProvider sp, Uri urlPattern) : base(sp, urlPattern) { }
+    public SearchPage(IServiceProvider sp, Uri pageUrl) : base(sp, pageUrl) { }
 
     protected override void ConfigureElements() { /* ... */ }
 

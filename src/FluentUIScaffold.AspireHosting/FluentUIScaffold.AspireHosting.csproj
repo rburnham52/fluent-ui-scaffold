@@ -9,6 +9,10 @@
     <PackageDescription>FluentUIScaffold AspireHosting</PackageDescription>
     <DebugType>portable</DebugType>
   </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="FluentUIScaffold.AspireHosting.Tests" />
+  </ItemGroup>
   
   <ItemGroup>
     <ProjectReference Include="..\FluentUIScaffold.Core\FluentUIScaffold.Core.csproj" />
