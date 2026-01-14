@@ -5,7 +5,7 @@
     <RootNamespace>FluentUIScaffold.Playwright</RootNamespace>
     <AssemblyName>FluentUIScaffold.Playwright</AssemblyName>
     <PackageId>FluentUIScaffold.Playwright</PackageId>
-    <PackageDescription>FluentUIScaffold Core</PackageDescription>
+    <PackageDescription>FluentUIScaffold Playwright</PackageDescription>
     <RepositoryUrl>https://github.com/rburnham52/fluent-ui-scaffold</RepositoryUrl>
     <DebugType>portable</DebugType>
   </PropertyGroup>
