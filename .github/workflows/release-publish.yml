@@ -101,7 +101,10 @@ jobs:
         fi
 
     - name: Restore dependencies
-      run: dotnet restore
+      run: |
+        dotnet restore src/FluentUIScaffold.Core
+        dotnet restore src/FluentUIScaffold.Playwright
+        dotnet restore src/FluentUIScaffold.AspireHosting
 
     - name: Build Projects
       run: |
