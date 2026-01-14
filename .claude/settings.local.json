@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(dotnet build:*)",
-      "Bash(dotnet list:*)"
+      "Bash(dotnet list:*)",
+      "Bash(Select-String -Pattern \"error\" -Context 0,0)",
+      "Bash(findstr:*)"
     ]
   }
 }

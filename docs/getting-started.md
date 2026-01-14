@@ -101,17 +101,20 @@ public class HomePageTests
 
 ### 3. Create Your First Page Object
 
+Pages can use the `[Route]` attribute to define their URL path, which is combined with the BaseUrl:
+
 ```csharp
 using FluentUIScaffold.Core.Pages;
 using FluentUIScaffold.Core.Interfaces;
 
+[Route("/")]  // This page is at the root URL
 public class HomePage : Page<HomePage>
 {
     public IElement WelcomeMessage { get; private set; } = null!;
     public IElement LoginButton { get; private set; } = null!;
 
-    public HomePage(IServiceProvider serviceProvider, Uri urlPattern)
-        : base(serviceProvider, urlPattern)
+    public HomePage(IServiceProvider serviceProvider, Uri pageUrl)
+        : base(serviceProvider, pageUrl)
     {
     }
 
@@ -138,6 +141,12 @@ public class HomePage : Page<HomePage>
         Click(p => p.LoginButton);
         return NavigateTo<LoginPage>();
     }
+}
+
+[Route("/login")]  // This page is at /login
+public class LoginPage : Page<LoginPage>
+{
+    // ... page implementation
 }
 ```
 
@@ -170,6 +179,30 @@ public static async Task AssemblyInitialize(TestContext context)
 
     await _app.StartAsync();
 }
+```
+
+#### Base URL Prefix with Aspire
+
+You can append a prefix to the auto-discovered BaseUrl for SPAs with hash-based routing or applications with a common base path:
+
+```csharp
+// For hash-based SPA routing (e.g., http://localhost:5000/#/login)
+_app = new FluentUIScaffoldBuilder()
+    .UseAspireHosting<Projects.SampleApp_AppHost>(
+        appHost => { /* configure */ },
+        baseUrlResourceName: "sampleapp",
+        baseUrlPrefix: "#")  // Results in: http://localhost:port/#
+    .Web<WebApp>(options => { options.UsePlaywright(); })
+    .Build<WebApp>();
+
+// For apps with a common base path (e.g., http://localhost:5000/app/dashboard)
+_app = new FluentUIScaffoldBuilder()
+    .UseAspireHosting<Projects.SampleApp_AppHost>(
+        appHost => { /* configure */ },
+        baseUrlResourceName: "sampleapp",
+        baseUrlPrefix: "/app")  // Results in: http://localhost:port/app
+    .Web<WebApp>(options => { options.UsePlaywright(); })
+    .Build<WebApp>();
 ```
 
 ### Using External Server (Pre-started)
@@ -326,7 +359,7 @@ public class LoginPage : Page<LoginPage>
 ### Page Navigation
 
 ```csharp
-// Navigate to specific page
+// Navigate to specific page (uses the [Route] attribute)
 var homePage = app.NavigateTo<HomePage>();
 
 // Get current page without navigating
@@ -335,9 +368,15 @@ var currentPage = app.On<HomePage>();
 // Wait for page to be ready
 app.WaitFor<HomePage>();
 
-// Navigate with parameters via page methods
-var userProfilePage = app.NavigateTo<UserProfilePage>();
-userProfilePage.NavigateToUserProfile(123);
+// Navigate with route parameters
+// For a page with [Route("/users/{userId}")]
+var userPage = app.NavigateTo<UserPage>(new { userId = "123" });
+// Navigates to: http://localhost:5000/users/123
+
+// Navigate with multiple parameters
+// For a page with [Route("/users/{userId}/posts/{postId}")]
+var postPage = app.NavigateTo<UserPostPage>(new { userId = "456", postId = "789" });
+// Navigates to: http://localhost:5000/users/456/posts/789
 ```
 
 ## Verification

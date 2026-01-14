@@ -133,6 +133,7 @@ dotnet run
   - Creates `DistributedApplicationTestingBuilder` from Aspire.Hosting.Testing
   - Auto-discovers base URL from named resource
   - Stores `DistributedApplication` instance in DI via `DistributedApplicationHolder`
+  - Optional `baseUrlPrefix` parameter to append a prefix to auto-discovered BaseUrl (e.g., `"#"` for hash-based SPA routing, `"/app"` for a common base path)
 - `AspireResourceExtensions`: Helpers for creating HTTP clients from Aspire resources
 
 ### Configuration
@@ -248,16 +249,19 @@ public void NavigateToHomePage_DisplaysWelcomeMessage()
 
 ## Important Code Patterns
 
-### Page Object Implementation
+### Page Object Implementation with Route Attribute
+
+Use the `[Route]` attribute to define the URL path for a page. The route is combined with `BaseUrl`:
 
 ```csharp
-public class MyPage : Page<MyPage>
+[Route("/login")]  // Page URL will be: BaseUrl + "/login"
+public class LoginPage : Page<LoginPage>
 {
     public IElement SubmitButton { get; private set; } = null!;
     public IElement UsernameField { get; private set; } = null!;
 
-    public MyPage(IServiceProvider serviceProvider, Uri urlPattern)
-        : base(serviceProvider, urlPattern)
+    public LoginPage(IServiceProvider serviceProvider, Uri pageUrl)
+        : base(serviceProvider, pageUrl)
     {
     }
 
@@ -273,16 +277,44 @@ public class MyPage : Page<MyPage>
             .Build();
     }
 
-    public MyPage EnterUsername(string username)
+    public LoginPage EnterUsername(string username)
     {
         return Type(p => p.UsernameField, username);
     }
 
-    public MyPage SubmitForm()
+    public LoginPage SubmitForm()
     {
         return Click(p => p.SubmitButton);
     }
 }
+```
+
+### Parameterized Routes
+
+For pages with dynamic URL segments, use placeholders in the `[Route]` attribute:
+
+```csharp
+[Route("/users/{userId}")]
+public class UserPage : Page<UserPage>
+{
+    public UserPage(IServiceProvider serviceProvider, Uri pageUrl)
+        : base(serviceProvider, pageUrl)
+    {
+    }
+
+    protected override void ConfigureElements() { /* ... */ }
+}
+
+// Navigate with parameters:
+var userPage = app.NavigateTo<UserPage>(new { userId = "123" });
+// Navigates to: http://localhost:5000/users/123
+
+// Multiple parameters:
+[Route("/users/{userId}/posts/{postId}")]
+public class UserPostPage : Page<UserPostPage> { /* ... */ }
+
+var postPage = app.NavigateTo<UserPostPage>(new { userId = "456", postId = "789" });
+// Navigates to: http://localhost:5000/users/456/posts/789
 ```
 
 ### Wait Strategies

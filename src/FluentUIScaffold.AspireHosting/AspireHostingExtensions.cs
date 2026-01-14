@@ -23,10 +23,12 @@ namespace FluentUIScaffold.AspireHosting
         /// <param name="builder">The FluentUIScaffold builder.</param>
         /// <param name="configure">Action to configure the distributed application builder.</param>
         /// <param name="baseUrlResourceName">Optional resource name to extract the base URL from.</param>
+        /// <param name="baseUrlPrefix">Optional prefix to append to the discovered base URL (e.g., "/#" for hash-based SPA routing, "/app" for a common base path).</param>
         public static FluentUIScaffold.Core.Configuration.FluentUIScaffoldBuilder UseAspireHosting<TEntryPoint>(
             this FluentUIScaffold.Core.Configuration.FluentUIScaffoldBuilder builder,
             Action<IDistributedApplicationTestingBuilder> configure,
-            string? baseUrlResourceName = null)
+            string? baseUrlResourceName = null,
+            string? baseUrlPrefix = null)
             where TEntryPoint : class
         {
             // Create the hosting strategy
@@ -62,11 +64,29 @@ namespace FluentUIScaffold.AspireHosting
                 var options = services.GetService<FluentUIScaffoldOptions>();
                 if (options != null)
                 {
-                    options.BaseUrl = result.BaseUrl;
+                    options.BaseUrl = ApplyBaseUrlPrefix(result.BaseUrl, baseUrlPrefix);
                 }
             });
 
             return builder;
+        }
+
+        /// <summary>
+        /// Applies a prefix to the base URL if specified.
+        /// </summary>
+        /// <param name="baseUrl">The original base URL.</param>
+        /// <param name="baseUrlPrefix">The prefix to append (e.g., "/#" or "/app").</param>
+        /// <returns>The base URL with the prefix applied, or the original URL if no prefix is specified.</returns>
+        internal static Uri? ApplyBaseUrlPrefix(Uri? baseUrl, string? baseUrlPrefix)
+        {
+            if (baseUrl == null || string.IsNullOrEmpty(baseUrlPrefix))
+            {
+                return baseUrl;
+            }
+
+            var baseUrlString = baseUrl.ToString().TrimEnd('/');
+            var prefix = baseUrlPrefix.StartsWith("/") ? baseUrlPrefix : "/" + baseUrlPrefix;
+            return new Uri(baseUrlString + prefix);
         }
     }
 

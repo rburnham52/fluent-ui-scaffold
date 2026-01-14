@@ -97,8 +97,8 @@ namespace FluentUIScaffold.Core.Tests
         public bool NavigateWasCalled { get; private set; }
         public bool ValidateWasCalled { get; private set; }
 
-        public TestFakePageA(IServiceProvider serviceProvider, Uri urlPattern)
-            : base(serviceProvider, urlPattern)
+        public TestFakePageA(IServiceProvider serviceProvider, Uri pageUrl)
+            : base(serviceProvider, pageUrl)
         {
         }
 
@@ -124,8 +124,8 @@ namespace FluentUIScaffold.Core.Tests
     /// </summary>
     public sealed class TestFakePageB : Page<TestFakePageB>
     {
-        public TestFakePageB(IServiceProvider serviceProvider, Uri urlPattern)
-            : base(serviceProvider, urlPattern)
+        public TestFakePageB(IServiceProvider serviceProvider, Uri pageUrl)
+            : base(serviceProvider, pageUrl)
         {
         }
 

@@ -41,16 +41,16 @@ namespace FluentUIScaffold.Core.Tests.Pages
         }
 
         [Test]
-        public void Constructor_SetsUrlPattern()
+        public void Constructor_SetsPageUrl()
         {
             // Arrange
-            var urlPattern = new Uri("http://test.local/page");
+            var pageUrl = new Uri("http://test.local/page");
 
             // Act
-            var page = new TestPage(_serviceProvider, urlPattern);
+            var page = new TestPage(_serviceProvider, pageUrl);
 
             // Assert
-            Assert.That(page.UrlPattern, Is.EqualTo(urlPattern));
+            Assert.That(page.PageUrl, Is.EqualTo(pageUrl));
         }
 
         [Test]
@@ -165,8 +165,8 @@ namespace FluentUIScaffold.Core.Tests.Pages
             public IElement TestInput { get; private set; }
             public IElement TestSelect { get; private set; }
 
-            public TestPage(IServiceProvider serviceProvider, Uri urlPattern)
-                : base(serviceProvider, urlPattern)
+            public TestPage(IServiceProvider serviceProvider, Uri pageUrl)
+                : base(serviceProvider, pageUrl)
             {
             }
 
