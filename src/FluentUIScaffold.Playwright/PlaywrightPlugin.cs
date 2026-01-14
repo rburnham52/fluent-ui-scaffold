@@ -55,31 +55,35 @@ public class PlaywrightPlugin : IUITestingFrameworkPlugin
     public void ConfigureServices(IServiceCollection services)
     {
         services.AddSingleton<PlaywrightPlugin>();
-        services.AddTransient<PlaywrightDriver>();
 
-        // Register IUIDriver with PlaywrightDriver implementation
-        services.AddTransient<IUIDriver, PlaywrightDriver>();
+        // Register PlaywrightDriver as singleton to ensure browser context is reused
+        // across all page navigations within the same AppScaffold session.
+        // This prevents multiple browser instances from being launched.
+        services.AddSingleton<PlaywrightDriver>();
 
-        // Register Playwright services that tests might need
-        services.AddTransient<Microsoft.Playwright.IBrowserContext>(provider =>
+        // Register IUIDriver with PlaywrightDriver implementation as singleton
+        services.AddSingleton<IUIDriver>(provider => provider.GetRequiredService<PlaywrightDriver>());
+
+        // Register Playwright services that tests might need - these delegate to the singleton driver
+        services.AddSingleton<Microsoft.Playwright.IBrowserContext>(provider =>
         {
             var playwrightDriver = provider.GetRequiredService<PlaywrightDriver>();
             return playwrightDriver.GetFrameworkDriver<Microsoft.Playwright.IBrowserContext>();
         });
 
-        services.AddTransient<Microsoft.Playwright.IPage>(provider =>
+        services.AddSingleton<Microsoft.Playwright.IPage>(provider =>
         {
             var playwrightDriver = provider.GetRequiredService<PlaywrightDriver>();
             return playwrightDriver.GetFrameworkDriver<Microsoft.Playwright.IPage>();
         });
 
-        services.AddTransient<Microsoft.Playwright.IBrowser>(provider =>
+        services.AddSingleton<Microsoft.Playwright.IBrowser>(provider =>
         {
             var playwrightDriver = provider.GetRequiredService<PlaywrightDriver>();
             return playwrightDriver.GetFrameworkDriver<Microsoft.Playwright.IBrowser>();
         });
 
-        services.AddTransient<Microsoft.Playwright.IPlaywright>(provider =>
+        services.AddSingleton<Microsoft.Playwright.IPlaywright>(provider =>
         {
             var playwrightDriver = provider.GetRequiredService<PlaywrightDriver>();
             return playwrightDriver.GetFrameworkDriver<Microsoft.Playwright.IPlaywright>();

@@ -21,16 +21,29 @@ namespace FluentUIScaffold.Core.Configuration
     {
         private readonly IServiceCollection _services;
         private readonly List<Func<IServiceProvider, Task>> _startupActions = new();
-        private readonly List<IUITestingFrameworkPlugin> _plugins = new();
-        private readonly List<Type> _registeredPageTypes = new();
-        private FluentUIScaffoldOptions? _options;
-        private IHostingStrategy? _hostingStrategy;
-        private bool _autoDiscoverPages;
+
+        // Options instance - registered in IOC but we keep a reference to allow configuration before build
+        private FluentUIScaffoldOptions Options
+        {
+            get
+            {
+                // Find the registered options instance from the service collection
+                var descriptor = _services.FirstOrDefault(d => d.ServiceType == typeof(FluentUIScaffoldOptions));
+                if (descriptor?.ImplementationInstance is FluentUIScaffoldOptions options)
+                {
+                    return options;
+                }
+                throw new InvalidOperationException("FluentUIScaffoldOptions not registered");
+            }
+        }
 
         public FluentUIScaffoldBuilder()
         {
             _services = new ServiceCollection();
             _services.AddLogging(); // Base logging support
+
+            // Register options as singleton instance
+            _services.AddSingleton(new FluentUIScaffoldOptions());
         }
 
         /// <summary>
@@ -58,34 +71,8 @@ namespace FluentUIScaffold.Core.Configuration
         {
             if (configureOptions == null) throw new ArgumentNullException(nameof(configureOptions));
 
-            // Create and configure options immediately so plugins can wire up DI before the provider is built.
-            var options = new FluentUIScaffoldOptions();
-            configureOptions(options);
-            _options = options;
-
-            // Register the options instance for consumers such as drivers or hosting helpers.
-            _services.AddSingleton(_options);
-
-            // Let any configured plugins register their service dependencies (e.g. Playwright IPage).
-            if (_options.Plugins != null)
-            {
-                foreach (var plugin in _options.Plugins)
-                {
-                    if (plugin == null) continue;
-
-                    // Make the plugin itself available from DI if needed.
-                    _services.AddSingleton(plugin.GetType(), plugin);
-
-                    try
-                    {
-                        plugin.ConfigureServices(_services);
-                    }
-                    catch
-                    {
-                        // Match core behavior: allow plugin participation even if DI wiring throws.
-                    }
-                }
-            }
+            // Configure the options instance that's already registered in the IOC
+            configureOptions(Options);
 
             return this;
         }
@@ -107,10 +94,7 @@ namespace FluentUIScaffold.Core.Configuration
             configure?.Invoke(builder);
             var launchPlan = builder.Build();
 
-            _hostingStrategy = new DotNetHostingStrategy(launchPlan);
-            RegisterHostingStrategy();
-
-            return this;
+            return RegisterHostingStrategy(new DotNetHostingStrategy(launchPlan));
         }
 
         /// <summary>
@@ -128,10 +112,7 @@ namespace FluentUIScaffold.Core.Configuration
             configure?.Invoke(builder);
             var launchPlan = builder.Build();
 
-            _hostingStrategy = new NodeHostingStrategy(launchPlan);
-            RegisterHostingStrategy();
-
-            return this;
+            return RegisterHostingStrategy(new NodeHostingStrategy(launchPlan));
         }
 
         /// <summary>
@@ -144,35 +125,33 @@ namespace FluentUIScaffold.Core.Configuration
             Uri baseUrl,
             params string[] healthCheckEndpoints)
         {
-            _hostingStrategy = new ExternalHostingStrategy(
+            var strategy = new ExternalHostingStrategy(
                 baseUrl,
                 healthCheckEndpoints.Length > 0 ? healthCheckEndpoints : null);
-            RegisterHostingStrategy();
 
-            return this;
+            return RegisterHostingStrategy(strategy);
         }
 
-        private void RegisterHostingStrategy()
+        private FluentUIScaffoldBuilder RegisterHostingStrategy(IHostingStrategy strategy)
         {
-            if (_hostingStrategy == null) return;
-
-            _services.AddSingleton(_hostingStrategy);
+            // Register both the concrete type and the interface for flexibility
+            _services.AddSingleton(strategy.GetType(), strategy);
+            _services.AddSingleton<IHostingStrategy>(strategy);
 
             // Add startup action to start the hosting strategy
             AddStartupAction(async (provider) =>
             {
                 var logger = provider.GetRequiredService<ILogger<FluentUIScaffoldBuilder>>();
-                var strategy = provider.GetRequiredService<IHostingStrategy>();
+                var hostingStrategy = provider.GetRequiredService<IHostingStrategy>();
 
-                var result = await strategy.StartAsync(logger);
+                var result = await hostingStrategy.StartAsync(logger);
 
                 // Update options with discovered base URL
-                var options = provider.GetService<FluentUIScaffoldOptions>();
-                if (options != null)
-                {
-                    options.BaseUrl = result.BaseUrl;
-                }
+                var options = provider.GetRequiredService<FluentUIScaffoldOptions>();
+                options.BaseUrl = result.BaseUrl;
             });
+
+            return this;
         }
 
         #endregion
@@ -180,26 +159,38 @@ namespace FluentUIScaffold.Core.Configuration
         #region Plugin Methods
 
         /// <summary>
-        /// Registers a plugin instance for this builder.
+        /// Registers a plugin instance for this builder. Only one plugin can be registered.
         /// </summary>
         /// <param name="plugin">The plugin to register.</param>
         public FluentUIScaffoldBuilder UsePlugin(IUITestingFrameworkPlugin plugin)
         {
             if (plugin == null) throw new ArgumentNullException(nameof(plugin));
 
-            _plugins.Add(plugin);
+            // Register the plugin by its concrete type and interface
+            _services.AddSingleton(plugin.GetType(), plugin);
+            _services.AddSingleton<IUITestingFrameworkPlugin>(plugin);
+
+            // Let the plugin configure its services
+            try
+            {
+                plugin.ConfigureServices(_services);
+            }
+            catch
+            {
+                // Allow plugin participation even if DI wiring throws
+            }
+
             return this;
         }
 
         /// <summary>
-        /// Registers a plugin by type for this builder.
+        /// Registers a plugin by type for this builder. Only one plugin can be registered.
         /// </summary>
         /// <typeparam name="TPlugin">The plugin type with a parameterless constructor.</typeparam>
         public FluentUIScaffoldBuilder UsePlugin<TPlugin>()
             where TPlugin : IUITestingFrameworkPlugin, new()
         {
-            _plugins.Add(new TPlugin());
-            return this;
+            return UsePlugin(new TPlugin());
         }
 
         #endregion
@@ -208,11 +199,11 @@ namespace FluentUIScaffold.Core.Configuration
 
         /// <summary>
         /// Enables automatic discovery and registration of page components from loaded assemblies.
-        /// Discovers all classes that inherit from BasePageComponent.
+        /// Discovers all classes that inherit from Page&lt;TSelf&gt;.
         /// </summary>
         public FluentUIScaffoldBuilder WithAutoPageDiscovery()
         {
-            _autoDiscoverPages = true;
+            Options.AutoDiscoverPages = true;
             return this;
         }
 
@@ -223,7 +214,7 @@ namespace FluentUIScaffold.Core.Configuration
         /// <typeparam name="TPage">The page type to register.</typeparam>
         public FluentUIScaffoldBuilder RegisterPage<TPage>() where TPage : class
         {
-            _registeredPageTypes.Add(typeof(TPage));
+            RegisterPageType(typeof(TPage));
             return this;
         }
 
@@ -284,46 +275,30 @@ namespace FluentUIScaffold.Core.Configuration
         /// </summary>
         public AppScaffold<TWebApp> Build<TWebApp>()
         {
-            // Ensure options exist
-            _options ??= new FluentUIScaffoldOptions();
-
-            // Copy plugins from builder to options
-            foreach (var plugin in _plugins)
+            // Process any plugins added via options.Plugins (backward compatibility with options.UsePlaywright())
+            // Only register if not already registered via UsePlugin()
+            var existingPlugin = _services.FirstOrDefault(d => d.ServiceType == typeof(IUITestingFrameworkPlugin));
+            if (existingPlugin == null)
             {
-                _options.Plugins.Add(plugin);
-            }
-
-            // Register options
-            _services.AddSingleton(_options);
-
-            // Register plugins and configure their services
-            var pluginManager = new PluginManager();
-            foreach (var plugin in _options.Plugins)
-            {
-                if (plugin == null) continue;
-
-                pluginManager.RegisterPlugin(plugin);
-                _services.AddSingleton(plugin.GetType(), plugin);
-
-                try
+                var plugin = Options.Plugins.FirstOrDefault();
+                if (plugin != null)
                 {
-                    plugin.ConfigureServices(_services);
-                }
-                catch
-                {
-                    // Allow plugin participation even if DI wiring throws
-                }
-            }
-            _services.AddSingleton(pluginManager);
+                    _services.AddSingleton(plugin.GetType(), plugin);
+                    _services.AddSingleton<IUITestingFrameworkPlugin>(plugin);
 
-            // Register explicitly added pages
-            foreach (var pageType in _registeredPageTypes)
-            {
-                RegisterPageType(pageType);
+                    try
+                    {
+                        plugin.ConfigureServices(_services);
+                    }
+                    catch
+                    {
+                        // Allow plugin participation even if DI wiring throws
+                    }
+                }
             }
 
             // Auto-discover pages if enabled
-            if (_autoDiscoverPages)
+            if (Options.AutoDiscoverPages)
             {
                 AutoDiscoverPages();
             }

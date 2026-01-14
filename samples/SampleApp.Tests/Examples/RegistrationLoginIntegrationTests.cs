@@ -72,7 +72,8 @@ namespace SampleApp.Tests.Examples
             var successMessage = _loginPage.GetSuccessMessage();
             Assert.IsTrue(successMessage.Contains("Login successful!"), "Login should be successful after registration");
 
-            // Verify form is cleared after registration
+            // Navigate back to registration page to verify form is cleared
+            await _registrationPage.NavigateToRegistrationAsync();
             _registrationPage.VerifyFormIsCleared();
         }
 
