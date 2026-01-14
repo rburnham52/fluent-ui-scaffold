@@ -82,9 +82,7 @@ jobs:
           6.0.x
           7.0.x
           8.0.x
-
-    - name: Install Aspire workload
-      run: dotnet workload install aspire
+          9.0.x
 
     - name: Validate release is from main branch
       run: |
