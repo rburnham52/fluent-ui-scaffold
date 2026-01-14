@@ -10,6 +10,7 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.UseCors(c => c.AllowAnyOrigin());
+    app.UseDeveloperExceptionPage();
 }
 else
 {
@@ -31,6 +32,5 @@ app.MapControllerRoute(
 app.MapRazorPages();
 
 app.MapFallbackToFile("index.html");
-
 
 app.Run();

@@ -2,8 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
+using FluentUIScaffold.Core.Configuration.Launchers;
 using FluentUIScaffold.Core.Exceptions;
+using FluentUIScaffold.Core.Interfaces;
 
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace FluentUIScaffold.Core.Configuration
@@ -89,7 +92,40 @@ namespace FluentUIScaffold.Core.Configuration
             return this;
         }
 
-        // Server configuration is handled exclusively by WebServerManager; no server-related APIs here
+        /// <summary>
+        /// Sets the server configuration for managed server lifecycle.
+        /// This enables the new server manager instead of the legacy WebServerManager.
+        /// </summary>
+        /// <param name="launchPlan">The server launch plan</param>
+        /// <returns>The current builder instance for method chaining</returns>
+        public FluentUIScaffoldOptionsBuilder WithServerConfiguration(LaunchPlan launchPlan)
+        {
+            _options.ServerConfiguration = launchPlan;
+            return this;
+        }
+
+        /// <summary>
+        /// Sets a custom service provider for dependency injection.
+        /// </summary>
+        /// <param name="serviceProvider">The service provider</param>
+        /// <returns>The current builder instance for method chaining</returns>
+        public FluentUIScaffoldOptionsBuilder WithServiceProvider(IServiceProvider serviceProvider)
+        {
+            _options.ServiceProvider = serviceProvider;
+            return this;
+        }
+
+        /// <summary>
+        /// Registers a plugin to be used by the framework.
+        /// </summary>
+        /// <param name="plugin">The plugin to register.</param>
+        /// <returns>The current builder instance for method chaining.</returns>
+        public FluentUIScaffoldOptionsBuilder UsePlugin(IUITestingFrameworkPlugin plugin)
+        {
+            if (plugin == null) throw new ArgumentNullException(nameof(plugin));
+            _options.Plugins.Add(plugin);
+            return this;
+        }
 
         /// <summary>
         /// Builds and returns the configured FluentUIScaffoldOptions.

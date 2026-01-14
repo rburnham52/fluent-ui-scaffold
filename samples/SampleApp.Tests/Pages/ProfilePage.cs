@@ -8,8 +8,6 @@ using FluentUIScaffold.Core.Configuration;
 using FluentUIScaffold.Core.Interfaces;
 using FluentUIScaffold.Core.Pages;
 
-using FluentUIScaffold.Playwright;
-
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -19,7 +17,7 @@ namespace SampleApp.Tests.Pages
     /// Page object for the Profile page of the FluentUIScaffold sample application.
     /// Demonstrates form validation, complex form interactions, and state management.
     /// </summary>
-    public class ProfilePage : BasePageComponent<PlaywrightDriver, ProfilePage>
+    public class ProfilePage : Page<ProfilePage>
     {
         public ProfilePage(IServiceProvider serviceProvider, Uri urlPattern)
             : base(serviceProvider, urlPattern)

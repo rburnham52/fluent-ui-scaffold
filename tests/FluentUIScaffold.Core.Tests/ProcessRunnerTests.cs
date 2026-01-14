@@ -4,6 +4,7 @@ using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 
 using FluentUIScaffold.Core.Configuration.Launchers;
+using FluentUIScaffold.Core.Configuration.Launchers.Defaults;
 
 using NUnit.Framework;
 

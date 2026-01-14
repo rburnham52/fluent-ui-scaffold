@@ -1,10 +1,37 @@
 # Flexible Server Startup Framework
 
+> **Note:** This document describes the legacy `WebServerManager` approach. The recommended approach is to use `IHostingStrategy` implementations via `FluentUIScaffoldBuilder`. See the [Architecture](architecture.md) documentation for the new hosting strategies.
+
 ## Overview
 
 The Flexible Server Startup Framework is a comprehensive solution for launching web servers in test scenarios. It provides a flexible, extensible architecture that supports multiple server types and configurable startup options.
 
-## Architecture
+## New Recommended Approach: IHostingStrategy
+
+The `IHostingStrategy` abstraction provides a unified way to manage application hosting:
+
+```csharp
+// Using the new builder pattern with hosting strategies
+var app = new FluentUIScaffoldBuilder()
+    .UsePlugin(new PlaywrightPlugin())
+    .UseDotNetHosting(new Uri("http://localhost:5000"), "/path/to/project.csproj", opts =>
+    {
+        opts.WithFramework("net8.0");
+        opts.WithConfiguration("Release");
+    })
+    .WithAutoPageDiscovery()
+    .Build<WebApp>();
+
+await app.StartAsync();
+```
+
+Available hosting strategies:
+- `DotNetHostingStrategy` - For .NET applications (`dotnet run`)
+- `NodeHostingStrategy` - For Node.js applications (`npm run`)
+- `ExternalHostingStrategy` - For pre-started servers
+- `AspireHostingStrategy` - For Aspire distributed applications
+
+## Legacy Architecture
 
 ### Core Components
 

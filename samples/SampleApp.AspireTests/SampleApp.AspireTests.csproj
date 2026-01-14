@@ -1,27 +1,37 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFrameworks>net8.0</TargetFrameworks>
     <LangVersion>latest</LangVersion>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
+    <!-- Disable auto-generated program to avoid entry point conflicts with Microsoft Testing Platform -->
+    <!-- <GenerateProgramFile>false</GenerateProgramFile> -->
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.Testing" Version="9.2.0" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
     <PackageReference Include="MSTest" Version="3.6.4" />
     <PackageReference Include="Microsoft.Playwright" Version="1.42.0" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.1" />
     <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="8.0.1" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
+    <PackageReference Include="System.Management" Version="8.0.0" />
   </ItemGroup>
   <ItemGroup>
     <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
+  </ItemGroup>
+  
+  <!-- Test settings configuration -->
+  <ItemGroup>
+    <None Include="SampleApp.AspireTests.runsettings" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\FluentUIScaffold.Core\FluentUIScaffold.Core.csproj" />
     <ProjectReference Include="..\..\src\FluentUIScaffold.Playwright\FluentUIScaffold.Playwright.csproj" />
     <ProjectReference Include="..\SampleApp.AppHost\SampleApp.AppHost.csproj" />
     <ProjectReference Include="..\SampleApp\SampleApp.csproj" />
+    <ProjectReference Include="..\..\src\FluentUIScaffold.AspireHosting\FluentUIScaffold.AspireHosting.csproj" />
   </ItemGroup>
 </Project>

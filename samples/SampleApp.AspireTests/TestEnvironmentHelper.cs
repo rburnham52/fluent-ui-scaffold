@@ -40,7 +40,7 @@ namespace SampleApp.AspireTests
             status.AppendLine($"OS: {RuntimeInformation.OSDescription}");
             status.AppendLine($"Architecture: {RuntimeInformation.OSArchitecture}");
             status.AppendLine($"Framework: {RuntimeInformation.FrameworkDescription}");
-            
+
             if (!IsDockerAvailable)
             {
                 status.AppendLine();
@@ -50,14 +50,14 @@ namespace SampleApp.AspireTests
                 status.AppendLine("   - Ensure Docker daemon is running");
                 status.AppendLine("   - Verify 'docker info' command works");
             }
-            
+
             if (!IsAspireWorkloadInstalled)
             {
                 status.AppendLine();
                 status.AppendLine("⚠️  Aspire workload is not installed.");
                 status.AppendLine("   To install: dotnet workload install aspire");
             }
-            
+
             return status.ToString();
         }
 
@@ -80,7 +80,7 @@ namespace SampleApp.AspireTests
                 if (process == null) return false;
 
                 process.WaitForExit(5000); // 5 second timeout
-                
+
                 // Docker info returns 0 on success
                 return process.ExitCode == 0;
             }
@@ -110,9 +110,9 @@ namespace SampleApp.AspireTests
                 if (process == null) return false;
 
                 process.WaitForExit(10000); // 10 second timeout
-                
+
                 if (process.ExitCode != 0) return false;
-                
+
                 var output = process.StandardOutput.ReadToEnd();
                 return output.Contains("aspire", StringComparison.OrdinalIgnoreCase);
             }

@@ -8,6 +8,7 @@ on:
 
 env:
   DOTNET_VERSION: '8.0.x'
+  GITHUB_ACTIONS: 'true'
 
 jobs:
   build-and-test:
@@ -37,25 +38,89 @@ jobs:
           7.0.x
           8.0.x
 
+    - name: Install Aspire workload
+      run: dotnet workload install aspire
+
     - name: Restore dependencies
       run: dotnet restore
 
-    - name: Setup Node.js
+    - name: Setup Node.js and npm cache
       uses: actions/setup-node@v4
       with:
         node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: 'samples/SampleApp/ClientApp/package-lock.json'
+        
+    - name: Build SampleApp frontend assets  
+      if: matrix.target-framework == 'net8.0'
+      run: |
+        cd samples/SampleApp/ClientApp
+        # Clear any existing corrupted node_modules and cache
+        rm -rf node_modules package-lock.json
+        npm cache clean --force
+        # Install fresh dependencies with retry logic
+        for i in {1..3}; do
+          npm install --no-audit --no-fund && break
+          echo "npm install failed, attempt $i/3, retrying..."
+          sleep 2
+          npm cache clean --force
+        done
+        # Verify installation
+        npx vite --version
+        # Build the SPA assets
+        npm run build
+        # Verify build output
+        ls -la dist/
 
     - name: Build
-      run: dotnet build --no-restore --configuration Release --framework ${{ matrix.target-framework }}
-
-    - name: Install Playwright browsers
       run: |
+        if [[ "${{ matrix.target-framework }}" == "net8.0" ]]; then
+          # Build all projects including Aspire samples for .NET 8.0
+          dotnet build --no-restore --configuration Release --framework ${{ matrix.target-framework }}
+        else
+          # Build only core projects for .NET 6.0/7.0 (exclude Aspire samples)
+          dotnet build src/FluentUIScaffold.Core --no-restore --configuration Release --framework ${{ matrix.target-framework }}
+          dotnet build src/FluentUIScaffold.Playwright --no-restore --configuration Release --framework ${{ matrix.target-framework }}
+          dotnet build tests/FluentUIScaffold.Core.Tests --no-restore --configuration Release --framework ${{ matrix.target-framework }}
+          dotnet build tests/FluentUIScaffold.Playwright.Tests --no-restore --configuration Release --framework ${{ matrix.target-framework }}
+        fi
+
+    - name: Install Playwright browsers and setup virtual display
+      run: |
+        # Install virtual display for browser tests in CI
+        sudo apt-get update
+        sudo apt-get install -y xvfb
+        
+        # Install Playwright browsers
         cd tests/FluentUIScaffold.Playwright.Tests
         dotnet build --configuration Release --framework ${{ matrix.target-framework }}
         npx playwright@1.42.0 install chromium
 
+    - name: Setup Docker for Aspire tests
+      if: matrix.target-framework == 'net8.0'
+      run: |
+        # Install Docker
+        sudo apt-get update
+        sudo apt-get install -y apt-transport-https ca-certificates curl gnupg lsb-release
+        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+        sudo apt-get update
+        sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+        
+        # Add current user to docker group
+        sudo usermod -aG docker $USER
+        
+        # Start Docker service
+        sudo systemctl start docker
+        sudo systemctl enable docker
+        
+        # Verify Docker installation
+        docker --version
+        docker info
+
     - name: Test with Coverage
       run: |
+        # Always run core tests for all frameworks
         dotnet test tests/FluentUIScaffold.Core.Tests/FluentUIScaffold.Core.Tests.csproj \
           --no-build \
           --verbosity normal \
@@ -65,6 +130,8 @@ jobs:
           --collect:"XPlat Code Coverage" \
           --results-directory ./coverage/ \
           --logger trx
+          
+        # Always run Playwright tests for all frameworks
         dotnet test tests/FluentUIScaffold.Playwright.Tests/FluentUIScaffold.Playwright.Tests.csproj \
           --no-build \
           --verbosity normal \
@@ -74,6 +141,65 @@ jobs:
           --collect:"XPlat Code Coverage" \
           --results-directory ./coverage/ \
           --logger trx
+          
+        # Only run Aspire tests for .NET 8.0+ (Aspire requires .NET 8.0)
+        if [[ "${{ matrix.target-framework }}" == "net8.0" ]]; then
+          echo "Running Aspire tests for .NET 8.0..."
+          
+          # Check if Docker is available for Aspire tests
+          if docker info > /dev/null 2>&1; then
+            echo "Docker is available - running full Aspire tests"
+            
+            # Run SampleApp tests with virtual display for browser compatibility
+            xvfb-run -a dotnet test samples/SampleApp.Tests/SampleApp.Tests.csproj \
+              --no-build \
+              --verbosity normal \
+              --configuration Release \
+              --framework ${{ matrix.target-framework }} \
+              --settings coverlet.runsettings \
+              --collect:"XPlat Code Coverage" \
+              --results-directory ./coverage/ \
+              --logger trx
+              
+            # Run Aspire tests with Docker support
+            xvfb-run -a dotnet test samples/SampleApp.AspireTests/SampleApp.AspireTests.csproj \
+              --no-build \
+              --verbosity normal \
+              --configuration Release \
+              --framework ${{ matrix.target-framework }} \
+              --settings coverlet.runsettings \
+              --collect:"XPlat Code Coverage" \
+              --results-directory ./coverage/ \
+              --logger trx
+          else
+            echo "Docker not available - running Aspire tests without Docker-dependent tests"
+            
+            # Run SampleApp tests with virtual display for browser compatibility
+            xvfb-run -a dotnet test samples/SampleApp.Tests/SampleApp.Tests.csproj \
+              --no-build \
+              --verbosity normal \
+              --configuration Release \
+              --framework ${{ matrix.target-framework }} \
+              --settings coverlet.runsettings \
+              --collect:"XPlat Code Coverage" \
+              --results-directory ./coverage/ \
+              --logger trx
+              
+            # Run only non-Docker Aspire tests (build validation, etc.)
+            xvfb-run -a dotnet test samples/SampleApp.AspireTests/SampleApp.AspireTests.csproj \
+              --no-build \
+              --verbosity normal \
+              --configuration Release \
+              --framework ${{ matrix.target-framework }} \
+              --settings coverlet.runsettings \
+              --collect:"XPlat Code Coverage" \
+              --results-directory ./coverage/ \
+              --logger trx \
+              --filter "TestCategory!=Aspire&TestCategory!=ServerLifecycle&TestCategory!=Integration"
+          fi
+        else
+          echo "Skipping Aspire tests for ${{ matrix.target-framework }} (Aspire requires .NET 8.0+)"
+        fi
 
     - name: Generate Coverage Report
       run: |
@@ -118,6 +244,9 @@ jobs:
       with:
         dotnet-version: '8.0.x'
 
+    - name: Install Aspire workload
+      run: dotnet workload install aspire
+
     - name: Restore dependencies
       run: dotnet restore
 
@@ -139,6 +268,9 @@ jobs:
           6.0.x
           7.0.x
           8.0.x
+
+    - name: Install Aspire workload
+      run: dotnet workload install aspire
 
     - name: Run code analysis
       run: dotnet build --configuration Release --verbosity minimal

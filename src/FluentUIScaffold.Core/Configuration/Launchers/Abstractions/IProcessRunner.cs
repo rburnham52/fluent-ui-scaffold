@@ -1,9 +1,8 @@
-namespace FluentUIScaffold.Core.Configuration.Launchers
+using System.Diagnostics;
+using System.IO;
+using System.Threading.Tasks;
+namespace FluentUIScaffold.Core.Configuration.Launchers.Abstractions
 {
-    using System;
-    using System.Diagnostics;
-    using System.IO;
-    using System.Threading.Tasks;
 
     public interface IProcess
     {

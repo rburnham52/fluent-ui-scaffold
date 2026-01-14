@@ -44,51 +44,71 @@ When `HeadlessMode` and `SlowMo` are not explicitly set (`null`), the framework 
 ### Default Configuration (Automatic)
 
 ```csharp
-var options = new FluentUIScaffoldOptionsBuilder()
-    .WithBaseUrl(new Uri("http://localhost:5000"))
-    .Build();
-
-// HeadlessMode = null (automatic)
-// SlowMo = null (automatic)
+var app = new FluentUIScaffoldBuilder()
+    .UsePlugin(new PlaywrightPlugin())
+    .Web<WebApp>(opts =>
+    {
+        opts.BaseUrl = new Uri("http://localhost:5000");
+        // HeadlessMode = null (automatic)
+        // SlowMo = null (automatic)
+    })
+    .Build<WebApp>();
 ```
 
 ### Explicit Headless Control
 
 ```csharp
-var options = new FluentUIScaffoldOptionsBuilder()
-    .WithBaseUrl(new Uri("http://localhost:5000"))
-    .WithHeadlessMode(true)  // Force headless
-    .WithSlowMo(500)         // Custom SlowMo
-    .Build();
+var app = new FluentUIScaffoldBuilder()
+    .UsePlugin(new PlaywrightPlugin())
+    .Web<WebApp>(opts =>
+    {
+        opts.BaseUrl = new Uri("http://localhost:5000");
+        opts.HeadlessMode = true;  // Force headless
+        opts.SlowMo = 500;         // Custom SlowMo
+    })
+    .Build<WebApp>();
 ```
 
 ### Defaults While Debugging (Automatic Non-Headless + SlowMo)
 
 ```csharp
-var options = new FluentUIScaffoldOptionsBuilder()
-    .WithBaseUrl(new Uri("http://localhost:5000"))
-    .WithHeadlessMode(false).WithSlowMo(250) // Optional explicit override during debugging
-    .Build();
+var app = new FluentUIScaffoldBuilder()
+    .UsePlugin(new PlaywrightPlugin())
+    .Web<WebApp>(opts =>
+    {
+        opts.BaseUrl = new Uri("http://localhost:5000");
+        opts.HeadlessMode = false;  // Visible browser
+        opts.SlowMo = 250;          // 250ms delay during debugging
+    })
+    .Build<WebApp>();
 ```
 
 ### CI/CD Configuration
 
 ```csharp
-var options = new FluentUIScaffoldOptionsBuilder()
-    .WithBaseUrl(new Uri("http://localhost:5000"))
-    .WithHeadlessMode(true)  // Force headless for CI
-    .WithSlowMo(0)           // No delay for speed
-    .Build();
+var app = new FluentUIScaffoldBuilder()
+    .UsePlugin(new PlaywrightPlugin())
+    .Web<WebApp>(opts =>
+    {
+        opts.BaseUrl = new Uri("http://localhost:5000");
+        opts.HeadlessMode = true;  // Force headless for CI
+        opts.SlowMo = 0;           // No delay for speed
+    })
+    .Build<WebApp>();
 ```
 
 ### Development with Custom SlowMo
 
 ```csharp
-var options = new FluentUIScaffoldOptionsBuilder()
-    .WithBaseUrl(new Uri("http://localhost:5000"))
-    .WithHeadlessMode(false) // Visible browser
-    .WithSlowMo(2000)        // 2 second delay for debugging
-    .Build();
+var app = new FluentUIScaffoldBuilder()
+    .UsePlugin(new PlaywrightPlugin())
+    .Web<WebApp>(opts =>
+    {
+        opts.BaseUrl = new Uri("http://localhost:5000");
+        opts.HeadlessMode = false;  // Visible browser
+        opts.SlowMo = 2000;         // 2 second delay for debugging
+    })
+    .Build<WebApp>();
 ```
 
 ## Environment Variables
@@ -103,51 +123,62 @@ The framework respects the `CI` environment variable for automatic headless mode
 ### For Development
 ```csharp
 // Let the framework handle it automatically (optional explicit override shown)
-var options = new FluentUIScaffoldOptionsBuilder()
-    .WithBaseUrl(new Uri("http://localhost:5000"))
-    .WithHeadlessMode(false).WithSlowMo(250)
-    .Build();
+var app = new FluentUIScaffoldBuilder()
+    .UsePlugin(new PlaywrightPlugin())
+    .Web<WebApp>(opts =>
+    {
+        opts.BaseUrl = new Uri("http://localhost:5000");
+        opts.HeadlessMode = false;
+        opts.SlowMo = 250;
+    })
+    .Build<WebApp>();
 ```
 
 ### For CI/CD
 ```csharp
 // Explicit control for consistent behavior
-var options = new FluentUIScaffoldOptionsBuilder()
-    .WithBaseUrl(new Uri("http://localhost:5000"))
-    .WithHeadlessMode(true)  // Force headless
-    .WithSlowMo(0)           // No delay for speed
-    .Build();
+var app = new FluentUIScaffoldBuilder()
+    .UsePlugin(new PlaywrightPlugin())
+    .Web<WebApp>(opts =>
+    {
+        opts.BaseUrl = new Uri("http://localhost:5000");
+        opts.HeadlessMode = true;  // Force headless
+        opts.SlowMo = 0;           // No delay for speed
+    })
+    .Build<WebApp>();
 ```
 
 ### For Manual Testing
 ```csharp
 // Custom configuration for specific needs
-var options = new FluentUIScaffoldOptionsBuilder()
-    .WithBaseUrl(new Uri("http://localhost:5000"))
-    .WithHeadlessMode(false) // Visible browser
-    .WithSlowMo(1500)        // 1.5 second delay
-    .Build();
+var app = new FluentUIScaffoldBuilder()
+    .UsePlugin(new PlaywrightPlugin())
+    .Web<WebApp>(opts =>
+    {
+        opts.BaseUrl = new Uri("http://localhost:5000");
+        opts.HeadlessMode = false;  // Visible browser
+        opts.SlowMo = 1500;         // 1.5 second delay
+    })
+    .Build<WebApp>();
 ```
 
-## Migration from Previous Versions
+## Configuration via FluentUIScaffoldBuilder
 
-If you were previously using explicit `HeadlessMode` settings:
+The recommended approach is to use the `FluentUIScaffoldBuilder` with the `Web<TApp>()` method:
 
-### Before
 ```csharp
-var options = new FluentUIScaffoldOptions
-{
-    BaseUrl = new Uri("http://localhost:5000"),
-    HeadlessMode = true  // Old property
-};
-```
+var app = new FluentUIScaffoldBuilder()
+    .UsePlugin(new PlaywrightPlugin())
+    .Web<WebApp>(opts =>
+    {
+        opts.BaseUrl = new Uri("http://localhost:5000");
+        opts.HeadlessMode = true;   // null for auto-detect
+        opts.SlowMo = 0;            // null for auto-detect
+    })
+    .WithAutoPageDiscovery()
+    .Build<WebApp>();
 
-### After
-```csharp
-var options = new FluentUIScaffoldOptionsBuilder()
-    .WithBaseUrl(new Uri("http://localhost:5000"))
-    .WithHeadlessMode(true)  // New nullable property
-    .Build();
+await app.StartAsync();
 ```
 
 ## Logging

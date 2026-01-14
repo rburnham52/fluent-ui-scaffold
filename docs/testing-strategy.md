@@ -155,42 +155,21 @@ When writing sample UI tests, focus on:
 
 ```csharp
 [TestMethod]
-public async Task Can_Complete_Registration_Flow()
+public void Can_Complete_Registration_Flow()
 {
-    // Arrange
-    var options = new FluentUIScaffoldOptionsBuilder()
-        .WithBaseUrl(new Uri("http://localhost:5000"))
-        .WithDefaultWaitTimeout(TimeSpan.FromSeconds(30))
-        .Build();
+    // Arrange - App is started in AssemblyInitialize
+    var registrationPage = TestAssemblyHooks.App.NavigateTo<RegistrationPage>();
 
-    // Act
-    using var app = new FluentUIScaffoldApp<WebApp>(options);
-    await app.InitializeAsync();
+    // Act - Fill registration form using fluent API
+    registrationPage
+        .Type(p => p.EmailInput, "test@example.com")
+        .Type(p => p.PasswordInput, "password123")
+        .Type(p => p.FirstNameInput, "John")
+        .Type(p => p.LastNameInput, "Doe")
+        .Click(p => p.RegisterButton);
 
-    // Navigate to registration page
-    app.NavigateToUrl(new Uri("http://localhost:5000"));
-    
-    // Click registration tab
-    var playwright = app.Framework<FluentUIScaffold.Playwright.PlaywrightDriver>();
-    await playwright.ClickAsync("[data-testid='nav-register']");
-
-    // Fill registration form
-    await playwright.FillAsync("#email-input", "test@example.com");
-    await playwright.FillAsync("#password-input", "password123");
-    await playwright.FillAsync("#first-name-input", "John");
-    await playwright.FillAsync("#last-name-input", "Doe");
-
-    // Submit form
-    await playwright.ClickAsync("#register-button");
-
-    // Assert
-    // Verify success message appears
-    var successMessage = await playwright.WaitForSelectorAsync("#success-message");
-    Assert.IsNotNull(successMessage);
-    
-    // Verify form is cleared
-    var emailValue = await playwright.GetAttributeAsync("#email-input", "value");
-    Assert.AreEqual("", emailValue);
+    // Assert - Verify success using fluent verification
+    registrationPage.Verify.Visible(p => p.SuccessMessage);
 }
 ```
 
@@ -198,16 +177,13 @@ public async Task Can_Complete_Registration_Flow()
 
 ```csharp
 [TestMethod]
-public async Task Can_Complete_Registration_Flow()
+public void Can_Complete_Registration_Flow()
 {
-    // Arrange
-    var options = new FluentUIScaffoldOptionsBuilder()
-        .WithBaseUrl(new Uri("http://localhost:5000"))
-        .Build();
+    // Bad: Only tests configuration, not actual UI behavior
+    var builder = new FluentUIScaffoldBuilder();
 
-    // Act & Assert
-    // This test would normally complete a registration flow, but for now we'll just verify the options are set correctly
-    Assert.AreEqual(new Uri("http://localhost:5000"), options.BaseUrl);
+    // This doesn't actually test the registration flow!
+    Assert.IsNotNull(builder);
     Assert.IsTrue(true, "Successfully set up registration flow test");
 }
 ```

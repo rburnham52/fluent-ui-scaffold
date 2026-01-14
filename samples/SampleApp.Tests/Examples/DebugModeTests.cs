@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 
 using FluentUIScaffold.Core;
 using FluentUIScaffold.Core.Configuration;
+using FluentUIScaffold.Playwright;
 
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -18,7 +19,7 @@ namespace SampleApp.Tests.Examples
     [TestClass]
     public class DebugModeTests
     {
-        private FluentUIScaffoldApp<WebApp>? _app;
+        private AppScaffold<WebApp>? _app;
         private HomePage? _homePage;
         private StringWriter? _logOutput;
 
@@ -29,24 +30,31 @@ namespace SampleApp.Tests.Examples
             _logOutput = new StringWriter();
 
             // Arrange - Set up the application with debug mode enabled
-            var options = new FluentUIScaffoldOptionsBuilder()
-                .WithBaseUrl(TestConfiguration.BaseUri)
-                .WithDefaultWaitTimeout(TimeSpan.FromSeconds(30))
-                .WithHeadlessMode(false)
-                .WithSlowMo(250)
-                .Build();
+            _app = new FluentUIScaffoldBuilder()
+                .UsePlaywright()
+                .Web<WebApp>(options =>
+                {
+                    options.BaseUrl = TestConfiguration.BaseUri;
+                    options.DefaultWaitTimeout = TimeSpan.FromSeconds(30);
+                    options.HeadlessMode = TestConfiguration.IsHeadlessMode;
+                    options.SlowMo = 250;
+                })
+                .WithAutoPageDiscovery()
+                .Build<WebApp>();
 
-            _app = new FluentUIScaffoldApp<WebApp>(options);
-            await _app.InitializeAsync();
+            await _app.StartAsync();
 
             // Create page objects
             _homePage = new HomePage(_app.ServiceProvider);
         }
 
         [TestCleanup]
-        public void Cleanup()
+        public async Task Cleanup()
         {
-            _app?.Dispose();
+            if (_app != null)
+            {
+                await _app.DisposeAsync();
+            }
             _logOutput?.Dispose();
         }
 
@@ -76,17 +84,22 @@ namespace SampleApp.Tests.Examples
             // Arrange - Set up with debug timeout and capture logs
             var debugLogOutput = new StringWriter();
 
-            var debugOptions = new FluentUIScaffoldOptionsBuilder()
-                .WithBaseUrl(TestConfiguration.BaseUri)
-                .WithDefaultWaitTimeout(TimeSpan.FromSeconds(60))
-                .WithHeadlessMode(false)
-                .WithSlowMo(250)
-                .Build();
+            var debugApp = new FluentUIScaffoldBuilder()
+                .UsePlaywright()
+                .Web<WebApp>(options =>
+                {
+                    options.BaseUrl = TestConfiguration.BaseUri;
+                    options.DefaultWaitTimeout = TimeSpan.FromSeconds(60);
+                    options.HeadlessMode = TestConfiguration.IsHeadlessMode;
+                    options.SlowMo = 250;
+                })
+                .WithAutoPageDiscovery()
+                .Build<WebApp>();
 
-            using var debugApp = new FluentUIScaffoldApp<WebApp>(debugOptions);
-            await debugApp.InitializeAsync();
+            await debugApp.StartAsync();
 
             var debugHomePage = new HomePage(debugApp.ServiceProvider);
+            var debugOptions = debugApp.GetService<FluentUIScaffoldOptions>();
 
             // Act - Perform interactions with debug timeout
             var logBefore = debugLogOutput.ToString();
@@ -114,45 +127,59 @@ namespace SampleApp.Tests.Examples
             Assert.IsTrue(hasExpectedContent, "Page content should be accessible with debug timeout");
 
             debugLogOutput.Dispose();
+            await debugApp.DisposeAsync();
         }
 
         [TestMethod]
         public async Task DebugModeVsNormalMode_WhenComparingLogs_ShowsDifferentDetailLevels()
         {
             // Arrange - Test with debug mode enabled
-            var debugOptions = new FluentUIScaffoldOptionsBuilder()
-                .WithBaseUrl(TestConfiguration.BaseUri)
-                .WithHeadlessMode(false)
-                .WithSlowMo(250)
-                .Build();
+            var debugApp = new FluentUIScaffoldBuilder()
+                .UsePlaywright()
+                .Web<WebApp>(options =>
+                {
+                    options.BaseUrl = TestConfiguration.BaseUri;
+                    options.HeadlessMode = TestConfiguration.IsHeadlessMode;
+                    options.SlowMo = 250;
+                })
+                .WithAutoPageDiscovery()
+                .Build<WebApp>();
 
-            using var debugApp = new FluentUIScaffoldApp<WebApp>(debugOptions);
-            await debugApp.InitializeAsync();
+            await debugApp.StartAsync();
             var debugHomePage = new HomePage(debugApp.ServiceProvider);
+            var debugOptions = debugApp.GetService<FluentUIScaffoldOptions>();
 
             // Act - Perform interactions in debug mode
             await debugHomePage.NavigateToHomeAsync();
             var debugCount = debugHomePage.GetCounterValue();
 
-            // Arrange - Test with debug mode disabled
-            var normalOptions = new FluentUIScaffoldOptionsBuilder()
-                .WithBaseUrl(TestConfiguration.BaseUri)
-                .Build();
+            await debugApp.DisposeAsync();
 
-            using var normalApp = new FluentUIScaffoldApp<WebApp>(normalOptions);
-            await normalApp.InitializeAsync();
+            // Arrange - Test with debug mode disabled
+            var normalApp = new FluentUIScaffoldBuilder()
+                .UsePlaywright()
+                .Web<WebApp>(options =>
+                {
+                    options.BaseUrl = TestConfiguration.BaseUri;
+                })
+                .WithAutoPageDiscovery()
+                .Build<WebApp>();
+
+            await normalApp.StartAsync();
             var normalHomePage = new HomePage(normalApp.ServiceProvider);
 
             // Act - Perform same interactions in normal mode
             await normalHomePage.NavigateToHomeAsync();
             var normalCount = normalHomePage.GetCounterValue();
 
+            await normalApp.DisposeAsync();
+
             // Assert - Verify both modes work but debug mode provides more detail
             Assert.AreEqual(debugCount, normalCount, "Both modes should produce same functional results");
 
             // Note: In a real implementation, we would capture and compare the actual log outputs
             // to verify that debug mode produces more detailed logging than normal mode
-            Assert.AreEqual(false, debugOptions.HeadlessMode);
+            Assert.AreEqual(TestConfiguration.IsHeadlessMode, debugOptions.HeadlessMode);
         }
     }
 }

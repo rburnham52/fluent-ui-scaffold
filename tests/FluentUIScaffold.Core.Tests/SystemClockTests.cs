@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Threading.Tasks;
 
 using FluentUIScaffold.Core.Configuration.Launchers;
+using FluentUIScaffold.Core.Configuration.Launchers.Abstractions;
 
 using NUnit.Framework;
 

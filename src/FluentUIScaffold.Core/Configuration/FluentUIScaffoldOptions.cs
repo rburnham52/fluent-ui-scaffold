@@ -2,6 +2,11 @@
 using System;
 using System.Collections.Generic;
 
+using FluentUIScaffold.Core.Configuration.Launchers;
+using FluentUIScaffold.Core.Interfaces;
+
+using Microsoft.Extensions.DependencyInjection;
+
 namespace FluentUIScaffold.Core.Configuration
 {
     /// <summary>
@@ -36,5 +41,22 @@ namespace FluentUIScaffold.Core.Configuration
         /// When set, the plugin selection will prefer plugins that can handle this driver type.
         /// </summary>
         public Type? RequestedDriverType { get; set; }
+
+        /// <summary>
+        /// Gets or sets the server configuration for managed server lifecycle.
+        /// When set, the framework will use the new server manager to start and manage the server.
+        /// </summary>
+        public LaunchPlan? ServerConfiguration { get; set; }
+
+        /// <summary>
+        /// Gets or sets the service provider for dependency injection.
+        /// Used for accessing server manager and other services.
+        /// </summary>
+        public IServiceProvider? ServiceProvider { get; set; }
+
+        /// <summary>
+        /// Gets the list of registered plugins.
+        /// </summary>
+        public List<IUITestingFrameworkPlugin> Plugins { get; } = new List<IUITestingFrameworkPlugin>();
     }
 }

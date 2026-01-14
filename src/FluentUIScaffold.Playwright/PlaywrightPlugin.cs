@@ -60,6 +60,31 @@ public class PlaywrightPlugin : IUITestingFrameworkPlugin
         // Register IUIDriver with PlaywrightDriver implementation
         services.AddTransient<IUIDriver, PlaywrightDriver>();
 
+        // Register Playwright services that tests might need
+        services.AddTransient<Microsoft.Playwright.IBrowserContext>(provider =>
+        {
+            var playwrightDriver = provider.GetRequiredService<PlaywrightDriver>();
+            return playwrightDriver.GetFrameworkDriver<Microsoft.Playwright.IBrowserContext>();
+        });
+
+        services.AddTransient<Microsoft.Playwright.IPage>(provider =>
+        {
+            var playwrightDriver = provider.GetRequiredService<PlaywrightDriver>();
+            return playwrightDriver.GetFrameworkDriver<Microsoft.Playwright.IPage>();
+        });
+
+        services.AddTransient<Microsoft.Playwright.IBrowser>(provider =>
+        {
+            var playwrightDriver = provider.GetRequiredService<PlaywrightDriver>();
+            return playwrightDriver.GetFrameworkDriver<Microsoft.Playwright.IBrowser>();
+        });
+
+        services.AddTransient<Microsoft.Playwright.IPlaywright>(provider =>
+        {
+            var playwrightDriver = provider.GetRequiredService<PlaywrightDriver>();
+            return playwrightDriver.GetFrameworkDriver<Microsoft.Playwright.IPlaywright>();
+        });
+
         // Options are provided by the core builder; do not inject defaults here.
     }
 }

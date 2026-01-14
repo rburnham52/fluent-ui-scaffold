@@ -5,6 +5,7 @@ using System.IO;
 using System.Threading.Tasks;
 
 using FluentUIScaffold.Core.Configuration.Launchers;
+using FluentUIScaffold.Core.Configuration.Launchers.Abstractions;
 
 namespace FluentUIScaffold.Core.Tests.Mocks
 {

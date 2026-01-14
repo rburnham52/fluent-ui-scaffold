@@ -1,33 +1,28 @@
 # SampleApp.AspireTests
 
-This test project demonstrates the new **FluentUIScaffold Aspire Server Lifecycle Management** system in action. It showcases how to use Aspire AppHost for hosting applications during UI tests with automatic server lifecycle management.
+This test project demonstrates **FluentUIScaffold with Aspire Hosting** using the unified API. It showcases how to use `UseAspireHosting<T>()` for automatic application lifecycle management during UI tests.
 
 ## Overview
 
-These tests demonstrate:
+These tests demonstrate the recommended approach for Aspire-based E2E testing:
 
-- **Automatic server startup** using Aspire AppHost configuration
-- **Server lifecycle management** with health checking and readiness validation
-- **Configuration drift detection** and automatic server restarts
+- **Unified API** using `FluentUIScaffoldBuilder` with `UseAspireHosting<T>()`
+- **Automatic server lifecycle** via Aspire's `DistributedApplicationTestingBuilder`
+- **Fluent page interactions** and verifications
 - **CI/headless mode** support with automatic detection
-- **Performance optimizations** through server reuse across test runs
-- **Manual server management** for advanced scenarios
 
 ## Test Categories
 
 ### Server Lifecycle Tests
-- `EnsureStartedAsync_WithAspireAppHost_StartsServerSuccessfully` - Basic server startup with Aspire
-- `ManualServerManagement_WithAspireAppHost_DemonstratesFullLifecycle` - Manual lifecycle control
-- `ConfigurationDriftDetection_WithDifferentConfigurations_RestartsServerAppropriately` - Config change handling
-
-### Health Check Validation
-- `HealthCheckValidation_WithCustomEndpoints_ValidatesServerReadiness` - Multiple endpoint health checking
+- `EnsureStartedAsync_WithAspireAppHost_StartsServerSuccessfully` - Basic startup with Aspire
+- `HealthCheckValidation_WithCustomEndpoints_ValidatesServerReadiness` - Endpoint health checking
+- `MultiplePageNavigation_WithAspireHosting_WorksCorrectly` - Page navigation
 
 ### CI/CD Integration
-- `CIHeadlessMode_WithAutomaticDetection_ConfiguresAppropriately` - Automatic CI environment detection
+- `CIHeadlessMode_WithAutomaticDetection_ConfiguresAppropriately` - Automatic CI detection
 
 ### Performance Tests
-- `ServerReusePerformance_WithSameConfiguration_ReusesFastly` - Server reuse performance validation
+- `AppScaffoldReuse_WithSameConfiguration_WorksCorrectly` - App reuse validation
 
 ## Running the Tests
 
@@ -36,131 +31,131 @@ These tests demonstrate:
 1. .NET 8.0 SDK
 2. Node.js (for SPA development server)
 3. Aspire workload: `dotnet workload install aspire`
+4. Docker (for Aspire resource containers)
 
 ### Command Line
 
 ```bash
-# Run all Aspire lifecycle tests
+# Run all Aspire tests
 dotnet test samples/SampleApp.AspireTests/SampleApp.AspireTests.csproj
 
 # Run specific test category
-dotnet test samples/SampleApp.AspireTests/SampleApp.AspireTests.csproj --filter TestCategory=ServerLifecycle
+dotnet test samples/SampleApp.AspireTests/SampleApp.AspireTests.csproj --filter TestCategory=Aspire
 
 # Run with verbose output
 dotnet test samples/SampleApp.AspireTests/SampleApp.AspireTests.csproj --logger "console;verbosity=detailed"
-
-# Run in parallel (faster execution)
-dotnet test samples/SampleApp.AspireTests/SampleApp.AspireTests.csproj --parallel
 ```
 
-### IDE
+## Recommended Pattern
 
-Open the solution in Visual Studio or Rider and run the tests through the Test Explorer.
-
-## Key Features Demonstrated
-
-### 1. Automatic Server Management
+### Test Setup (Assembly Level)
 
 ```csharp
-var serverConfig = ServerConfiguration.CreateAspireServer(
-    TestBaseUrl,
-    Path.Combine(projectRoot, "samples", "SampleApp.AppHost", "SampleApp.AppHost.csproj"))
-    .WithHealthCheckEndpoints("/", "/weatherforecast")
-    .WithHeadless(true)
-    .Build();
-
-using var app = FluentUIScaffoldBuilder.Web<WebApp>(options =>
+[TestClass]
+public class TestAssemblyHooks
 {
-    options.WithServerConfiguration(serverConfig);
-    options.WithBaseUrl(TestBaseUrl);
-});
-// Server automatically started and will be stopped when disposed
-```
+    private static AppScaffold<WebApp>? _app;
 
-### 2. Manual Lifecycle Control
+    [AssemblyInitialize]
+    public static async Task AssemblyInitialize(TestContext context)
+    {
+        _app = new FluentUIScaffoldBuilder()
+            .UseAspireHosting<Projects.SampleApp_AppHost>(
+                appHost => { /* configure if needed */ },
+                "sampleapp")
+            .Web<WebApp>(options =>
+            {
+                options.UsePlaywright();
+                options.HeadlessMode = true;
+            })
+            .WithAutoPageDiscovery()
+            .Build<WebApp>();
 
-```csharp
-var serverManager = new AspireServerManager();
-try
-{
-    var status = await serverManager.EnsureStartedAsync(launchPlan, logger);
-    // Use the server...
-    await serverManager.RestartAsync(); // If needed
-}
-finally
-{
-    await serverManager.StopAsync();
+        await _app.StartAsync();
+    }
+
+    [AssemblyCleanup]
+    public static async Task AssemblyCleanup()
+    {
+        if (_app != null)
+            await _app.DisposeAsync();
+    }
+
+    public static AppScaffold<WebApp> App => _app!;
 }
 ```
 
-### 3. CI/Headless Integration
+### Writing Tests
 
 ```csharp
-var serverConfig = ServerConfiguration.CreateAspireServer(baseUrl, projectPath)
-    .WithAutoCI() // Automatically configures for CI environments
-    .WithHeadless(true)
-    .Build();
+[TestMethod]
+public void Can_Navigate_And_Interact()
+{
+    var homePage = TestAssemblyHooks.App.NavigateTo<HomePage>();
+
+    homePage
+        .WaitForVisible(p => p.CounterButton)
+        .Click(p => p.CounterButton)
+        .Verify.TextContains(p => p.CounterValue, "1");
+}
 ```
 
-## Configuration Options
+## Configuration
 
-### Health Checks
-- Custom endpoints for readiness validation
-- Timeout configuration for startup validation
-- Multiple endpoint support
+### Using Aspire Hosting
 
-### CI/CD Support
-- Automatic headless mode detection
-- SPA asset building in CI environments
-- Environment variable configuration
+The `UseAspireHosting<T>()` method:
+- Creates a `DistributedApplicationTestingBuilder` from Aspire.Hosting.Testing
+- Auto-discovers the base URL from the named resource
+- Manages the full distributed application lifecycle
 
-### Performance Optimizations
-- Server process reuse across test runs
-- Configuration drift detection
-- Orphan process cleanup
+```csharp
+var app = new FluentUIScaffoldBuilder()
+    .UseAspireHosting<Projects.SampleApp_AppHost>(
+        appHost => { /* configure distributed app */ },
+        "sampleapp")  // Resource name to get base URL from
+    .Web<WebApp>(options =>
+    {
+        options.UsePlaywright();
+        options.HeadlessMode = true;
+    })
+    .Build<WebApp>();
+```
 
-## Integration with Existing Tests
+### Headless Mode
 
-These tests complement the existing `SampleApp.Tests` project by demonstrating:
+For CI environments:
 
-1. **Migration path** from WebServerManager to the new lifecycle system
-2. **Advanced scenarios** not covered in basic tests
-3. **Performance characteristics** of the new system
-4. **CI/CD integration patterns**
+```csharp
+.Web<WebApp>(options =>
+{
+    options.UsePlaywright();
+    options.HeadlessMode = true;  // Force headless
+    // Or leave null for auto-detection based on environment
+})
+```
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **Port conflicts**: Tests use ports 5100-5105. Ensure these are available.
-2. **Aspire workload**: Install with `dotnet workload install aspire`
-3. **Node.js requirements**: SPA components need Node.js for asset building
-4. **Timeout issues**: Increase `TestTimeout` for slower environments
+1. **Aspire workload not found**: Install with `dotnet workload install aspire`
+2. **Docker not running**: Aspire requires Docker for resource containers
+3. **Timeout issues**: Increase timeout in options or test configuration
+4. **Port conflicts**: Aspire auto-allocates ports, but check Docker containers
 
 ### Debugging
 
 - Set `ASPIRE_ALLOW_UNSECURED_TRANSPORT=true` for local debugging
 - Use `--logger "console;verbosity=detailed"` for verbose test output
-- Check server logs in console output during test execution
-
-### CI/CD Configuration
-
-For CI environments, ensure:
-- `CI=true` environment variable is set
-- Node.js is available for SPA asset building  
-- Sufficient timeout values for server startup
-- Headless browser capabilities are installed
 
 ## Architecture
 
-The tests demonstrate the complete Aspire integration stack:
-
 ```
 SampleApp.AspireTests
-├── Uses: FluentUIScaffold.Core (Server lifecycle management)
+├── Uses: FluentUIScaffold.AspireHosting (UseAspireHosting extension)
+├── Uses: FluentUIScaffold.Core (Unified API)
 ├── Uses: FluentUIScaffold.Playwright (UI automation)
 ├── Hosts: SampleApp.AppHost (Aspire orchestration)
 └── Tests: SampleApp (Web application)
 ```
-
-This provides a complete end-to-end testing solution with managed server lifecycle, making tests more reliable and faster through server reuse.

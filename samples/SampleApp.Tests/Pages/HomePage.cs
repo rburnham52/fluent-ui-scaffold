@@ -1,5 +1,6 @@
 using System;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 
 using FluentUIScaffold.Core;
@@ -16,7 +17,7 @@ namespace SampleApp.Tests.Pages
     /// Page object for the home page of the sample application.
     /// Demonstrates how to create page objects using the FluentUIScaffold framework.
     /// </summary>
-    public class HomePage : BasePageComponent<PlaywrightDriver, HomePage>
+    public class HomePage : Page<HomePage>
     {
         private static readonly Regex CounterRegex = new Regex("count is (\\d+)", RegexOptions.Compiled);
 
@@ -108,6 +109,7 @@ namespace SampleApp.Tests.Pages
         {
             Driver.WaitForElementToBeVisible("h2");
             Driver.WaitForElementToBeVisible(".subtitle");
+            await Task.CompletedTask;
         }
 
         /// <summary>
@@ -140,6 +142,7 @@ namespace SampleApp.Tests.Pages
         public async Task ClickCounterButtonAsync()
         {
             CounterButton.Click();
+            await Task.CompletedTask;
         }
 
         /// <summary>
