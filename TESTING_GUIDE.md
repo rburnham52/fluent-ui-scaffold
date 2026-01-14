@@ -128,7 +128,7 @@ The FluentUIScaffold framework integrates with **Aspire.Hosting.Testing** for ma
 
 1. Add the `Aspire.Hosting.Testing` package to your test project:
    ```xml
-   <PackageReference Include="Aspire.Hosting.Testing" Version="8.0.0" />
+   <PackageReference Include="Aspire.Hosting.Testing" Version="9.2.0" />
    ```
 
 2. Ensure your test project targets `net8.0` (required by Aspire.Hosting.Testing):
