@@ -58,5 +58,11 @@ namespace FluentUIScaffold.Core.Configuration
         /// Gets the list of registered plugins.
         /// </summary>
         public List<IUITestingFrameworkPlugin> Plugins { get; } = new List<IUITestingFrameworkPlugin>();
+
+        /// <summary>
+        /// Gets or sets whether to automatically discover and register page classes from loaded assemblies.
+        /// When true, the framework will scan assemblies for classes inheriting from Page&lt;TSelf&gt;.
+        /// </summary>
+        public bool AutoDiscoverPages { get; set; }
     }
 }
