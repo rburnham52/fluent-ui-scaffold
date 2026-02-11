@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 
 using FluentUIScaffold.Core.Exceptions;
 using FluentUIScaffold.Core.Interfaces;
@@ -19,6 +20,7 @@ namespace FluentUIScaffold.Core.Configuration
         private readonly FluentUIScaffoldOptions _options;
         private readonly ILogger _logger;
         private readonly TPage _page;
+        private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(100);
 
         public VerificationContext(IUIDriver driver, FluentUIScaffoldOptions options, ILogger logger, TPage page)
         {
@@ -30,50 +32,123 @@ namespace FluentUIScaffold.Core.Configuration
 
         public TPage And => _page;
 
+        /// <summary>
+        /// Polls until the condition is met or timeout occurs.
+        /// </summary>
+        private void PollUntil(Func<bool> condition, string failureMessage)
+        {
+            var timeout = _options.DefaultWaitTimeout;
+            var startTime = DateTime.UtcNow;
+
+            while (DateTime.UtcNow - startTime < timeout)
+            {
+                if (condition())
+                {
+                    return;
+                }
+
+                Thread.Sleep(PollInterval);
+            }
+
+            throw new VerificationException($"{failureMessage} (timeout: {timeout.TotalSeconds}s)");
+        }
+
+        /// <summary>
+        /// Wraps driver exceptions in VerificationException with context.
+        /// </summary>
+        private void SafeExecute(Action action, string failureMessage)
+        {
+            try
+            {
+                action();
+            }
+            catch (VerificationException)
+            {
+                throw;
+            }
+            catch (System.TimeoutException ex)
+            {
+                throw new VerificationException($"{failureMessage} (timeout)", ex);
+            }
+            catch (Exceptions.TimeoutException ex)
+            {
+                throw new VerificationException($"{failureMessage} (timeout)", ex);
+            }
+            catch (ElementTimeoutException ex)
+            {
+                throw new VerificationException($"{failureMessage} (element timeout)", ex);
+            }
+            catch (AggregateException ex)
+            {
+                var inner = ex.InnerException ?? ex;
+                throw new VerificationException($"{failureMessage} ({inner.GetType().Name})", inner);
+            }
+            catch (Exception ex)
+            {
+                throw new VerificationException($"{failureMessage} ({ex.GetType().Name})", ex);
+            }
+        }
+
         // Legacy bridge removed as we no longer expose the non-generic interface publicly.
 
         // New richer, chainable APIs
         public IVerificationContext<TPage> UrlIs(string url)
         {
             _logger.LogInformation($"Verifying URL is '{url}'");
-            var current = _driver.CurrentUrl?.ToString() ?? string.Empty;
-            if (!string.Equals(current, url, StringComparison.Ordinal))
-            {
-                throw new VerificationException($"Expected URL to be '{url}', but was '{current}'");
-            }
+
+            PollUntil(
+                () =>
+                {
+                    var current = _driver.CurrentUrl?.ToString() ?? string.Empty;
+                    return string.Equals(current, url, StringComparison.Ordinal);
+                },
+                $"Expected URL to be '{url}', but it never matched");
+
             return this;
         }
 
         public IVerificationContext<TPage> UrlContains(string segment)
         {
             _logger.LogInformation($"Verifying URL contains '{segment}'");
-            var current = _driver.CurrentUrl?.ToString() ?? string.Empty;
-            if (!current.Contains(segment, StringComparison.Ordinal))
-            {
-                throw new VerificationException($"Expected URL to contain '{segment}', but was '{current}'");
-            }
+
+            PollUntil(
+                () =>
+                {
+                    var current = _driver.CurrentUrl?.ToString() ?? string.Empty;
+                    return current.Contains(segment, StringComparison.Ordinal);
+                },
+                $"Expected URL to contain '{segment}', but it never did");
+
             return this;
         }
 
         public IVerificationContext<TPage> TitleIs(string title)
         {
             _logger.LogInformation($"Verifying title is '{title}'");
-            var actual = _driver.GetPageTitle();
-            if (!string.Equals(actual, title, StringComparison.Ordinal))
-            {
-                throw new VerificationException($"Expected title to be '{title}', but was '{actual}'");
-            }
+
+            PollUntil(
+                () =>
+                {
+                    var actual = _driver.GetPageTitle();
+                    return string.Equals(actual, title, StringComparison.Ordinal);
+                },
+                $"Expected title to be '{title}', but it never matched");
+
             return this;
         }
 
         public IVerificationContext<TPage> TitleContains(string text)
         {
             _logger.LogInformation($"Verifying title contains '{text}'");
-            var actual = _driver.GetPageTitle();
-            if (!actual.Contains(text, StringComparison.Ordinal))
-            {
-                throw new VerificationException($"Expected title to contain '{text}', but was '{actual}'");
-            }
+
+            PollUntil(
+                () =>
+                {
+                    var actual = _driver.GetPageTitle();
+                    return actual.Contains(text, StringComparison.Ordinal);
+                },
+                $"Expected title to contain '{text}', but it never did");
+
             return this;
         }
 
@@ -81,11 +156,64 @@ namespace FluentUIScaffold.Core.Configuration
         {
             var element = elementSelector(_page);
             _logger.LogInformation($"Verifying element '{element.Selector}' contains text '{contains}'");
-            var actual = _driver.GetText(element.Selector);
-            if (!actual.Contains(contains, StringComparison.Ordinal))
+
+            // First, wait for the element to be visible
+            SafeExecute(
+                () => _driver.WaitForElementToBeVisible(element.Selector),
+                $"Element '{element.Selector}' never became visible");
+
+            // Then poll for the expected text
+            PollUntil(
+                () =>
+                {
+                    var actual = _driver.GetText(element.Selector);
+                    return actual.Contains(contains, StringComparison.Ordinal);
+                },
+                $"Element '{element.Selector}' text never contained '{contains}'");
+
+            return this;
+        }
+
+        public IVerificationContext<TPage> TextIs(Func<TPage, IElement> elementSelector, string text)
+        {
+            var element = elementSelector(_page);
+            _logger.LogInformation($"Verifying element '{element.Selector}' text is '{text}'");
+
+            // First, wait for the element to be visible
+            SafeExecute(
+                () => _driver.WaitForElementToBeVisible(element.Selector),
+                $"Element '{element.Selector}' never became visible");
+
+            // Then poll for the exact text
+            PollUntil(
+                () =>
+                {
+                    var actual = _driver.GetText(element.Selector);
+                    return string.Equals(actual, text, StringComparison.Ordinal);
+                },
+                $"Element '{element.Selector}' text never matched '{text}'");
+
+            return this;
+        }
+
+        public IVerificationContext<TPage> HasAttribute(Func<TPage, IElement> elementSelector, string attributeName, string expectedValue)
+        {
+            var element = elementSelector(_page);
+            _logger.LogInformation($"Verifying element '{element.Selector}' has attribute '{attributeName}' with value '{expectedValue}'");
+
+            // First, wait for the element to be visible
+            SafeExecute(
+                () => _driver.WaitForElementToBeVisible(element.Selector),
+                $"Element '{element.Selector}' never became visible");
+
+            // Then check the attribute value
+            var actualValue = _driver.GetAttribute(element.Selector, attributeName);
+            if (!string.Equals(actualValue, expectedValue, StringComparison.Ordinal))
             {
-                throw new VerificationException($"Element '{element.Selector}' text '{actual}' does not contain '{contains}'");
+                throw new VerificationException(
+                    $"Element '{element.Selector}' attribute '{attributeName}' has value '{actualValue}', expected '{expectedValue}'");
             }
+
             return this;
         }
 
@@ -93,10 +221,18 @@ namespace FluentUIScaffold.Core.Configuration
         {
             var element = elementSelector(_page);
             _logger.LogInformation($"Verifying element '{element.Selector}' is visible");
+
+            // Wait for element to be visible, then assert
+            SafeExecute(
+                () => _driver.WaitForElementToBeVisible(element.Selector),
+                $"Element '{element.Selector}' never became visible");
+
+            // Final assertion to ensure it's still visible
             if (!_driver.IsVisible(element.Selector))
             {
                 throw new VerificationException($"Element '{element.Selector}' is not visible");
             }
+
             return this;
         }
 
@@ -104,10 +240,18 @@ namespace FluentUIScaffold.Core.Configuration
         {
             var element = elementSelector(_page);
             _logger.LogInformation($"Verifying element '{element.Selector}' is not visible");
+
+            // Wait for element to be hidden, then assert
+            SafeExecute(
+                () => _driver.WaitForElementToBeHidden(element.Selector),
+                $"Element '{element.Selector}' never became hidden");
+
+            // Final assertion to ensure it's still hidden
             if (_driver.IsVisible(element.Selector))
             {
                 throw new VerificationException($"Element '{element.Selector}' is visible but should be hidden");
             }
+
             return this;
         }
     }

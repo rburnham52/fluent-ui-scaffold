@@ -37,6 +37,16 @@ public interface IVerificationContext<TPage>
     IVerificationContext<TPage> TextContains(Func<TPage, IElement> elementSelector, string contains);
 
     /// <summary>
+    /// Verifies that the element's text is exactly the specified value.
+    /// </summary>
+    IVerificationContext<TPage> TextIs(Func<TPage, IElement> elementSelector, string text);
+
+    /// <summary>
+    /// Verifies that the element has an attribute with the specified name and value.
+    /// </summary>
+    IVerificationContext<TPage> HasAttribute(Func<TPage, IElement> elementSelector, string attributeName, string expectedValue);
+
+    /// <summary>
     /// Verifies that the specified element is visible.
     /// </summary>
     IVerificationContext<TPage> Visible(Func<TPage, IElement> elementSelector);

@@ -139,8 +139,10 @@ namespace SampleApp.Tests.Pages
         /// </summary>
         public RegistrationPage VerifySuccessMessage()
         {
-            return WaitForVisible(e => e.SuccessMessage)
-                   .VerifyText(e => e.SuccessMessage, "Registration successful!");
+            return Verify
+                   .Visible(e => e.SuccessMessage)
+                   .TextIs(e => e.SuccessMessage, "Registration successful!")
+                   .And;
         }
 
         /// <summary>
@@ -148,8 +150,10 @@ namespace SampleApp.Tests.Pages
         /// </summary>
         public RegistrationPage VerifyErrorMessage(string expectedError)
         {
-            return WaitForVisible(e => e.ErrorMessage)
-                   .VerifyText(e => e.ErrorMessage, expectedError);
+            return Verify
+                   .Visible(e => e.ErrorMessage)
+                   .TextIs(e => e.ErrorMessage, expectedError)
+                   .And;
         }
 
         /// <summary>
@@ -157,10 +161,12 @@ namespace SampleApp.Tests.Pages
         /// </summary>
         public RegistrationPage VerifyFormIsCleared()
         {
-            return VerifyValue(e => e.EmailInput, "")
-                   .VerifyValue(e => e.PasswordInput, "")
-                   .VerifyValue(e => e.FirstNameInput, "")
-                   .VerifyValue(e => e.LastNameInput, "");
+            return Verify
+                   .TextIs(e => e.EmailInput, "")
+                   .TextIs(e => e.PasswordInput, "")
+                   .TextIs(e => e.FirstNameInput, "")
+                   .TextIs(e => e.LastNameInput, "")
+                   .And;
         }
 
         /// <summary>
@@ -168,14 +174,14 @@ namespace SampleApp.Tests.Pages
         /// </summary>
         public RegistrationPage VerifyFormStructure()
         {
-            // Ensure registration form is visible before verification
-            Driver.WaitForElementToBeVisible(".registration-form");
-            Driver.WaitForElementToBeVisible(".registration-form h2");
-            return VerifyText(e => e.FormTitle, "User Registration")
-                   .VerifyText(e => e.EmailInput, "") // Should be empty initially
-                   .VerifyText(e => e.PasswordInput, "")
-                   .VerifyText(e => e.FirstNameInput, "")
-                   .VerifyText(e => e.LastNameInput, "");
+            // Verify form structure using new Verify API (waits automatically)
+            return Verify
+                   .TextIs(e => e.FormTitle, "User Registration")
+                   .TextIs(e => e.EmailInput, "") // Should be empty initially
+                   .TextIs(e => e.PasswordInput, "")
+                   .TextIs(e => e.FirstNameInput, "")
+                   .TextIs(e => e.LastNameInput, "")
+                   .And;
         }
 
         /// <summary>
