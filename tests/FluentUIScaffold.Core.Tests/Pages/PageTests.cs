@@ -117,20 +117,6 @@ namespace FluentUIScaffold.Core.Tests.Pages
         }
 
         [Test]
-        public void WaitForVisible_CallsElementWaitForVisible()
-        {
-            // Arrange
-            var page = new TestPage(_serviceProvider, new Uri("http://test.local"));
-            _mockDriver.Setup(d => d.IsVisible(It.IsAny<string>())).Returns(true);
-
-            // Act
-            var result = page.WaitForVisible(p => p.TestButton);
-
-            // Assert
-            Assert.That(result, Is.SameAs(page));
-        }
-
-        [Test]
         public void IsCurrentPage_ReturnsTrue_ByDefault()
         {
             // Arrange

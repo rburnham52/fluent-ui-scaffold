@@ -136,16 +136,6 @@ namespace FluentUIScaffold.Core.Pages
         }
 
         /// <summary>
-        /// Waits for an element to be visible on the page.
-        /// </summary>
-        public virtual TSelf WaitForVisible(Func<TSelf, IElement> elementSelector)
-        {
-            var element = GetElementFromSelector(elementSelector);
-            element.WaitForVisible();
-            return Self;
-        }
-
-        /// <summary>
         /// Waits for an element to be hidden on the page.
         /// </summary>
         public virtual TSelf WaitForHidden(Func<TSelf, IElement> elementSelector)
@@ -158,48 +148,6 @@ namespace FluentUIScaffold.Core.Pages
         #endregion
 
         #region Verification Methods
-
-        /// <summary>
-        /// Verifies an element's value matches the expected value.
-        /// </summary>
-        public virtual TSelf VerifyValue<TValue>(Func<TSelf, IElement> elementSelector, TValue expectedValue, string? description = null)
-        {
-            var element = GetElementFromSelector(elementSelector);
-            var actualValue = GetElementValue<TValue>(element);
-
-            if (!EqualityComparer<TValue>.Default.Equals(actualValue, expectedValue))
-            {
-                var message = description ?? $"Expected '{expectedValue}', but got '{actualValue}'";
-                throw new ElementValidationException(message);
-            }
-
-            return Self;
-        }
-
-        /// <summary>
-        /// Verifies an element's text matches the expected text.
-        /// </summary>
-        public virtual TSelf VerifyText(Func<TSelf, IElement> elementSelector, string expectedText, string? description = null)
-        {
-            return VerifyValue(elementSelector, expectedText, description);
-        }
-
-        /// <summary>
-        /// Verifies an element's property matches the expected value.
-        /// </summary>
-        public virtual TSelf VerifyProperty(Func<TSelf, IElement> elementSelector, string expectedValue, string propertyName, string? description = null)
-        {
-            var element = GetElementFromSelector(elementSelector);
-            var actualValue = GetElementPropertyValue(element, propertyName);
-
-            if (actualValue != expectedValue)
-            {
-                var message = description ?? $"Expected property '{propertyName}' to be '{expectedValue}', but got '{actualValue}'";
-                throw new ElementValidationException(message);
-            }
-
-            return Self;
-        }
 
         /// <summary>
         /// Gets the verification context for this page.
@@ -342,43 +290,6 @@ namespace FluentUIScaffold.Core.Pages
         protected virtual IElement GetElementFromSelector(Func<TSelf, IElement> elementSelector)
         {
             return elementSelector(Self);
-        }
-
-        /// <summary>
-        /// Gets a value from an element.
-        /// </summary>
-        protected virtual TValue GetElementValue<TValue>(IElement element)
-        {
-            if (typeof(TValue) == typeof(string))
-            {
-                return (TValue)(object)Driver.GetText(element.Selector);
-            }
-
-            throw new NotSupportedException($"Type {typeof(TValue)} is not supported for element value retrieval");
-        }
-
-        /// <summary>
-        /// Gets a property value from an element.
-        /// </summary>
-        protected virtual string GetElementPropertyValue(IElement element, string propertyName)
-        {
-            switch (propertyName.ToLower())
-            {
-                case "innertext":
-                case "text":
-                    return Driver.GetText(element.Selector);
-                case "classname":
-                case "class":
-                    return element.GetAttribute("class");
-                case "value":
-                    return element.GetAttribute("value");
-                case "enabled":
-                    return Driver.IsEnabled(element.Selector).ToString().ToLower();
-                case "visible":
-                    return Driver.IsVisible(element.Selector).ToString().ToLower();
-                default:
-                    return element.GetAttribute(propertyName);
-            }
         }
 
         #endregion

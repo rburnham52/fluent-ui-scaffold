@@ -86,9 +86,12 @@ public void Can_Navigate_And_Interact()
     var homePage = TestAssemblyHooks.App.NavigateTo<HomePage>();
 
     homePage
-        .WaitForVisible(p => p.CounterButton)
         .Click(p => p.CounterButton)
-        .Verify.TextContains(p => p.CounterValue, "1");
+        .Verify
+            .Visible(p => p.CounterValue)        // Waits automatically
+            .TextContains(p => p.CounterValue, "1")
+            .And
+        .Click(p => p.CounterButton);
 }
 ```
 
@@ -221,13 +224,60 @@ public void Can_Interact_With_Button()
     // Arrange
     var homePage = TestAssemblyHooks.App.NavigateTo<HomePage>();
 
-    // Act
-    homePage.ClickButton();
-
-    // Assert
-    homePage.Verify.Visible(p => p.Button);
+    // Act & Assert - Fluent API with automatic waiting
+    homePage
+        .Click(p => p.Button)
+        .Verify
+            .Visible(p => p.SuccessMessage)           // Waits for element to be visible
+            .TextIs(p => p.SuccessMessage, "Success!") // Waits, then polls for exact text
+            .And
+        .Click(p => p.NextButton);
 }
 ```
+
+### Verification API
+
+All `Verify.*` methods **automatically wait** before asserting, eliminating flaky tests:
+
+```csharp
+// Element verification (waits for visibility, then asserts)
+page.Verify
+    .Visible(p => p.Element)                    // Wait for visible, then assert
+    .NotVisible(p => p.LoadingSpinner)          // Wait for hidden, then assert
+    .TextIs(p => p.Title, "Dashboard")          // Wait for visible, poll for exact text
+    .TextContains(p => p.Body, "Welcome")       // Wait for visible, poll for substring
+    .HasAttribute(p => p.Button, "class", "active") // Wait for visible, check attribute
+    .And;                                       // Return to page for continued actions
+
+// Page-level verification (polls until match or timeout)
+page.Verify
+    .TitleIs("Dashboard")                       // Poll page title for exact match
+    .TitleContains("Dash")                      // Poll page title for substring
+    .UrlIs("http://localhost/dashboard")        // Poll URL for exact match
+    .UrlContains("/dashboard")                  // Poll URL for substring
+    .And;
+```
+
+**Key behaviors:**
+- **Default timeout**: Uses `DefaultWaitTimeout` (30s by default)
+- **Polling interval**: 100ms for all polling operations
+- **Exception type**: All failures throw `VerificationException`
+- **Automatic waiting**: No need for separate `WaitForVisible()` calls
+
+### Migration from Previous Versions
+
+If you're upgrading from an earlier version, note these **breaking changes**:
+
+| Old API | New API | Notes |
+|---------|---------|-------|
+| `page.WaitForVisible(p => p.Element)` | `page.Verify.Visible(p => p.Element)` | `Verify.Visible()` now waits automatically |
+| `page.VerifyText(p => p.Element, "text")` | `page.Verify.TextIs(p => p.Element, "text")` | Moved to `Verify` context, now waits + polls |
+| `page.VerifyValue(p => p.Input, "value")` | `page.Verify.TextIs(p => p.Input, "value")` | Use `TextIs()` for exact match |
+| `page.VerifyProperty(p => p.El, "val", "attr")` | `page.Verify.HasAttribute(p => p.El, "attr", "val")` | Clearer parameter order |
+
+**Exception changes:**
+- All verification failures now throw `VerificationException` (not `ElementValidationException`)
+- Update any `catch (ElementValidationException)` blocks to `catch (VerificationException)`
 
 ### Wait Strategies
 
