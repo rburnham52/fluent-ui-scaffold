@@ -34,23 +34,38 @@ namespace FluentUIScaffold.Core.Configuration
 
         /// <summary>
         /// Polls until the condition is met or timeout occurs.
+        /// Treats exceptions from the condition as transient failures (continues polling).
         /// </summary>
         private void PollUntil(Func<bool> condition, string failureMessage)
         {
             var timeout = _options.DefaultWaitTimeout;
             var startTime = DateTime.UtcNow;
+            Exception? lastException = null;
 
             while (DateTime.UtcNow - startTime < timeout)
             {
-                if (condition())
+                try
                 {
-                    return;
+                    if (condition())
+                    {
+                        return;
+                    }
+                }
+                catch (Exception ex) when (!(ex is VerificationException))
+                {
+                    // Treat driver exceptions as transient failures during polling
+                    // (e.g., element temporarily detached during re-render)
+                    lastException = ex;
                 }
 
                 Thread.Sleep(PollInterval);
             }
 
-            throw new VerificationException($"{failureMessage} (timeout: {timeout.TotalSeconds}s)");
+            // Include the last exception in the verification failure for debugging
+            var message = $"{failureMessage} (timeout: {timeout.TotalSeconds}s)";
+            throw lastException != null
+                ? new VerificationException(message, lastException)
+                : new VerificationException(message);
         }
 
         /// <summary>
@@ -206,13 +221,15 @@ namespace FluentUIScaffold.Core.Configuration
                 () => _driver.WaitForElementToBeVisible(element.Selector),
                 $"Element '{element.Selector}' never became visible");
 
-            // Then check the attribute value
-            var actualValue = _driver.GetAttribute(element.Selector, attributeName);
-            if (!string.Equals(actualValue, expectedValue, StringComparison.Ordinal))
-            {
-                throw new VerificationException(
-                    $"Element '{element.Selector}' attribute '{attributeName}' has value '{actualValue}', expected '{expectedValue}'");
-            }
+            // Then poll for the expected attribute value
+            string? lastActualValue = null;
+            PollUntil(
+                () =>
+                {
+                    lastActualValue = _driver.GetAttribute(element.Selector, attributeName);
+                    return string.Equals(lastActualValue, expectedValue, StringComparison.Ordinal);
+                },
+                $"Element '{element.Selector}' attribute '{attributeName}' never matched '{expectedValue}' (last value: '{lastActualValue}')");
 
             return this;
         }
