@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
 using FluentUIScaffold.Core.Configuration;
 using FluentUIScaffold.Core.Interfaces;
@@ -135,6 +136,19 @@ namespace FluentUIScaffold.Core.Tests.Mocks
         public TTarget NavigateTo<TTarget>() where TTarget : class => default!;
         public TDriver GetFrameworkDriver<TDriver>() where TDriver : class => default!;
 
+        private readonly Dictionary<string, Func<string, object?>> _scriptRules = new();
+
+        public Task<T> ExecuteScriptAsync<T>(string script)
+        {
+            if (_scriptRules.TryGetValue(script, out var rule))
+                return Task.FromResult((T)rule(script)!);
+            return Task.FromResult(default(T)!);
+        }
+
+        public Task ExecuteScriptAsync(string script) => Task.CompletedTask;
+
+        public Task<byte[]> TakeScreenshotAsync(string filePath) => Task.FromResult(Array.Empty<byte>());
+
         public void Dispose()
         {
             // No resources to dispose
@@ -169,6 +183,15 @@ namespace FluentUIScaffold.Core.Tests.Mocks
         }
 
         /// <summary>
+        /// Configure script execution results for testing.
+        /// Example: SetScriptRule("window.location.href", script => "https://example.com")
+        /// </summary>
+        public void SetScriptRule(string script, Func<string, object?> rule)
+        {
+            _scriptRules[script] = rule;
+        }
+
+        /// <summary>
         /// Configure URL that changes based on call count.
         /// </summary>
         public void SetUrlRule(Func<int, Uri> rule)
@@ -195,6 +218,7 @@ namespace FluentUIScaffold.Core.Tests.Mocks
             _textRules.Clear();
             _attributeRules.Clear();
             _currentVisibilityState.Clear();
+            _scriptRules.Clear();
             _urlRule = null;
             _titleRule = null;
         }

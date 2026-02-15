@@ -416,4 +416,52 @@ public class PlaywrightDriver : IUIDriver, IDisposable
         _page?.FillAsync(selector, "").Wait();
     }
     public string GetPageTitle() => _page?.TitleAsync().Result ?? "No title available";
+
+    /// <summary>
+    /// Executes JavaScript in the browser page context and returns a typed result.
+    /// </summary>
+    /// <typeparam name="T">The expected return type.</typeparam>
+    /// <param name="script">The JavaScript expression to evaluate.</param>
+    /// <returns>The result of the script evaluation, deserialized to type T.</returns>
+    public async Task<T> ExecuteScriptAsync<T>(string script)
+    {
+        if (string.IsNullOrEmpty(script))
+            throw new ArgumentException("Script cannot be null or empty.", nameof(script));
+        if (_page is null)
+            throw new InvalidOperationException("Browser page is not initialized. Ensure the driver was constructed successfully and has not been disposed.");
+
+        _logger?.LogDebug("Executing script with return type {Type}: {Script}", typeof(T).Name, script);
+        return await _page.EvaluateAsync<T>(script);
+    }
+
+    /// <summary>
+    /// Executes JavaScript in the browser page context with no return value.
+    /// </summary>
+    /// <param name="script">The JavaScript expression to evaluate.</param>
+    public async Task ExecuteScriptAsync(string script)
+    {
+        if (string.IsNullOrEmpty(script))
+            throw new ArgumentException("Script cannot be null or empty.", nameof(script));
+        if (_page is null)
+            throw new InvalidOperationException("Browser page is not initialized. Ensure the driver was constructed successfully and has not been disposed.");
+
+        _logger?.LogDebug("Executing script: {Script}", script);
+        await _page.EvaluateAsync(script);
+    }
+
+    /// <summary>
+    /// Saves a screenshot of the current page to the specified file path.
+    /// </summary>
+    /// <param name="filePath">The file path where the screenshot will be saved.</param>
+    /// <returns>The screenshot as a byte array.</returns>
+    public async Task<byte[]> TakeScreenshotAsync(string filePath)
+    {
+        if (string.IsNullOrEmpty(filePath))
+            throw new ArgumentException("File path cannot be null or empty.", nameof(filePath));
+        if (_page is null)
+            throw new InvalidOperationException("Browser page is not initialized. Ensure the driver was constructed successfully and has not been disposed.");
+
+        _logger?.LogDebug("Taking screenshot: {FilePath}", filePath);
+        return await _page.ScreenshotAsync(new PageScreenshotOptions { Path = filePath });
+    }
 }

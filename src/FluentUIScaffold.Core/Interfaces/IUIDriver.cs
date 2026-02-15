@@ -1,5 +1,6 @@
 // Copyright (c) FluentUIScaffold. All rights reserved.
 using System;
+using System.Threading.Tasks;
 
 namespace FluentUIScaffold.Core.Interfaces;
 
@@ -130,4 +131,25 @@ public interface IUIDriver : IDisposable
     /// <typeparam name="TDriver">The type of the framework-specific driver.</typeparam>
     /// <returns>The framework-specific driver instance.</returns>
     TDriver GetFrameworkDriver<TDriver>() where TDriver : class;
+
+    /// <summary>
+    /// Executes JavaScript in the browser page context and returns a typed result.
+    /// </summary>
+    /// <typeparam name="T">The expected return type.</typeparam>
+    /// <param name="script">The JavaScript expression to evaluate.</param>
+    /// <returns>The result of the script evaluation, deserialized to type T.</returns>
+    Task<T> ExecuteScriptAsync<T>(string script);
+
+    /// <summary>
+    /// Executes JavaScript in the browser page context with no return value.
+    /// </summary>
+    /// <param name="script">The JavaScript expression to evaluate.</param>
+    Task ExecuteScriptAsync(string script);
+
+    /// <summary>
+    /// Saves a screenshot of the current page to the specified file path.
+    /// </summary>
+    /// <param name="filePath">The file path where the screenshot will be saved.</param>
+    /// <returns>The screenshot as a byte array.</returns>
+    Task<byte[]> TakeScreenshotAsync(string filePath);
 }

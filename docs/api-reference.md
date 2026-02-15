@@ -514,8 +514,36 @@ public class PlaywrightDriver : IUIDriver
     public void Hover(string selector);
     public void Clear(string selector);
     public string GetPageTitle();
+
+    // Browser interaction (async)
+    public Task<T> ExecuteScriptAsync<T>(string script);
+    public Task ExecuteScriptAsync(string script);
+    public Task<byte[]> TakeScreenshotAsync(string filePath);
+
     public void Dispose();
 }
+```
+
+#### Browser Interaction Methods
+
+| Method | Description | Parameters | Returns |
+|--------|-------------|------------|---------|
+| `ExecuteScriptAsync<T>` | Executes JavaScript and returns a typed result | `string script` | `Task<T>` |
+| `ExecuteScriptAsync` | Executes JavaScript with no return value | `string script` | `Task` |
+| `TakeScreenshotAsync` | Saves a screenshot to a file and returns the bytes | `string filePath` | `Task<byte[]>` |
+
+#### Usage
+
+```csharp
+var driver = app.GetService<IUIDriver>();
+
+// Execute JavaScript
+await driver.ExecuteScriptAsync("localStorage.clear()");
+var href = await driver.ExecuteScriptAsync<string>("window.location.href");
+var count = await driver.ExecuteScriptAsync<int>("document.querySelectorAll('h1').length");
+
+// Take screenshot
+var bytes = await driver.TakeScreenshotAsync("debug-screenshot.png");
 ```
 
 ## Plugin System

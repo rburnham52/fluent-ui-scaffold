@@ -309,6 +309,9 @@ namespace FluentUIScaffold.Core.Tests
         public string GetPageTitle() => "Test Page";
         public TTarget NavigateTo<TTarget>() where TTarget : class => default!;
         public TDriver GetFrameworkDriver<TDriver>() where TDriver : class => default!;
+        public Task<T> ExecuteScriptAsync<T>(string script) => Task.FromResult(default(T)!);
+        public Task ExecuteScriptAsync(string script) => Task.CompletedTask;
+        public Task<byte[]> TakeScreenshotAsync(string filePath) => Task.FromResult(Array.Empty<byte>());
 
         public void Dispose()
         {
