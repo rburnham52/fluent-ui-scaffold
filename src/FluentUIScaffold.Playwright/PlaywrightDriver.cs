@@ -427,9 +427,11 @@ public class PlaywrightDriver : IUIDriver, IDisposable
     {
         if (string.IsNullOrEmpty(script))
             throw new ArgumentException("Script cannot be null or empty.", nameof(script));
+        if (_page is null)
+            throw new InvalidOperationException("Browser page is not initialized. Ensure the driver was constructed successfully and has not been disposed.");
 
         _logger?.LogDebug("Executing script with return type {Type}: {Script}", typeof(T).Name, script);
-        return await _page!.EvaluateAsync<T>(script);
+        return await _page.EvaluateAsync<T>(script);
     }
 
     /// <summary>
@@ -440,9 +442,11 @@ public class PlaywrightDriver : IUIDriver, IDisposable
     {
         if (string.IsNullOrEmpty(script))
             throw new ArgumentException("Script cannot be null or empty.", nameof(script));
+        if (_page is null)
+            throw new InvalidOperationException("Browser page is not initialized. Ensure the driver was constructed successfully and has not been disposed.");
 
         _logger?.LogDebug("Executing script: {Script}", script);
-        await _page!.EvaluateAsync(script);
+        await _page.EvaluateAsync(script);
     }
 
     /// <summary>
@@ -454,8 +458,10 @@ public class PlaywrightDriver : IUIDriver, IDisposable
     {
         if (string.IsNullOrEmpty(filePath))
             throw new ArgumentException("File path cannot be null or empty.", nameof(filePath));
+        if (_page is null)
+            throw new InvalidOperationException("Browser page is not initialized. Ensure the driver was constructed successfully and has not been disposed.");
 
         _logger?.LogDebug("Taking screenshot: {FilePath}", filePath);
-        return await _page!.ScreenshotAsync(new PageScreenshotOptions { Path = filePath });
+        return await _page.ScreenshotAsync(new PageScreenshotOptions { Path = filePath });
     }
 }
