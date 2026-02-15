@@ -401,6 +401,34 @@ page.Verify
 page.Verify.That(() => page.GetElementCount() > 0, "Should have elements");
 ```
 
+## Browser Interaction
+
+### Script Execution
+
+Use `ExecuteScriptAsync` to run JavaScript in the browser for tasks like clearing storage or querying DOM state:
+
+```csharp
+var driver = TestAssemblyHooks.App.GetService<IUIDriver>();
+
+// Clear storage between tests
+await driver.ExecuteScriptAsync("localStorage.clear(); sessionStorage.clear()");
+
+// Get a value from the browser
+var url = await driver.ExecuteScriptAsync<string>("window.location.href");
+
+// Check DOM state
+var headingCount = await driver.ExecuteScriptAsync<int>("document.querySelectorAll('h1').length");
+```
+
+### Screenshots
+
+Capture screenshots for debugging failed tests:
+
+```csharp
+var driver = TestAssemblyHooks.App.GetService<IUIDriver>();
+await driver.TakeScreenshotAsync("debug-screenshot.png");
+```
+
 ## Sample Application
 
 The project includes a comprehensive sample application that demonstrates the framework's capabilities:

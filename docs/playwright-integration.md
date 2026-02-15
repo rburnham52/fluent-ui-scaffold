@@ -99,11 +99,67 @@ public void Can_Interact_With_Playwright()
 }
 ```
 
+## Browser Interaction APIs
+
+The `IUIDriver` interface provides framework-agnostic async methods for script execution and screenshots. These work with any driver implementation, not just Playwright.
+
+### Script Execution
+
+```csharp
+// Get the driver (framework-agnostic)
+var driver = app.GetService<IUIDriver>();
+
+// Clear browser storage between tests
+await driver.ExecuteScriptAsync("localStorage.clear(); sessionStorage.clear()");
+
+// Get a typed value from the browser
+var href = await driver.ExecuteScriptAsync<string>("window.location.href");
+
+// Check DOM state
+var count = await driver.ExecuteScriptAsync<int>("document.querySelectorAll('h1').length");
+
+// Check if a feature flag is set
+var flag = await driver.ExecuteScriptAsync<bool>("window.featureFlags?.darkMode ?? false");
+```
+
+### Screenshots
+
+```csharp
+var driver = app.GetService<IUIDriver>();
+
+// Save a screenshot for debugging
+var bytes = await driver.TakeScreenshotAsync("debug-screenshot.png");
+
+// Use in error handling
+try
+{
+    page.Verify.Visible(p => p.WelcomeMessage);
+}
+catch
+{
+    await driver.TakeScreenshotAsync($"failure-{DateTime.Now:yyyyMMdd-HHmmss}.png");
+    throw;
+}
+```
+
+### IUIDriver vs PlaywrightAdvancedFeatures
+
+| Capability | `IUIDriver` | `PlaywrightAdvancedFeatures` |
+|------------|-------------|------------------------------|
+| Script execution | `ExecuteScriptAsync` | `EvaluateJavaScriptAsync` |
+| Page screenshot | `TakeScreenshotAsync` | `TakeScreenshotAsync` |
+| Element screenshot | - | `TakeElementScreenshotAsync` |
+| PDF generation | - | `GeneratePdfAsync` |
+| Network interception | - | `InterceptNetworkRequests` |
+| Geolocation | - | `SetGeolocationAsync` |
+
+Use `IUIDriver` for portable, framework-agnostic operations. Use `PlaywrightAdvancedFeatures` for Playwright-specific capabilities.
+
 ## Advanced Features
 
 ### PlaywrightAdvancedFeatures
 
-Access to advanced Playwright capabilities:
+Access to advanced Playwright-specific capabilities beyond `IUIDriver`:
 
 ```csharp
 public class PlaywrightAdvancedFeatures

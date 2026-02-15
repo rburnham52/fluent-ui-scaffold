@@ -1,4 +1,5 @@
 using System;
+using System.Threading.Tasks;
 
 using FluentUIScaffold.Core.Configuration;
 using FluentUIScaffold.Core.Exceptions;
@@ -47,6 +48,9 @@ namespace FluentUIScaffold.Core.Tests
             public static void NavigateToUrl(string url) { }
             public TTarget NavigateTo<TTarget>() where TTarget : class => default!;
             public TDriver GetFrameworkDriver<TDriver>() where TDriver : class => default!;
+            public Task<T> ExecuteScriptAsync<T>(string script) => Task.FromResult(default(T)!);
+            public Task ExecuteScriptAsync(string script) => Task.CompletedTask;
+            public Task<byte[]> TakeScreenshotAsync(string filePath) => Task.FromResult(Array.Empty<byte>());
             public static void Initialize() { }
             public void Dispose() { }
         }
