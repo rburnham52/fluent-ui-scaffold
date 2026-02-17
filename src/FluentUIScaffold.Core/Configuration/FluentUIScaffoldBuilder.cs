@@ -65,12 +65,16 @@ namespace FluentUIScaffold.Core.Configuration
 
         /// <summary>
         /// Sets the logical environment name (e.g., "Testing", "Development", "Staging").
-        /// Default is "Testing".
+        /// Default is "Testing". "Production" is rejected as a safety guard.
         /// </summary>
         public FluentUIScaffoldBuilder WithEnvironmentName(string environmentName)
         {
             if (string.IsNullOrWhiteSpace(environmentName))
                 throw new ArgumentException("Environment name cannot be null or empty.", nameof(environmentName));
+            if (string.Equals(environmentName.Trim(), "Production", StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException(
+                    "Setting environment to 'Production' is not allowed for test scaffolding. " +
+                    "Use 'Testing', 'Development', or 'Staging' instead.");
             _options.EnvironmentName = environmentName;
             return this;
         }
@@ -98,13 +102,40 @@ namespace FluentUIScaffold.Core.Configuration
         /// <summary>
         /// Adds a custom environment variable to be passed to hosted applications.
         /// User-set variables override framework defaults.
+        /// Rejects dangerous keys that could compromise process security.
         /// </summary>
         public FluentUIScaffoldBuilder WithEnvironmentVariable(string key, string value)
         {
             if (string.IsNullOrWhiteSpace(key))
                 throw new ArgumentException("Environment variable key cannot be null or empty.", nameof(key));
+
+            if (IsDangerousEnvironmentKey(key))
+                throw new ArgumentException(
+                    $"Environment variable key '{key}' is blocked because it can alter process loading behavior.", nameof(key));
+
             _options.EnvironmentVariables[key] = value;
             return this;
+        }
+
+        private static readonly string[] DangerousEnvironmentKeys = new[]
+        {
+            "LD_PRELOAD",
+            "LD_LIBRARY_PATH",
+            "DYLD_INSERT_LIBRARIES",
+            "DYLD_LIBRARY_PATH",
+            "DYLD_FRAMEWORK_PATH",
+            "PATH",
+            "COMSPEC"
+        };
+
+        private static bool IsDangerousEnvironmentKey(string key)
+        {
+            foreach (var dangerous in DangerousEnvironmentKeys)
+            {
+                if (string.Equals(key, dangerous, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+            return false;
         }
 
         #endregion

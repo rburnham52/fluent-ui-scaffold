@@ -27,16 +27,24 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
             _logger?.LogInformation("Starting process: {FileName} {Arguments}", plan.StartInfo.FileName, plan.StartInfo.Arguments);
             _logger?.LogInformation("Working directory: {WorkingDirectory}", wd);
 
-            // Log all environment variables for diagnostics
+            // Log environment variable keys at Info, full values at Debug (redacted at Info)
             try
             {
                 var env = plan.StartInfo.EnvironmentVariables;
                 _logger?.LogInformation("Environment variables ({Count}):", env.Count);
                 foreach (System.Collections.DictionaryEntry kv in env)
                 {
-                    var key = kv.Key?.ToString();
+                    var key = kv.Key?.ToString() ?? string.Empty;
                     var value = kv.Value?.ToString() ?? string.Empty;
-                    _logger?.LogInformation("  {Key}={Value}", key, value);
+                    if (IsSensitiveKey(key))
+                    {
+                        _logger?.LogInformation("  {Key}=***REDACTED***", key);
+                    }
+                    else
+                    {
+                        _logger?.LogInformation("  {Key}={Value}", key, value);
+                    }
+                    _logger?.LogDebug("  [DEBUG] {Key}={Value}", key, value);
                 }
             }
             catch (Exception ex)
@@ -80,6 +88,19 @@ namespace FluentUIScaffold.Core.Configuration.Launchers
                 var streamName = isError ? "stderr" : "stdout";
                 logger?.LogDebug(ex, "Error streaming process {Stream}", streamName);
             }
+        }
+
+        private static bool IsSensitiveKey(string key)
+        {
+            var upper = key.ToUpperInvariant();
+            return upper.Contains("PASSWORD")
+                || upper.Contains("SECRET")
+                || upper.Contains("TOKEN")
+                || upper.Contains("API_KEY")
+                || upper.Contains("APIKEY")
+                || upper.Contains("CONNECTION_STRING")
+                || upper.Contains("CONNECTIONSTRING")
+                || upper.Contains("CREDENTIAL");
         }
 
         public void Dispose()

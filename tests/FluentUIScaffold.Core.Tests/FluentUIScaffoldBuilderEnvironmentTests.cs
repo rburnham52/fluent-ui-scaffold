@@ -323,6 +323,62 @@ namespace FluentUIScaffold.Core.Tests
 
         #endregion
 
+        #region Security Guards
+
+        [Test]
+        public void WithEnvironmentName_Production_Throws()
+        {
+            var builder = new FluentUIScaffoldBuilder();
+
+            Assert.Throws<InvalidOperationException>(() => builder.WithEnvironmentName("Production"));
+        }
+
+        [Test]
+        public void WithEnvironmentName_ProductionCaseInsensitive_Throws()
+        {
+            var builder = new FluentUIScaffoldBuilder();
+
+            Assert.Throws<InvalidOperationException>(() => builder.WithEnvironmentName("production"));
+            Assert.Throws<InvalidOperationException>(() => builder.WithEnvironmentName("PRODUCTION"));
+            Assert.Throws<InvalidOperationException>(() => builder.WithEnvironmentName(" Production "));
+        }
+
+        [TestCase("LD_PRELOAD")]
+        [TestCase("LD_LIBRARY_PATH")]
+        [TestCase("DYLD_INSERT_LIBRARIES")]
+        [TestCase("DYLD_LIBRARY_PATH")]
+        [TestCase("DYLD_FRAMEWORK_PATH")]
+        [TestCase("PATH")]
+        [TestCase("COMSPEC")]
+        public void WithEnvironmentVariable_DangerousKey_Throws(string dangerousKey)
+        {
+            var builder = new FluentUIScaffoldBuilder();
+
+            Assert.Throws<ArgumentException>(() => builder.WithEnvironmentVariable(dangerousKey, "malicious_value"));
+        }
+
+        [Test]
+        public void WithEnvironmentVariable_DangerousKey_CaseInsensitive_Throws()
+        {
+            var builder = new FluentUIScaffoldBuilder();
+
+            Assert.Throws<ArgumentException>(() => builder.WithEnvironmentVariable("ld_preload", "/tmp/evil.so"));
+            Assert.Throws<ArgumentException>(() => builder.WithEnvironmentVariable("Path", "/tmp"));
+        }
+
+        [Test]
+        public void WithEnvironmentVariable_SafeKey_Succeeds()
+        {
+            var builder = new FluentUIScaffoldBuilder();
+
+            // Should not throw
+            builder.WithEnvironmentVariable("MY_CUSTOM_VAR", "value");
+            builder.WithEnvironmentVariable("ASPNETCORE_ENVIRONMENT", "Testing");
+            builder.WithEnvironmentVariable("NODE_ENV", "test");
+        }
+
+        #endregion
+
         #region Options Identity
 
         [Test]
