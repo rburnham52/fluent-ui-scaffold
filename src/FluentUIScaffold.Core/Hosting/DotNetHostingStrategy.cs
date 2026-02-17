@@ -1,8 +1,12 @@
 using System;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 
+using FluentUIScaffold.Core.Configuration;
 using FluentUIScaffold.Core.Configuration.Launchers;
+using FluentUIScaffold.Core.Configuration.Launchers.Defaults;
 using FluentUIScaffold.Core.Server;
 
 using Microsoft.Extensions.Logging;
@@ -16,28 +20,35 @@ namespace FluentUIScaffold.Core.Hosting
     /// </summary>
     public sealed class DotNetHostingStrategy : IHostingStrategy
     {
-        private readonly LaunchPlan _launchPlan;
+        private readonly DotNetHostingOptions _hostingOptions;
+        private readonly FluentUIScaffoldOptions _scaffoldOptions;
         private readonly IServerManager _serverManager;
-        private readonly string _configHash;
 
+        private LaunchPlan? _launchPlan;
+        private string _configHash = string.Empty;
         private Uri? _baseUrl;
         private bool _isStarted;
         private int? _processId;
 
         /// <summary>
-        /// Creates a new DotNetHostingStrategy with the specified launch plan.
+        /// Creates a new DotNetHostingStrategy with the specified options.
         /// </summary>
-        /// <param name="launchPlan">The launch plan containing process configuration.</param>
+        /// <param name="hostingOptions">DotNet-specific hosting configuration.</param>
+        /// <param name="scaffoldOptions">Shared scaffold options with environment configuration.</param>
         /// <param name="serverManager">Optional server manager for testing/DI. Defaults to DotNetServerManager.</param>
-        public DotNetHostingStrategy(LaunchPlan launchPlan, IServerManager? serverManager = null)
+        public DotNetHostingStrategy(
+            DotNetHostingOptions hostingOptions,
+            FluentUIScaffoldOptions scaffoldOptions,
+            IServerManager? serverManager = null)
         {
-            _launchPlan = launchPlan ?? throw new ArgumentNullException(nameof(launchPlan));
+            _hostingOptions = hostingOptions ?? throw new ArgumentNullException(nameof(hostingOptions));
+            _scaffoldOptions = scaffoldOptions ?? throw new ArgumentNullException(nameof(scaffoldOptions));
             _serverManager = serverManager ?? new DotNetServerManager();
-            _configHash = ConfigHasher.Compute(launchPlan);
-            _baseUrl = launchPlan.BaseUrl;
+            _baseUrl = hostingOptions.BaseUrl;
         }
 
         /// <inheritdoc />
+        /// <remarks>Returns empty string until StartAsync is called and the LaunchPlan is built.</remarks>
         public string ConfigurationHash => _configHash;
 
         /// <inheritdoc />
@@ -49,6 +60,10 @@ namespace FluentUIScaffold.Core.Hosting
             if (logger == null) throw new ArgumentNullException(nameof(logger));
 
             logger.LogInformation("Starting .NET application via DotNetHostingStrategy");
+
+            _launchPlan = BuildLaunchPlan();
+            _configHash = ConfigHasher.Compute(_launchPlan);
+
             logger.LogDebug("Configuration hash: {ConfigHash}", _configHash);
 
             var serverStatus = await _serverManager.EnsureStartedAsync(_launchPlan, logger, cancellationToken);
@@ -99,6 +114,58 @@ namespace FluentUIScaffold.Core.Hosting
             {
                 disposable.Dispose();
             }
+        }
+
+        private LaunchPlan BuildLaunchPlan()
+        {
+            var arguments = new List<string> { "run", "--no-launch-profile" };
+
+            if (!string.IsNullOrEmpty(_hostingOptions.Framework))
+            {
+                arguments.Add("--framework");
+                arguments.Add(_hostingOptions.Framework);
+            }
+            if (!string.IsNullOrEmpty(_hostingOptions.Configuration))
+            {
+                arguments.Add("--configuration");
+                arguments.Add(_hostingOptions.Configuration);
+            }
+
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = "dotnet",
+                Arguments = string.Join(" ", arguments),
+                WorkingDirectory = _hostingOptions.WorkingDirectory
+                    ?? System.IO.Path.GetDirectoryName(_hostingOptions.ProjectPath)
+                    ?? Environment.CurrentDirectory,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true
+            };
+
+            // 1. Framework defaults: environment name and SPA proxy
+            startInfo.EnvironmentVariables["ASPNETCORE_ENVIRONMENT"] = _scaffoldOptions.EnvironmentName;
+            startInfo.EnvironmentVariables["DOTNET_ENVIRONMENT"] = _scaffoldOptions.EnvironmentName;
+            startInfo.EnvironmentVariables["ASPNETCORE_HOSTINGSTARTUPASSEMBLIES"] =
+                _scaffoldOptions.SpaProxyEnabled ? "Microsoft.AspNetCore.SpaProxy" : "";
+
+            // 2. User env vars override framework defaults (last-write-wins)
+            foreach (var kv in _scaffoldOptions.EnvironmentVariables)
+                startInfo.EnvironmentVariables[kv.Key] = kv.Value;
+
+            var endpoints = _hostingOptions.HealthCheckEndpoints.Length > 0
+                ? _hostingOptions.HealthCheckEndpoints
+                : new[] { "/" };
+
+            return new LaunchPlan(
+                startInfo,
+                _hostingOptions.BaseUrl!,
+                _hostingOptions.StartupTimeout,
+                new HttpReadinessProbe(),
+                endpoints,
+                initialDelay: TimeSpan.FromSeconds(2),
+                pollInterval: TimeSpan.FromMilliseconds(200));
         }
     }
 }

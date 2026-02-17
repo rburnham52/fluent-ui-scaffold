@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 using FluentUIScaffold.Core.Hosting;
 using FluentUIScaffold.Core.Interfaces;
 using FluentUIScaffold.Core.Pages;
-using FluentUIScaffold.Core.Plugins;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -20,30 +19,18 @@ namespace FluentUIScaffold.Core.Configuration
     public partial class FluentUIScaffoldBuilder
     {
         private readonly IServiceCollection _services;
+        private readonly FluentUIScaffoldOptions _options;
         private readonly List<Func<IServiceProvider, Task>> _startupActions = new();
-
-        // Options instance - registered in IOC but we keep a reference to allow configuration before build
-        private FluentUIScaffoldOptions Options
-        {
-            get
-            {
-                // Find the registered options instance from the service collection
-                var descriptor = _services.FirstOrDefault(d => d.ServiceType == typeof(FluentUIScaffoldOptions));
-                if (descriptor?.ImplementationInstance is FluentUIScaffoldOptions options)
-                {
-                    return options;
-                }
-                throw new InvalidOperationException("FluentUIScaffoldOptions not registered");
-            }
-        }
+        private bool _hostingStrategyRegistered;
 
         public FluentUIScaffoldBuilder()
         {
             _services = new ServiceCollection();
             _services.AddLogging(); // Base logging support
 
-            // Register options as singleton instance
-            _services.AddSingleton(new FluentUIScaffoldOptions());
+            // Store options as field and register the same instance in DI
+            _options = new FluentUIScaffoldOptions();
+            _services.AddSingleton(_options);
         }
 
         /// <summary>
@@ -70,49 +57,98 @@ namespace FluentUIScaffold.Core.Configuration
         public FluentUIScaffoldBuilder Web<TWebApp>(Action<FluentUIScaffoldOptions> configureOptions)
         {
             if (configureOptions == null) throw new ArgumentNullException(nameof(configureOptions));
-
-            // Configure the options instance that's already registered in the IOC
-            configureOptions(Options);
-
+            configureOptions(_options);
             return this;
         }
+
+        #region Environment Configuration Methods
+
+        /// <summary>
+        /// Sets the logical environment name (e.g., "Testing", "Development", "Staging").
+        /// Default is "Testing".
+        /// </summary>
+        public FluentUIScaffoldBuilder WithEnvironmentName(string environmentName)
+        {
+            if (string.IsNullOrWhiteSpace(environmentName))
+                throw new ArgumentException("Environment name cannot be null or empty.", nameof(environmentName));
+            _options.EnvironmentName = environmentName;
+            return this;
+        }
+
+        /// <summary>
+        /// Enables or disables the ASP.NET SPA dev server proxy.
+        /// Default is false (disabled for testing).
+        /// </summary>
+        public FluentUIScaffoldBuilder WithSpaProxy(bool enabled)
+        {
+            _options.SpaProxyEnabled = enabled;
+            return this;
+        }
+
+        /// <summary>
+        /// Sets the headless mode for browser automation.
+        /// When null, resolved at Build() time: debugger attached = visible, otherwise headless.
+        /// </summary>
+        public FluentUIScaffoldBuilder WithHeadlessMode(bool? headless)
+        {
+            _options.HeadlessMode = headless;
+            return this;
+        }
+
+        /// <summary>
+        /// Adds a custom environment variable to be passed to hosted applications.
+        /// User-set variables override framework defaults.
+        /// </summary>
+        public FluentUIScaffoldBuilder WithEnvironmentVariable(string key, string value)
+        {
+            if (string.IsNullOrWhiteSpace(key))
+                throw new ArgumentException("Environment variable key cannot be null or empty.", nameof(key));
+            _options.EnvironmentVariables[key] = value;
+            return this;
+        }
+
+        #endregion
 
         #region Hosting Strategy Methods
 
         /// <summary>
         /// Configures hosting via 'dotnet run' for .NET applications.
         /// </summary>
-        /// <param name="baseUrl">The base URL where the application will be accessible.</param>
-        /// <param name="projectPath">Path to the .csproj file.</param>
-        /// <param name="configure">Optional configuration action for DotNet-specific options.</param>
-        public FluentUIScaffoldBuilder UseDotNetHosting(
-            Uri baseUrl,
-            string projectPath,
-            Action<DotNetServerConfigurationBuilder>? configure = null)
+        /// <param name="configure">Configuration action for DotNet-specific hosting options.</param>
+        public FluentUIScaffoldBuilder UseDotNetHosting(Action<DotNetHostingOptions> configure)
         {
-            var builder = ServerConfiguration.CreateDotNetServer(baseUrl, projectPath);
-            configure?.Invoke(builder);
-            var launchPlan = builder.Build();
+            if (configure == null) throw new ArgumentNullException(nameof(configure));
 
-            return RegisterHostingStrategy(new DotNetHostingStrategy(launchPlan));
+            var hostingOptions = new DotNetHostingOptions();
+            configure(hostingOptions);
+
+            if (hostingOptions.BaseUrl == null)
+                throw new ArgumentException("BaseUrl is required for DotNet hosting.", nameof(configure));
+            if (string.IsNullOrWhiteSpace(hostingOptions.ProjectPath))
+                throw new ArgumentException("ProjectPath is required for DotNet hosting.", nameof(configure));
+
+            return RegisterHostingStrategy(
+                sp => new DotNetHostingStrategy(hostingOptions, sp.GetRequiredService<FluentUIScaffoldOptions>()));
         }
 
         /// <summary>
         /// Configures hosting via 'npm run' for Node.js applications.
         /// </summary>
-        /// <param name="baseUrl">The base URL where the application will be accessible.</param>
-        /// <param name="projectPath">Path to the directory containing package.json.</param>
-        /// <param name="configure">Optional configuration action for Node-specific options.</param>
-        public FluentUIScaffoldBuilder UseNodeHosting(
-            Uri baseUrl,
-            string projectPath,
-            Action<NodeJsServerConfigurationBuilder>? configure = null)
+        /// <param name="configure">Configuration action for Node-specific hosting options.</param>
+        public FluentUIScaffoldBuilder UseNodeHosting(Action<NodeHostingOptions> configure)
         {
-            var builder = ServerConfiguration.CreateNodeJsServer(baseUrl, projectPath);
-            configure?.Invoke(builder);
-            var launchPlan = builder.Build();
+            if (configure == null) throw new ArgumentNullException(nameof(configure));
 
-            return RegisterHostingStrategy(new NodeHostingStrategy(launchPlan));
+            var hostingOptions = new NodeHostingOptions();
+            configure(hostingOptions);
+
+            if (hostingOptions.BaseUrl == null)
+                throw new ArgumentException("BaseUrl is required for Node hosting.", nameof(configure));
+            if (string.IsNullOrWhiteSpace(hostingOptions.ProjectPath))
+                throw new ArgumentException("ProjectPath is required for Node hosting.", nameof(configure));
+
+            return RegisterHostingStrategy(
+                sp => new NodeHostingStrategy(hostingOptions, sp.GetRequiredService<FluentUIScaffoldOptions>()));
         }
 
         /// <summary>
@@ -129,14 +165,26 @@ namespace FluentUIScaffold.Core.Configuration
                 baseUrl,
                 healthCheckEndpoints.Length > 0 ? healthCheckEndpoints : null);
 
-            return RegisterHostingStrategy(strategy);
+            return RegisterHostingStrategy(_ => strategy);
         }
 
-        private FluentUIScaffoldBuilder RegisterHostingStrategy(IHostingStrategy strategy)
+        /// <summary>
+        /// Marks a hosting strategy as registered. Used by extension methods (e.g., Aspire)
+        /// that register strategies externally.
+        /// </summary>
+        public void SetHostingStrategyRegistered()
         {
-            // Register both the concrete type and the interface for flexibility
-            _services.AddSingleton(strategy.GetType(), strategy);
-            _services.AddSingleton<IHostingStrategy>(strategy);
+            if (_hostingStrategyRegistered)
+                throw new InvalidOperationException(
+                    "A hosting strategy is already registered. Only one hosting strategy can be configured per builder.");
+            _hostingStrategyRegistered = true;
+        }
+
+        private FluentUIScaffoldBuilder RegisterHostingStrategy(Func<IServiceProvider, IHostingStrategy> factory)
+        {
+            SetHostingStrategyRegistered();
+
+            _services.AddSingleton<IHostingStrategy>(factory);
 
             // Add startup action to start the hosting strategy
             AddStartupAction(async (provider) =>
@@ -171,14 +219,7 @@ namespace FluentUIScaffold.Core.Configuration
             _services.AddSingleton<IUITestingFrameworkPlugin>(plugin);
 
             // Let the plugin configure its services
-            try
-            {
-                plugin.ConfigureServices(_services);
-            }
-            catch
-            {
-                // Allow plugin participation even if DI wiring throws
-            }
+            plugin.ConfigureServices(_services);
 
             return this;
         }
@@ -203,7 +244,7 @@ namespace FluentUIScaffold.Core.Configuration
         /// </summary>
         public FluentUIScaffoldBuilder WithAutoPageDiscovery()
         {
-            Options.AutoDiscoverPages = true;
+            _options.AutoDiscoverPages = true;
             return this;
         }
 
@@ -273,16 +314,13 @@ namespace FluentUIScaffold.Core.Configuration
                 Uri pageUrl;
                 if (routeAttribute != null && !string.IsNullOrEmpty(routeAttribute.Path))
                 {
-                    // Combine base URL with route path
                     var path = routeAttribute.Path;
-                    // Handle both cases: base URL ending with / or not
                     var baseUrlString = baseUrl.ToString().TrimEnd('/');
                     var routePath = path.StartsWith("/") ? path : "/" + path;
                     pageUrl = new Uri(baseUrlString + routePath);
                 }
                 else
                 {
-                    // No route specified, use base URL as-is
                     pageUrl = baseUrl;
                 }
 
@@ -295,33 +333,18 @@ namespace FluentUIScaffold.Core.Configuration
 
         /// <summary>
         /// Builds the AppScaffold with all configured services and startup actions.
+        /// Resolves HeadlessMode if not explicitly set.
         /// </summary>
         public AppScaffold<TWebApp> Build<TWebApp>()
         {
-            // Process any plugins added via options.Plugins (backward compatibility with options.UsePlaywright())
-            // Only register if not already registered via UsePlugin()
-            var existingPlugin = _services.FirstOrDefault(d => d.ServiceType == typeof(IUITestingFrameworkPlugin));
-            if (existingPlugin == null)
+            // Resolve HeadlessMode: explicit > debugger attached (visible) > default (headless)
+            if (_options.HeadlessMode == null)
             {
-                var plugin = Options.Plugins.FirstOrDefault();
-                if (plugin != null)
-                {
-                    _services.AddSingleton(plugin.GetType(), plugin);
-                    _services.AddSingleton<IUITestingFrameworkPlugin>(plugin);
-
-                    try
-                    {
-                        plugin.ConfigureServices(_services);
-                    }
-                    catch
-                    {
-                        // Allow plugin participation even if DI wiring throws
-                    }
-                }
+                _options.HeadlessMode = !System.Diagnostics.Debugger.IsAttached;
             }
 
             // Auto-discover pages if enabled
-            if (Options.AutoDiscoverPages)
+            if (_options.AutoDiscoverPages)
             {
                 AutoDiscoverPages();
             }

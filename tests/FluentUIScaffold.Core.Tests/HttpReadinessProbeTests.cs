@@ -1,10 +1,10 @@
 using System;
+using System.Diagnostics;
 using System.Net;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 
-using FluentUIScaffold.Core.Configuration;
 using FluentUIScaffold.Core.Configuration.Launchers;
 using FluentUIScaffold.Core.Configuration.Launchers.Defaults;
 
@@ -29,16 +29,25 @@ namespace FluentUIScaffold.Core.Tests
 
         private static LaunchPlan BuildPlan(Uri baseUrl, TimeSpan? timeout = null, TimeSpan? initialDelay = null, TimeSpan? poll = null, params string[] endpoints)
         {
-            var builder = ServerConfiguration.CreateDotNetServer(baseUrl, "/tmp/app.csproj")
-                .WithExecutable("dotnet")
-                .WithArguments("echo", "test")
-                .WithHealthCheckEndpoints(endpoints);
-            if (timeout.HasValue) builder.WithStartupTimeout(timeout.Value);
-            if (initialDelay.HasValue || poll.HasValue)
+            var startInfo = new ProcessStartInfo
             {
-                builder.WithReadiness(new HttpReadinessProbe(new HttpClient()), initialDelay, poll);
-            }
-            return builder.Build();
+                FileName = "dotnet",
+                Arguments = "echo test",
+                WorkingDirectory = Environment.CurrentDirectory,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true
+            };
+
+            return new LaunchPlan(
+                startInfo,
+                baseUrl,
+                timeout ?? TimeSpan.FromSeconds(60),
+                new HttpReadinessProbe(),
+                endpoints.Length > 0 ? endpoints : new[] { "/" },
+                initialDelay ?? TimeSpan.FromSeconds(2),
+                poll ?? TimeSpan.FromMilliseconds(200));
         }
 
         [Test]

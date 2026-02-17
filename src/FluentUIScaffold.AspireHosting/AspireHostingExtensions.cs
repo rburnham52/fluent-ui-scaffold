@@ -18,6 +18,8 @@ namespace FluentUIScaffold.AspireHosting
         /// <summary>
         /// Configures hosting via Aspire's DistributedApplicationTestingBuilder.
         /// Delegates all lifecycle management to Aspire's testing infrastructure.
+        /// Environment variables from FluentUIScaffoldOptions are applied as process-level
+        /// env vars before CreateAsync, since Aspire reads them from the test process.
         /// </summary>
         /// <typeparam name="TEntryPoint">The Aspire AppHost entry point type.</typeparam>
         /// <param name="builder">The FluentUIScaffold builder.</param>
@@ -31,14 +33,19 @@ namespace FluentUIScaffold.AspireHosting
             string? baseUrlPrefix = null)
             where TEntryPoint : class
         {
-            // Create the hosting strategy
-            var hostingStrategy = new AspireHostingStrategy<TEntryPoint>(configure, baseUrlResourceName);
+            // Enforce single-strategy guard (same as DotNet/Node paths)
+            builder.SetHostingStrategyRegistered();
 
-            // Register the hosting strategy and its types
+            // Register the hosting strategy via factory delegate so it receives the final options
             builder.ConfigureServices(services =>
             {
-                services.AddSingleton<IHostingStrategy>(hostingStrategy);
-                services.AddSingleton(hostingStrategy);
+                services.AddSingleton<AspireHostingStrategy<TEntryPoint>>(sp =>
+                {
+                    var scaffoldOptions = sp.GetRequiredService<FluentUIScaffoldOptions>();
+                    return new AspireHostingStrategy<TEntryPoint>(configure, scaffoldOptions, baseUrlResourceName);
+                });
+                services.AddSingleton<IHostingStrategy>(sp =>
+                    sp.GetRequiredService<AspireHostingStrategy<TEntryPoint>>());
                 services.AddSingleton<DistributedApplicationHolder>();
                 services.AddTransient<DistributedApplication>(sp =>
                 {
@@ -61,11 +68,8 @@ namespace FluentUIScaffold.AspireHosting
                 holder.Instance = strategy.Application;
 
                 // Update options with discovered base URL
-                var options = services.GetService<FluentUIScaffoldOptions>();
-                if (options != null)
-                {
-                    options.BaseUrl = ApplyBaseUrlPrefix(result.BaseUrl, baseUrlPrefix);
-                }
+                var options = services.GetRequiredService<FluentUIScaffoldOptions>();
+                options.BaseUrl = ApplyBaseUrlPrefix(result.BaseUrl, baseUrlPrefix);
             });
 
             return builder;
@@ -74,9 +78,6 @@ namespace FluentUIScaffold.AspireHosting
         /// <summary>
         /// Applies a prefix to the base URL if specified.
         /// </summary>
-        /// <param name="baseUrl">The original base URL.</param>
-        /// <param name="baseUrlPrefix">The prefix to append (e.g., "/#" or "/app").</param>
-        /// <returns>The base URL with the prefix applied, or the original URL if no prefix is specified.</returns>
         internal static Uri? ApplyBaseUrlPrefix(Uri? baseUrl, string? baseUrlPrefix)
         {
             if (baseUrl == null || string.IsNullOrEmpty(baseUrlPrefix))

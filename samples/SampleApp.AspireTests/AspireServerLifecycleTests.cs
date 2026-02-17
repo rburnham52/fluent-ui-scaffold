@@ -25,13 +25,13 @@ namespace SampleApp.AspireTests
         {
             // Arrange - Create AppScaffold with Aspire hosting using the unified API
             var app = new FluentUIScaffoldBuilder()
+                .UsePlaywright()
+                .WithHeadlessMode(true)
                 .UseAspireHosting<Projects.SampleApp_AppHost>(
                     appHost => { /* configure distributed app if needed */ },
                     "sampleapp")
                 .Web<WebApp>(options =>
                 {
-                    options.UsePlaywright();
-                    options.HeadlessMode = true;
                     options.DefaultWaitTimeout = TimeSpan.FromSeconds(30);
                 })
                 .WithAutoPageDiscovery()
@@ -69,13 +69,13 @@ namespace SampleApp.AspireTests
         {
             // Arrange - Configure app with Aspire hosting
             var app = new FluentUIScaffoldBuilder()
+                .UsePlaywright()
+                .WithHeadlessMode(true)
                 .UseAspireHosting<Projects.SampleApp_AppHost>(
                     appHost => { },
                     "sampleapp")
                 .Web<WebApp>(options =>
                 {
-                    options.UsePlaywright();
-                    options.HeadlessMode = true;
                 })
                 .Build<WebApp>();
 
@@ -126,13 +126,13 @@ namespace SampleApp.AspireTests
             {
                 // Act - Create app in CI mode with automatic headless detection
                 var app = new FluentUIScaffoldBuilder()
+                    .UsePlaywright()
                     .UseAspireHosting<Projects.SampleApp_AppHost>(
                         appHost => { },
                         "sampleapp")
                     .Web<WebApp>(options =>
                     {
-                        options.UsePlaywright();
-                        // HeadlessMode should be auto-detected as true in CI
+                        // HeadlessMode is auto-detected at Build() time
                     })
                     .Build<WebApp>();
 
@@ -174,13 +174,13 @@ namespace SampleApp.AspireTests
         {
             // Arrange - Create AppScaffold with Aspire hosting
             var app = new FluentUIScaffoldBuilder()
+                .UsePlaywright()
+                .WithHeadlessMode(true)
                 .UseAspireHosting<Projects.SampleApp_AppHost>(
                     appHost => { },
                     "sampleapp")
                 .Web<WebApp>(options =>
                 {
-                    options.UsePlaywright();
-                    options.HeadlessMode = true;
                 })
                 .Build<WebApp>();
 
@@ -216,13 +216,13 @@ namespace SampleApp.AspireTests
         {
             // This test demonstrates that the same AppScaffold can be used across multiple operations
             var app = new FluentUIScaffoldBuilder()
+                .UsePlaywright()
+                .WithHeadlessMode(true)
                 .UseAspireHosting<Projects.SampleApp_AppHost>(
                     appHost => { },
                     "sampleapp")
                 .Web<WebApp>(options =>
                 {
-                    options.UsePlaywright();
-                    options.HeadlessMode = true;
                 })
                 .Build<WebApp>();
 

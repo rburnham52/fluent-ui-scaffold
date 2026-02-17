@@ -33,6 +33,8 @@ namespace SampleApp.AspireTests
         {
             // Create and build the app scaffold
             _sessionApp = new FluentUIScaffold.Core.Configuration.FluentUIScaffoldBuilder()
+                .UsePlaywright()
+                .WithHeadlessMode(false)
                 .UseAspireHosting<Projects.SampleApp_AppHost>(appHost =>
                     {
                         // Configure the app host builder if needed
@@ -40,17 +42,12 @@ namespace SampleApp.AspireTests
                     "sampleapp")
                 .Web<WebApp>(options =>
                 {
-                    // Base URL is typically determined by Aspire, but we can set defaults
-                    // options.WithBaseUrl(...);
-                    options.HeadlessMode = false;
-                    options.UsePlaywright();
+                    // Base URL is determined by Aspire hosting
                 })
                 .Build<WebApp>();
 
             // Start the scaffolding (which starts Aspire)
             await _sessionApp.StartAsync();
-
-            Console.WriteLine($"Registered plugins: {FluentUIScaffold.Core.Plugins.PluginRegistry.GetAll().Count}");
         }
 
         /// <summary>

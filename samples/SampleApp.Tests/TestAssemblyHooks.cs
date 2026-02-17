@@ -28,18 +28,19 @@ namespace SampleApp.Tests
 
             _sessionApp = new FluentUIScaffoldBuilder()
                 .UsePlaywright()
-                .UseDotNetHosting(
-                    TestConfiguration.BaseUri,
-                    projectPath,
-                    config => config
-                        .WithFramework("net8.0")
-                        .WithConfiguration("Release")
-                        .EnableSpaProxy(false)
-                        .WithAspNetCoreEnvironment("Development")
-                        .WithHealthCheckEndpoints("/", "/index.html")
-                        .WithStartupTimeout(TimeSpan.FromSeconds(120))
-                        .WithProcessName("SampleApp")
-                        .WithWorkingDirectory(Path.Combine(projectRoot, "samples", "SampleApp")))
+                .WithEnvironmentName("Development")
+                .WithSpaProxy(false)
+                .UseDotNetHosting(opts =>
+                {
+                    opts.BaseUrl = TestConfiguration.BaseUri;
+                    opts.ProjectPath = projectPath;
+                    opts.Framework = "net8.0";
+                    opts.Configuration = "Release";
+                    opts.HealthCheckEndpoints = new[] { "/", "/index.html" };
+                    opts.StartupTimeout = TimeSpan.FromSeconds(120);
+                    opts.ProcessName = "SampleApp";
+                    opts.WorkingDirectory = Path.Combine(projectRoot, "samples", "SampleApp");
+                })
                 .Web<WebApp>(options =>
                 {
                     options.BaseUrl = TestConfiguration.BaseUri;

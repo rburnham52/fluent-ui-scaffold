@@ -47,74 +47,38 @@ namespace FluentUIScaffold.Core.Tests
         public void Builder_WithHeadlessMode_SetsHeadlessMode()
         {
             // Arrange
-            var builder = new FluentUIScaffoldOptionsBuilder();
-            bool? expectedHeadless = false;
+            var builder = new FluentUIScaffoldBuilder();
 
             // Act
-            var result = builder.WithHeadlessMode(expectedHeadless);
-            var options = builder.Build();
+            var result = builder.WithHeadlessMode(false);
+            var app = builder
+                .UsePlugin(new MockPlugin())
+                .Web<WebApp>(opts => opts.BaseUrl = new Uri("http://localhost"))
+                .Build<WebApp>();
 
-            Assert.Multiple(() =>
-            {
-                // Assert
-                Assert.That(result, Is.SameAs(builder));
-                Assert.That(options.HeadlessMode, Is.EqualTo(expectedHeadless));
-            });
+            var options = app.GetService<FluentUIScaffoldOptions>();
+
+            // Assert
+            Assert.That(result, Is.SameAs(builder));
+            Assert.That(options.HeadlessMode, Is.EqualTo(false));
         }
 
         [Test]
-        public void Builder_WithHeadlessMode_Null_SetsHeadlessModeToNull()
+        public void Builder_WithHeadlessMode_Null_ResolvesAtBuildTime()
         {
             // Arrange
-            var builder = new FluentUIScaffoldOptionsBuilder();
+            var builder = new FluentUIScaffoldBuilder();
 
-            // Act
-            var result = builder.WithHeadlessMode(null);
-            var options = builder.Build();
+            // Act - leave HeadlessMode null; Build() resolves it
+            var app = builder
+                .UsePlugin(new MockPlugin())
+                .Web<WebApp>(opts => opts.BaseUrl = new Uri("http://localhost"))
+                .Build<WebApp>();
 
-            Assert.Multiple(() =>
-            {
-                // Assert
-                Assert.That(result, Is.SameAs(builder));
-                Assert.That(options.HeadlessMode, Is.Null);
-            });
-        }
+            var options = app.GetService<FluentUIScaffoldOptions>();
 
-        [Test]
-        public void Builder_WithSlowMo_SetsSlowMo()
-        {
-            // Arrange
-            var builder = new FluentUIScaffoldOptionsBuilder();
-            int? expectedSlowMo = 500;
-
-            // Act
-            var result = builder.WithSlowMo(expectedSlowMo);
-            var options = builder.Build();
-
-            Assert.Multiple(() =>
-            {
-                // Assert
-                Assert.That(result, Is.SameAs(builder));
-                Assert.That(options.SlowMo, Is.EqualTo(expectedSlowMo));
-            });
-        }
-
-        [Test]
-        public void Builder_WithSlowMo_Null_SetsSlowMoToNull()
-        {
-            // Arrange
-            var builder = new FluentUIScaffoldOptionsBuilder();
-
-            // Act
-            var result = builder.WithSlowMo(null);
-            var options = builder.Build();
-
-            Assert.Multiple(() =>
-            {
-                // Assert
-                Assert.That(result, Is.SameAs(builder));
-                Assert.That(options.SlowMo, Is.Null);
-            });
+            // Assert - Build() should have resolved HeadlessMode to a concrete value
+            Assert.That(options.HeadlessMode, Is.Not.Null);
         }
 
         [Test]
