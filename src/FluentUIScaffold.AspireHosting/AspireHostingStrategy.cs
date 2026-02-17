@@ -17,6 +17,15 @@ using Microsoft.Extensions.Logging;
 namespace FluentUIScaffold.AspireHosting
 {
     /// <summary>
+    /// Shared static lock for serializing process-level environment variable mutations
+    /// across all generic instantiations of AspireHostingStrategy&lt;TEntryPoint&gt;.
+    /// </summary>
+    internal static class AspireEnvironmentLock
+    {
+        internal static readonly SemaphoreSlim Mutex = new SemaphoreSlim(1, 1);
+    }
+
+    /// <summary>
     /// Hosting strategy that wraps DistributedApplicationTestingBuilder to manage Aspire hosts.
     /// Delegates all lifecycle management to Aspire's testing infrastructure.
     /// Applies environment variables from FluentUIScaffoldOptions as process-level env vars
@@ -73,13 +82,18 @@ namespace FluentUIScaffold.AspireHosting
 
             logger.LogInformation("Starting Aspire host via AspireHostingStrategy<{EntryPoint}>", typeof(TEntryPoint).Name);
 
-            // Snapshot current env vars before mutation, then apply unified config.
-            // Aspire's DistributedApplicationTestingBuilder reads env vars from the test process
-            // during CreateAsync, so they must be set before that call.
-            _envVarSnapshot = CaptureEnvironmentSnapshot();
+            // Serialize env var mutations across all AspireHostingStrategy<T> instances.
+            // Environment.SetEnvironmentVariable is process-global and not thread-safe
+            // against concurrent reads/writes from parallel test runners.
+            await AspireEnvironmentLock.Mutex.WaitAsync(cancellationToken);
 
             try
             {
+                // Snapshot current env vars before mutation, then apply unified config.
+                // Aspire's DistributedApplicationTestingBuilder reads env vars from the test process
+                // during CreateAsync, so they must be set before that call.
+                _envVarSnapshot = CaptureEnvironmentSnapshot();
+
                 ApplyEnvironmentVariables();
 
                 // Create and configure the distributed application
@@ -97,6 +111,8 @@ namespace FluentUIScaffold.AspireHosting
                 // Restore env vars immediately after CreateAsync + Start.
                 // This narrows the mutation window to just the Aspire bootstrap.
                 RestoreEnvironmentSnapshot();
+
+                AspireEnvironmentLock.Mutex.Release();
             }
 
             // Extract base URL from resource if specified
