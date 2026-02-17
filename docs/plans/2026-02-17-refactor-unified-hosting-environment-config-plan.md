@@ -1,7 +1,7 @@
 ---
 title: "refactor: Unified hosting environment configuration"
 type: refactor
-status: active
+status: completed
 date: 2026-02-17
 deepened: 2026-02-17
 ---
@@ -103,12 +103,12 @@ Also remove the legacy `ServerConfiguration` property and `Plugins` list (plugin
 **File:** [FluentUIScaffoldOptions.cs](src/FluentUIScaffold.Core/Configuration/FluentUIScaffoldOptions.cs)
 
 **Success criteria:**
-- [ ] `EnvironmentVariables` dictionary exists with `OrdinalIgnoreCase` comparer
-- [ ] `EnvironmentName` defaults to `"Testing"`
-- [ ] `SpaProxyEnabled` defaults to `false`
-- [ ] `ServerConfiguration` property removed
-- [ ] `Plugins` list removed (plugins registered via `UsePlugin()` on builder)
-- [ ] `ServiceProvider` property removed (service locator anti-pattern)
+- [x] `EnvironmentVariables` dictionary exists with `OrdinalIgnoreCase` comparer
+- [x] `EnvironmentName` defaults to `"Testing"`
+- [x] `SpaProxyEnabled` defaults to `false`
+- [x] `ServerConfiguration` property removed
+- [x] `Plugins` list removed (plugins registered via `UsePlugin()` on builder)
+- [x] `ServiceProvider` property removed (service locator anti-pattern)
 
 ### Research Insights (Phase 1)
 
@@ -192,11 +192,11 @@ private readonly FluentUIScaffoldOptions _options = new();
 **File:** [FluentUIScaffoldBuilder.cs](src/FluentUIScaffold.Core/Configuration/FluentUIScaffoldBuilder.cs)
 
 **Success criteria:**
-- [ ] `.WithEnvironment()`, `.WithSpaProxy()`, `.WithHeadless()`, `.WithEnvironmentVariable()` methods exist
-- [ ] Headless resolution runs in `Build()`: explicit > debugger attached > default headless
-- [ ] `InvalidOperationException` thrown if two hosting strategies registered (including Aspire path)
-- [ ] `Options` stored as a field, not LINQ-scanned from `IServiceCollection`
-- [ ] `PlaywrightDriver.InitializeBrowser()` simplified — `HeadlessMode` is always concrete by the time it runs
+- [x] `.WithEnvironment()`, `.WithSpaProxy()`, `.WithHeadless()`, `.WithEnvironmentVariable()` methods exist
+- [x] Headless resolution runs in `Build()`: explicit > debugger attached > default headless
+- [x] `InvalidOperationException` thrown if two hosting strategies registered (including Aspire path)
+- [x] `Options` stored as a field, not LINQ-scanned from `IServiceCollection`
+- [x] `PlaywrightDriver.InitializeBrowser()` simplified — `HeadlessMode` is always concrete by the time it runs
 
 ### Research Insights (Phase 2)
 
@@ -271,11 +271,11 @@ public FluentUIScaffoldBuilder UseNodeHosting(Action<NodeHostingOptions> configu
 - Modified: [FluentUIScaffoldBuilder.cs](src/FluentUIScaffold.Core/Configuration/FluentUIScaffoldBuilder.cs)
 
 **Success criteria:**
-- [ ] `DotNetHostingOptions` has all properties currently on `DotNetServerConfigurationBuilder` (ProjectPath, BaseUrl, Framework, Configuration, StartupTimeout, HealthCheckEndpoints, WorkingDirectory, ProcessName, StreamProcessOutput)
-- [ ] `NodeHostingOptions` has all properties currently on `NodeJsServerConfigurationBuilder` (ProjectPath, BaseUrl, Script, StartupTimeout, HealthCheckEndpoints, WorkingDirectory, StreamProcessOutput)
-- [ ] `UseDotNetHosting(Action<DotNetHostingOptions>)` and `UseNodeHosting(Action<NodeHostingOptions>)` replace the old signatures
-- [ ] `BaseUrl` is required (validated non-null after `configure` runs)
-- [ ] `ProjectPath` is required (validated non-empty after `configure` runs)
+- [x] `DotNetHostingOptions` has all properties currently on `DotNetServerConfigurationBuilder` (ProjectPath, BaseUrl, Framework, Configuration, StartupTimeout, HealthCheckEndpoints, WorkingDirectory, ProcessName, StreamProcessOutput)
+- [x] `NodeHostingOptions` has all properties currently on `NodeJsServerConfigurationBuilder` (ProjectPath, BaseUrl, Script, StartupTimeout, HealthCheckEndpoints, WorkingDirectory, StreamProcessOutput)
+- [x] `UseDotNetHosting(Action<DotNetHostingOptions>)` and `UseNodeHosting(Action<NodeHostingOptions>)` replace the old signatures
+- [x] `BaseUrl` is required (validated non-null after `configure` runs)
+- [x] `ProjectPath` is required (validated non-empty after `configure` runs)
 
 ### Research Insights (Phase 3)
 
@@ -382,12 +382,12 @@ And sets `NODE_ENV` and `PORT` instead of ASP.NET-specific vars.
 - [NodeHostingStrategy.cs](src/FluentUIScaffold.Core/Hosting/NodeHostingStrategy.cs)
 
 **Success criteria:**
-- [ ] Both strategies accept their options type + `FluentUIScaffoldOptions`
-- [ ] `LaunchPlan` built internally at `StartAsync` time
-- [ ] Framework defaults applied first, then user env vars override
-- [ ] DotNet sets `ASPNETCORE_ENVIRONMENT`, `DOTNET_ENVIRONMENT`, `ASPNETCORE_HOSTINGSTARTUPASSEMBLIES`
-- [ ] Node sets `NODE_ENV` (mapped from EnvironmentName), `PORT`, ignores SPA proxy
-- [ ] Config hash computed at `StartAsync` time
+- [x] Both strategies accept their options type + `FluentUIScaffoldOptions`
+- [x] `LaunchPlan` built internally at `StartAsync` time
+- [x] Framework defaults applied first, then user env vars override
+- [x] DotNet sets `ASPNETCORE_ENVIRONMENT`, `DOTNET_ENVIRONMENT`, `ASPNETCORE_HOSTINGSTARTUPASSEMBLIES`
+- [x] Node sets `NODE_ENV` (mapped from EnvironmentName), `PORT`, ignores SPA proxy
+- [x] Config hash computed at `StartAsync` time
 
 ### Research Insights (Phase 4)
 
@@ -459,13 +459,13 @@ public async ValueTask DisposeAsync()
 **File:** [AspireHostingStrategy.cs](src/FluentUIScaffold.AspireHosting/AspireHostingStrategy.cs), [AspireHostingExtensions.cs](src/FluentUIScaffold.AspireHosting/AspireHostingExtensions.cs)
 
 **Success criteria:**
-- [ ] Aspire strategy receives `FluentUIScaffoldOptions` reference
-- [ ] Process-level env vars set before `CreateAsync<T>()`
-- [ ] Env var snapshot captured before modification
-- [ ] Env vars restored in `DisposeAsync()` using `try/finally`
-- [ ] Aspire-specific defaults (dashboard, unsecured transport) auto-applied
-- [ ] Custom env vars from `FluentUIScaffoldOptions.EnvironmentVariables` applied last (user wins)
-- [ ] Aspire registration path triggers the same single-strategy guard as DotNet/Node
+- [x] Aspire strategy receives `FluentUIScaffoldOptions` reference
+- [x] Process-level env vars set before `CreateAsync<T>()`
+- [x] Env var snapshot captured before modification
+- [x] Env vars restored in `DisposeAsync()` using `try/finally`
+- [x] Aspire-specific defaults (dashboard, unsecured transport) auto-applied
+- [x] Custom env vars from `FluentUIScaffoldOptions.EnvironmentVariables` applied last (user wins)
+- [x] Aspire registration path triggers the same single-strategy guard as DotNet/Node
 
 ### Research Insights (Phase 5)
 
@@ -558,10 +558,10 @@ Using a factory delegate (`AddSingleton<IHostingStrategy>(sp => ...)`) ensures t
 **File:** [FluentUIScaffoldBuilder.cs](src/FluentUIScaffold.Core/Configuration/FluentUIScaffoldBuilder.cs)
 
 **Success criteria:**
-- [ ] Strategies created via factory delegates that receive resolved `FluentUIScaffoldOptions`
-- [ ] Single-strategy guard enforced via `_hostingStrategyRegistered` flag
-- [ ] `UseExternalServer()` still works (env vars silently ignored for external hosts)
-- [ ] Aspire wiring updated in `AspireHostingExtensions` to pass options reference
+- [x] Strategies created via factory delegates that receive resolved `FluentUIScaffoldOptions`
+- [x] Single-strategy guard enforced via `_hostingStrategyRegistered` flag
+- [x] `UseExternalServer()` still works (env vars silently ignored for external hosts)
+- [x] Aspire wiring updated in `AspireHostingExtensions` to pass options reference
 
 ---
 
@@ -584,9 +584,9 @@ The driver no longer needs its own CI detection or debugger-based logic for head
 **File:** [PlaywrightDriver.cs](src/FluentUIScaffold.Playwright/PlaywrightDriver.cs)
 
 **Success criteria:**
-- [ ] `PlaywrightDriver` reads `HeadlessMode` directly (always concrete)
-- [ ] No CI detection in driver code
-- [ ] SlowMo auto-set: 0 for headless, 250 for visible
+- [x] `PlaywrightDriver` reads `HeadlessMode` directly (always concrete)
+- [x] No CI detection in driver code
+- [x] SlowMo auto-set: 0 for headless, 250 for visible
 
 ---
 
@@ -616,9 +616,9 @@ Remove dead Aspire example code:
 | [AspireServerLifecycleExample.cs](samples/SampleApp.AspireTests/AspireServerLifecycleExample.cs) | `ShowCIConfiguration` test uses `ServerConfiguration.CreateAspireServer()` — remove or rewrite |
 
 **Success criteria:**
-- [ ] All listed files deleted
-- [ ] Solution builds with no references to deleted types
-- [ ] No orphaned `using` statements
+- [x] All listed files deleted
+- [x] Solution builds with no references to deleted types
+- [x] No orphaned `using` statements
 
 ### Research Insights (Phase 8)
 
@@ -700,9 +700,9 @@ After:
 - [SampleApp.AspireTests/AspireServerLifecycleExample.cs](samples/SampleApp.AspireTests/AspireServerLifecycleExample.cs) — rewrite or remove
 
 **Success criteria:**
-- [ ] Both sample test projects compile and use new API
-- [ ] No references to removed types
-- [ ] Zero-config for Testing env and SPA proxy off
+- [x] Both sample test projects compile and use new API
+- [x] No references to removed types
+- [x] Zero-config for Testing env and SPA proxy off
 
 ---
 
@@ -711,23 +711,23 @@ After:
 Replace deleted test files with tests for the new unified API:
 
 **New test: `FluentUIScaffoldBuilderEnvironmentTests.cs`**
-- [ ] `.WithEnvironment("Staging")` sets `EnvironmentName`
-- [ ] `.WithEnvironmentVariable("K", "V")` adds to dictionary
-- [ ] `.WithEnvironmentVariables(dict)` bulk adds
-- [ ] `.WithSpaProxy(true)` overrides default
-- [ ] `.WithHeadless(false)` overrides resolution
-- [ ] Headless resolution: debugger > CI > default
-- [ ] Duplicate hosting strategy throws `InvalidOperationException`
-- [ ] Default `EnvironmentName` is `"Testing"`
-- [ ] Default `SpaProxyEnabled` is `false`
-- [ ] User env vars override framework defaults (last-write-wins)
+- [x] `.WithEnvironment("Staging")` sets `EnvironmentName`
+- [x] `.WithEnvironmentVariable("K", "V")` adds to dictionary
+- [x] `.WithEnvironmentVariables(dict)` bulk adds
+- [x] `.WithSpaProxy(true)` overrides default
+- [x] `.WithHeadless(false)` overrides resolution
+- [x] Headless resolution: debugger > CI > default
+- [x] Duplicate hosting strategy throws `InvalidOperationException`
+- [x] Default `EnvironmentName` is `"Testing"`
+- [x] Default `SpaProxyEnabled` is `false`
+- [x] User env vars override framework defaults (last-write-wins)
 
 **Update: `HostingStrategyTests.cs`**
-- [ ] `DotNetHostingStrategy` accepts `DotNetHostingOptions` + `FluentUIScaffoldOptions`
-- [ ] Env vars appear on built `LaunchPlan`
-- [ ] `NodeHostingStrategy` maps `Testing` -> `NODE_ENV=test`
-- [ ] `NodeHostingStrategy` maps `Development` -> `NODE_ENV=development`
-- [ ] External strategy ignores env vars
+- [x] `DotNetHostingStrategy` accepts `DotNetHostingOptions` + `FluentUIScaffoldOptions`
+- [x] Env vars appear on built `LaunchPlan`
+- [x] `NodeHostingStrategy` maps `Testing` -> `NODE_ENV=test`
+- [x] `NodeHostingStrategy` maps `Development` -> `NODE_ENV=development`
+- [x] External strategy ignores env vars
 
 **Files:**
 - New: `tests/FluentUIScaffold.Core.Tests/FluentUIScaffoldBuilderEnvironmentTests.cs`
@@ -739,33 +739,33 @@ Replace deleted test files with tests for the new unified API:
 
 ### Functional Requirements
 
-- [ ] All three hosting strategies (DotNet, Node, Aspire) use the same builder API for environment config
-- [ ] Default `ASPNETCORE_ENVIRONMENT=Testing` — zero config required
-- [ ] Default SPA proxy disabled — zero config required
-- [ ] `.WithEnvironmentVariable()` works on any hosting strategy
-- [ ] Headless resolution: explicit > debugger attached > CI detected > default (headless on)
-- [ ] Node hosting maps `Testing` -> `NODE_ENV=test` (lowercase convention)
-- [ ] Aspire env vars set before `DistributedApplicationTestingBuilder.CreateAsync<T>()`
-- [ ] Aspire env vars cleaned up in `DisposeAsync()`
-- [ ] External hosting strategy ignores environment variables silently
-- [ ] Only one hosting strategy can be registered per builder
+- [x] All three hosting strategies (DotNet, Node, Aspire) use the same builder API for environment config
+- [x] Default `ASPNETCORE_ENVIRONMENT=Testing` — zero config required
+- [x] Default SPA proxy disabled — zero config required
+- [x] `.WithEnvironmentVariable()` works on any hosting strategy
+- [x] Headless resolution: explicit > debugger attached > CI detected > default (headless on)
+- [x] Node hosting maps `Testing` -> `NODE_ENV=test` (lowercase convention)
+- [x] Aspire env vars set before `DistributedApplicationTestingBuilder.CreateAsync<T>()`
+- [x] Aspire env vars cleaned up in `DisposeAsync()`
+- [x] External hosting strategy ignores environment variables silently
+- [x] Only one hosting strategy can be registered per builder
 
 ### Non-Functional Requirements
 
-- [ ] Solution builds clean across all target frameworks (net6.0, net7.0, net8.0, net9.0)
-- [ ] All existing tests pass (updated for new API)
-- [ ] No backward-compatible shims — clean break
-- [ ] Aspire env var snapshot/restore is exception-safe (`try/finally`)
-- [ ] Aspire env var mutation is thread-safe (`SemaphoreSlim`)
-- [ ] No env var values logged in plain text (security)
+- [x] Solution builds clean across all target frameworks (net6.0, net7.0, net8.0, net9.0)
+- [x] All existing tests pass (updated for new API)
+- [x] No backward-compatible shims — clean break
+- [x] Aspire env var snapshot/restore is exception-safe (`try/finally`)
+- [x] Aspire env var mutation is thread-safe (`SemaphoreSlim`)
+- [x] No env var values logged in plain text (security)
 
 ### Quality Gates
 
-- [ ] `dotnet build` succeeds
-- [ ] `dotnet test` passes all test projects
-- [ ] `dotnet format` clean
-- [ ] No references to deleted types anywhere in solution
-- [ ] Grep for `ServerConfiguration`, `ServerProcessBuilder`, `FluentUIScaffoldOptionsBuilder` returns zero hits
+- [x] `dotnet build` succeeds
+- [x] `dotnet test` passes all test projects
+- [x] `dotnet format` clean
+- [x] No references to deleted types anywhere in solution
+- [x] Grep for `ServerConfiguration`, `ServerProcessBuilder`, `FluentUIScaffoldOptionsBuilder` returns zero hits
 
 ## Files Changed Summary
 
