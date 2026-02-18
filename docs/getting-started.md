@@ -225,15 +225,19 @@ For easier debugging during development, debug mode automatically:
 - Sets SlowMo to slow down interactions for better visibility
 - **Automatically enables when a debugger is attached** (no configuration needed!)
 
-You can override these defaults:
+You can override these defaults via the builder:
 
 ```csharp
-var options = new FluentUIScaffoldOptionsBuilder()
-    .WithBaseUrl(new Uri("https://your-app.com"))
-    .WithDefaultWaitTimeout(TimeSpan.FromSeconds(30))
-    .WithHeadlessMode(false) // Force visible browser
-    .WithSlowMo(250)         // Custom SlowMo delay
-    .Build();
+var app = new FluentUIScaffoldBuilder()
+    .UsePlugin(new PlaywrightPlugin())
+    .Web<WebApp>(opts =>
+    {
+        opts.BaseUrl = new Uri("https://your-app.com");
+        opts.DefaultWaitTimeout = TimeSpan.FromSeconds(30);
+        opts.HeadlessMode = false; // Force visible browser
+        opts.SlowMo = 250;         // Custom SlowMo delay
+    })
+    .Build<WebApp>();
 ```
 
 ## Element Configuration

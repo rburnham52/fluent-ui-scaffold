@@ -130,7 +130,7 @@ reportgenerator \
     -targetdir:./coverage/report \
     -reporttypes:Html;TextSummary \
     -assemblyfilters:+FluentUIScaffold.Core;-FluentUIScaffold.Playwright \
-    -classfilters:+FluentUIScaffold.Core.Configuration.Launchers.*;+FluentUIScaffold.Core.Configuration.ServerConfiguration*;+FluentUIScaffold.Core.Configuration.*ServerConfigurationBuilder
+    -classfilters:+FluentUIScaffold.Core.Configuration.Launchers.*;+FluentUIScaffold.Core.Configuration.FluentUIScaffoldBuilder;+FluentUIScaffold.Core.Configuration.DotNetHostingOptions;+FluentUIScaffold.Core.Configuration.NodeHostingOptions;+FluentUIScaffold.Core.Configuration.FluentUIScaffoldOptions
 ```
 
 ## Viewing Coverage Reports

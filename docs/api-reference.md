@@ -156,22 +156,6 @@ public class FluentUIScaffoldOptions
 | `HeadlessMode` | `bool?` | `null` | Explicit headless control (null = automatic) |
 | `SlowMo` | `int?` | `null` | Explicit SlowMo control in milliseconds (null = automatic) |
 
-### FluentUIScaffoldOptionsBuilder
-
-Builder for creating and configuring FluentUIScaffoldOptions instances with a fluent API.
-
-```csharp
-public class FluentUIScaffoldOptionsBuilder
-{
-    public FluentUIScaffoldOptionsBuilder WithBaseUrl(Uri baseUrl);
-    public FluentUIScaffoldOptionsBuilder WithDefaultWaitTimeout(TimeSpan timeout);
-    public FluentUIScaffoldOptionsBuilder WithHeadlessMode(bool? headless);
-    public FluentUIScaffoldOptionsBuilder WithSlowMo(int? slowMo);
-    public FluentUIScaffoldOptionsBuilder WithDriver<TDriver>() where TDriver : class;
-    public FluentUIScaffoldOptions Build();
-}
-```
-
 ### WaitStrategy
 
 Enumeration of available wait strategies.
