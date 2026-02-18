@@ -1,8 +1,11 @@
 using System;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 
 using FluentUIScaffold.Core.Configuration;
+using FluentUIScaffold.Core.Configuration.Launchers;
+using FluentUIScaffold.Core.Configuration.Launchers.Defaults;
 using FluentUIScaffold.Core.Tests.Helpers;
 
 using NUnit.Framework;
@@ -16,6 +19,29 @@ namespace FluentUIScaffold.Core.Tests
     [TestFixture]
     public class WebServerManagerTests
     {
+        private static LaunchPlan CreateTestLaunchPlan(Uri baseUrl)
+        {
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = "dotnet",
+                Arguments = "run --no-launch-profile --framework net8.0 --configuration Release",
+                WorkingDirectory = Environment.CurrentDirectory,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true
+            };
+
+            return new LaunchPlan(
+                startInfo,
+                baseUrl,
+                TimeSpan.FromSeconds(60),
+                new HttpReadinessProbe(),
+                new[] { "/" },
+                TimeSpan.FromSeconds(2),
+                TimeSpan.FromMilliseconds(200));
+        }
+
         [Test]
 #if NET8_0_OR_GREATER
         [Platform(Exclude="Win")] // Avoid process start path issues on Windows
@@ -25,10 +51,7 @@ namespace FluentUIScaffold.Core.Tests
             await using var server = await TestHttpServer.StartAsync();
             var baseUrl = new Uri($"http://localhost:{server.Port}");
 
-            var plan = ServerConfiguration.CreateDotNetServer(baseUrl, "/path/to/MyApp.csproj")
-                .WithFramework("net8.0")
-                .WithConfiguration("Release")
-                .Build();
+            var plan = CreateTestLaunchPlan(baseUrl);
 
             Assert.That(WebServerManager.IsServerRunning(), Is.False);
             await WebServerManager.StartServerAsync(plan);
@@ -50,10 +73,7 @@ namespace FluentUIScaffold.Core.Tests
 
             using var mutex = new Mutex(initiallyOwned: true, name: mutexName, createdNew: out _);
 
-            var plan = ServerConfiguration.CreateDotNetServer(baseUrl, "/path/to/MyApp.csproj")
-                .WithFramework("net8.0")
-                .WithConfiguration("Release")
-                .Build();
+            var plan = CreateTestLaunchPlan(baseUrl);
 
             var startTask = WebServerManager.StartServerAsync(plan);
             // Release quickly so the StartServerAsync loop can proceed
@@ -73,10 +93,7 @@ namespace FluentUIScaffold.Core.Tests
         public void StartServerAsync_MutexHeldByOther_AndNoServer_AfterTimeout_Throws()
         {
             var baseUrl = new Uri("http://localhost:61"); // Unused test port
-            var plan = ServerConfiguration.CreateDotNetServer(baseUrl, "/path/to/app.csproj")
-                .WithFramework("net8.0")
-                .WithConfiguration("Release")
-                .Build();
+            var plan = CreateTestLaunchPlan(baseUrl);
 
             var mutexName = $"FluentUIScaffold_WebServer_{baseUrl.Port}";
             using var mutex = new System.Threading.Mutex(initiallyOwned: true, name: mutexName, createdNew: out _);
@@ -107,8 +124,5 @@ namespace FluentUIScaffold.Core.Tests
         {
             Assert.That(async () => await FluentUIScaffold.Core.Configuration.WebServerManager.StartServerAsync(null!), Throws.Exception);
         }
-
-        // The disposal path is covered implicitly by StopServer() not throwing when nothing started
-        // Explicit disposal injection via reflection is removed with the new unified launcher.
     }
 }

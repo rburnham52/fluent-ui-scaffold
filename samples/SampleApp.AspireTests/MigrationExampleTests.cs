@@ -24,13 +24,13 @@ namespace SampleApp.AspireTests
         {
             // RECOMMENDED: Use the unified FluentUIScaffoldBuilder API with Aspire hosting
             var app = new FluentUIScaffoldBuilder()
+                .UsePlaywright()
+                .WithHeadlessMode(true)
                 .UseAspireHosting<Projects.SampleApp_AppHost>(
                     appHost => { /* configure distributed app if needed */ },
                     "sampleapp")
                 .Web<WebApp>(options =>
                 {
-                    options.UsePlaywright();
-                    options.HeadlessMode = true;
                     options.DefaultWaitTimeout = TimeSpan.FromSeconds(30);
                 })
                 .WithAutoPageDiscovery()
@@ -71,13 +71,13 @@ namespace SampleApp.AspireTests
 
             // PATTERN: Create app once in AssemblyInitialize
             var app = new FluentUIScaffoldBuilder()
+                .UsePlaywright()
+                .WithHeadlessMode(true)
                 .UseAspireHosting<Projects.SampleApp_AppHost>(
                     appHost => { },
                     "sampleapp")
                 .Web<WebApp>(options =>
                 {
-                    options.UsePlaywright();
-                    options.HeadlessMode = true;
                 })
                 .WithAutoPageDiscovery()
                 .Build<WebApp>();
@@ -136,7 +136,7 @@ namespace SampleApp.AspireTests
                 "3. Call StartAsync() before running tests",
                 "4. Call DisposeAsync() in cleanup (or use 'await using')",
                 "5. Use assembly-level setup for server reuse across tests",
-                "6. Configure HeadlessMode = true for CI environments",
+                "6. Configure WithHeadlessMode(true) for CI environments",
                 "7. Use WithAutoPageDiscovery() for automatic page registration",
                 "8. Access framework-specific features via Framework<T>()"
             };

@@ -62,12 +62,11 @@ public class PlaywrightDriver : IUIDriver, IDisposable
     {
         var browserType = GetBrowserType();
 
-        // Determine headless mode and SlowMo with explicit control and sensible defaults
-        // Spec: default to non-headless with slight SlowMo while debugger is attached
-        var debuggerAttached = System.Diagnostics.Debugger.IsAttached;
-        bool isHeadless = _options.HeadlessMode ?? !debuggerAttached;
-        int slowMo = _options.SlowMo ?? (debuggerAttached ? 250 : 0);
-        _logger?.LogInformation("Launch Headless={Headless}, SlowMo={SlowMo}ms (DebuggerAttached={Debugger})", isHeadless, slowMo, debuggerAttached);
+        // HeadlessMode is resolved to a concrete value at Build() time.
+        // Fallback to true as a safe default if somehow still null.
+        bool isHeadless = _options.HeadlessMode ?? true;
+        int slowMo = _options.SlowMo ?? (isHeadless ? 0 : 250);
+        _logger?.LogInformation("Launch Headless={Headless}, SlowMo={SlowMo}ms", isHeadless, slowMo);
 
         var browserOptions = new BrowserTypeLaunchOptions
         {

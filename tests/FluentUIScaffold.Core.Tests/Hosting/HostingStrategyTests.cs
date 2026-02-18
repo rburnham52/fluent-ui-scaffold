@@ -114,42 +114,45 @@ namespace FluentUIScaffold.Core.Tests.Hosting
         {
             // Arrange
             var mockServerManager = new Mock<IServerManager>();
-            var launchPlan = CreateTestLaunchPlan();
+            var hostingOptions = CreateDotNetHostingOptions();
+            var scaffoldOptions = new FluentUIScaffoldOptions();
 
             // Act
-            var strategy = new DotNetHostingStrategy(launchPlan, mockServerManager.Object);
+            var strategy = new DotNetHostingStrategy(hostingOptions, scaffoldOptions, mockServerManager.Object);
 
-            // Assert
-            Assert.That(strategy.ConfigurationHash, Is.Not.Null);
-            Assert.That(strategy.BaseUrl, Is.EqualTo(launchPlan.BaseUrl));
+            // Assert - ConfigurationHash is empty until StartAsync
+            Assert.That(strategy.ConfigurationHash, Is.EqualTo(string.Empty));
+            Assert.That(strategy.BaseUrl, Is.EqualTo(hostingOptions.BaseUrl));
         }
 
         [Test]
         public async Task DotNetHostingStrategy_StartAsync_CallsServerManager()
         {
             // Arrange
-            var launchPlan = CreateTestLaunchPlan();
+            var hostingOptions = CreateDotNetHostingOptions();
+            var scaffoldOptions = new FluentUIScaffoldOptions();
             var mockServerManager = new Mock<IServerManager>();
             var expectedStatus = new ServerStatus(
                 Pid: 1234,
                 StartTime: DateTimeOffset.Now,
-                BaseUrl: launchPlan.BaseUrl,
-                ConfigHash: ConfigHasher.Compute(launchPlan),
+                BaseUrl: hostingOptions.BaseUrl!,
+                ConfigHash: "testhash",
                 IsHealthy: true);
 
             mockServerManager
-                .Setup(x => x.EnsureStartedAsync(launchPlan, _mockLogger.Object, It.IsAny<CancellationToken>()))
+                .Setup(x => x.EnsureStartedAsync(It.IsAny<LaunchPlan>(), _mockLogger.Object, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(expectedStatus);
 
-            var strategy = new DotNetHostingStrategy(launchPlan, mockServerManager.Object);
+            var strategy = new DotNetHostingStrategy(hostingOptions, scaffoldOptions, mockServerManager.Object);
 
             // Act
             var result = await strategy.StartAsync(_mockLogger.Object);
 
             // Assert
-            Assert.That(result.BaseUrl, Is.EqualTo(launchPlan.BaseUrl));
+            Assert.That(result.BaseUrl, Is.EqualTo(hostingOptions.BaseUrl));
+            Assert.That(strategy.ConfigurationHash, Is.Not.Empty);
             mockServerManager.Verify(
-                x => x.EnsureStartedAsync(launchPlan, _mockLogger.Object, It.IsAny<CancellationToken>()),
+                x => x.EnsureStartedAsync(It.IsAny<LaunchPlan>(), _mockLogger.Object, It.IsAny<CancellationToken>()),
                 Times.Once);
         }
 
@@ -157,20 +160,21 @@ namespace FluentUIScaffold.Core.Tests.Hosting
         public async Task DotNetHostingStrategy_StopAsync_CallsServerManager()
         {
             // Arrange
-            var launchPlan = CreateTestLaunchPlan();
+            var hostingOptions = CreateDotNetHostingOptions();
+            var scaffoldOptions = new FluentUIScaffoldOptions();
             var mockServerManager = new Mock<IServerManager>();
             var expectedStatus = new ServerStatus(
                 Pid: 1234,
                 StartTime: DateTimeOffset.Now,
-                BaseUrl: launchPlan.BaseUrl,
-                ConfigHash: ConfigHasher.Compute(launchPlan),
+                BaseUrl: hostingOptions.BaseUrl!,
+                ConfigHash: "testhash",
                 IsHealthy: true);
 
             mockServerManager
-                .Setup(x => x.EnsureStartedAsync(launchPlan, _mockLogger.Object, It.IsAny<CancellationToken>()))
+                .Setup(x => x.EnsureStartedAsync(It.IsAny<LaunchPlan>(), _mockLogger.Object, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(expectedStatus);
 
-            var strategy = new DotNetHostingStrategy(launchPlan, mockServerManager.Object);
+            var strategy = new DotNetHostingStrategy(hostingOptions, scaffoldOptions, mockServerManager.Object);
             await strategy.StartAsync(_mockLogger.Object);
 
             // Act
@@ -184,18 +188,19 @@ namespace FluentUIScaffold.Core.Tests.Hosting
         public void DotNetHostingStrategy_GetStatus_ReturnsServerManagerStatus()
         {
             // Arrange
-            var launchPlan = CreateTestLaunchPlan();
+            var hostingOptions = CreateDotNetHostingOptions();
+            var scaffoldOptions = new FluentUIScaffoldOptions();
             var mockServerManager = new Mock<IServerManager>();
             var expectedStatus = new ServerStatus(
                 Pid: 1234,
                 StartTime: DateTimeOffset.Now,
-                BaseUrl: launchPlan.BaseUrl,
-                ConfigHash: ConfigHasher.Compute(launchPlan),
+                BaseUrl: hostingOptions.BaseUrl!,
+                ConfigHash: "testhash",
                 IsHealthy: true);
 
             mockServerManager.Setup(x => x.GetStatus()).Returns(expectedStatus);
 
-            var strategy = new DotNetHostingStrategy(launchPlan, mockServerManager.Object);
+            var strategy = new DotNetHostingStrategy(hostingOptions, scaffoldOptions, mockServerManager.Object);
 
             // Act
             var status = strategy.GetStatus();
@@ -203,7 +208,7 @@ namespace FluentUIScaffold.Core.Tests.Hosting
             // Assert
             Assert.That(status.IsRunning, Is.True);
             Assert.That(status.ProcessId, Is.EqualTo(1234));
-            Assert.That(status.BaseUrl, Is.EqualTo(launchPlan.BaseUrl));
+            Assert.That(status.BaseUrl, Is.EqualTo(hostingOptions.BaseUrl));
         }
 
         #endregion
@@ -215,42 +220,45 @@ namespace FluentUIScaffold.Core.Tests.Hosting
         {
             // Arrange
             var mockServerManager = new Mock<IServerManager>();
-            var launchPlan = CreateNodeTestLaunchPlan();
+            var hostingOptions = CreateNodeHostingOptions();
+            var scaffoldOptions = new FluentUIScaffoldOptions();
 
             // Act
-            var strategy = new NodeHostingStrategy(launchPlan, mockServerManager.Object);
+            var strategy = new NodeHostingStrategy(hostingOptions, scaffoldOptions, mockServerManager.Object);
 
-            // Assert
-            Assert.That(strategy.ConfigurationHash, Is.Not.Null);
-            Assert.That(strategy.BaseUrl, Is.EqualTo(launchPlan.BaseUrl));
+            // Assert - ConfigurationHash is empty until StartAsync
+            Assert.That(strategy.ConfigurationHash, Is.EqualTo(string.Empty));
+            Assert.That(strategy.BaseUrl, Is.EqualTo(hostingOptions.BaseUrl));
         }
 
         [Test]
         public async Task NodeHostingStrategy_StartAsync_CallsServerManager()
         {
             // Arrange
-            var launchPlan = CreateNodeTestLaunchPlan();
+            var hostingOptions = CreateNodeHostingOptions();
+            var scaffoldOptions = new FluentUIScaffoldOptions();
             var mockServerManager = new Mock<IServerManager>();
             var expectedStatus = new ServerStatus(
                 Pid: 5678,
                 StartTime: DateTimeOffset.Now,
-                BaseUrl: launchPlan.BaseUrl,
-                ConfigHash: ConfigHasher.Compute(launchPlan),
+                BaseUrl: hostingOptions.BaseUrl!,
+                ConfigHash: "testhash",
                 IsHealthy: true);
 
             mockServerManager
-                .Setup(x => x.EnsureStartedAsync(launchPlan, _mockLogger.Object, It.IsAny<CancellationToken>()))
+                .Setup(x => x.EnsureStartedAsync(It.IsAny<LaunchPlan>(), _mockLogger.Object, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(expectedStatus);
 
-            var strategy = new NodeHostingStrategy(launchPlan, mockServerManager.Object);
+            var strategy = new NodeHostingStrategy(hostingOptions, scaffoldOptions, mockServerManager.Object);
 
             // Act
             var result = await strategy.StartAsync(_mockLogger.Object);
 
             // Assert
-            Assert.That(result.BaseUrl, Is.EqualTo(launchPlan.BaseUrl));
+            Assert.That(result.BaseUrl, Is.EqualTo(hostingOptions.BaseUrl));
+            Assert.That(strategy.ConfigurationHash, Is.Not.Empty);
             mockServerManager.Verify(
-                x => x.EnsureStartedAsync(launchPlan, _mockLogger.Object, It.IsAny<CancellationToken>()),
+                x => x.EnsureStartedAsync(It.IsAny<LaunchPlan>(), _mockLogger.Object, It.IsAny<CancellationToken>()),
                 Times.Once);
         }
 
@@ -258,18 +266,22 @@ namespace FluentUIScaffold.Core.Tests.Hosting
 
         #region Helper Methods
 
-        private static LaunchPlan CreateTestLaunchPlan()
+        private static DotNetHostingOptions CreateDotNetHostingOptions()
         {
-            return ServerConfiguration
-                .CreateDotNetServer(new Uri("http://localhost:5000"), "test.csproj")
-                .Build();
+            return new DotNetHostingOptions
+            {
+                BaseUrl = new Uri("http://localhost:5000"),
+                ProjectPath = "test.csproj"
+            };
         }
 
-        private static LaunchPlan CreateNodeTestLaunchPlan()
+        private static NodeHostingOptions CreateNodeHostingOptions()
         {
-            return ServerConfiguration
-                .CreateNodeJsServer(new Uri("http://localhost:3000"), ".")
-                .Build();
+            return new NodeHostingOptions
+            {
+                BaseUrl = new Uri("http://localhost:3000"),
+                ProjectPath = "."
+            };
         }
 
         #endregion

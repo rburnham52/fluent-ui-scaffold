@@ -55,7 +55,7 @@ namespace FluentUIScaffold.Core.Tests
             public void Dispose() { }
         }
 
-        private static FluentUIScaffoldOptions Options() => new FluentUIScaffoldOptionsBuilder().Build();
+        private static FluentUIScaffoldOptions Options() => new FluentUIScaffoldOptions();
 
         private static IServiceProvider BuildServices(IUIDriver driver, FluentUIScaffoldOptions options)
         {
