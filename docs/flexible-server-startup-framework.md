@@ -1,23 +1,41 @@
-# Flexible Server Startup Framework
-
-> **Note:** This document describes the legacy `WebServerManager` approach. The recommended approach is to use `IHostingStrategy` implementations via `FluentUIScaffoldBuilder`. See the [Architecture](architecture.md) documentation for the new hosting strategies.
+# Hosting Strategies
 
 ## Overview
 
-The Flexible Server Startup Framework is a comprehensive solution for launching web servers in test scenarios. It provides a flexible, extensible architecture that supports multiple server types and configurable startup options.
+FluentUIScaffold uses pluggable hosting strategies to manage the lifecycle of the application under test. Each strategy handles starting, health-checking, and stopping a specific type of server. Configure hosting via `FluentUIScaffoldBuilder` methods.
 
-## New Recommended Approach: IHostingStrategy
+## Available Strategies
 
-The `IHostingStrategy` abstraction provides a unified way to manage application hosting:
+| Strategy | Builder Method | Use Case |
+|----------|---------------|----------|
+| `DotNetHostingStrategy` | `.UseDotNetHosting()` | .NET applications via `dotnet run` |
+| `NodeHostingStrategy` | `.UseNodeHosting()` | Node.js applications via `npm run` |
+| `ExternalHostingStrategy` | `.UseExternalServer()` | Pre-started servers (CI, staging) |
+| `AspireHostingStrategy` | `.UseAspireHosting<T>()` | Aspire distributed applications |
+
+Only one hosting strategy can be registered per builder.
+
+## DotNet Hosting
+
+For .NET applications started with `dotnet run`:
 
 ```csharp
-// Using the new builder pattern with hosting strategies
 var app = new FluentUIScaffoldBuilder()
-    .UsePlugin(new PlaywrightPlugin())
-    .UseDotNetHosting(new Uri("http://localhost:5000"), "/path/to/project.csproj", opts =>
+    .UsePlaywright()
+    .UseDotNetHosting(opts =>
     {
-        opts.WithFramework("net8.0");
-        opts.WithConfiguration("Release");
+        opts.BaseUrl = new Uri("http://localhost:5000");
+        opts.ProjectPath = "/path/to/project.csproj";
+        opts.Framework = "net8.0";
+        opts.Configuration = "Release";
+        opts.HealthCheckEndpoints = new[] { "/", "/index.html" };
+        opts.StartupTimeout = TimeSpan.FromSeconds(120);
+        opts.WorkingDirectory = "/path/to/project";
+        opts.ProcessName = "MyApp";
+    })
+    .Web<WebApp>(options =>
+    {
+        options.BaseUrl = new Uri("http://localhost:5000");
     })
     .WithAutoPageDiscovery()
     .Build<WebApp>();
@@ -25,236 +43,113 @@ var app = new FluentUIScaffoldBuilder()
 await app.StartAsync();
 ```
 
-Available hosting strategies:
-- `DotNetHostingStrategy` - For .NET applications (`dotnet run`)
-- `NodeHostingStrategy` - For Node.js applications (`npm run`)
-- `ExternalHostingStrategy` - For pre-started servers
-- `AspireHostingStrategy` - For Aspire distributed applications
+### DotNetHostingOptions
 
-## Legacy Architecture
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `ProjectPath` | `string` | `""` | Path to the `.csproj` file (required) |
+| `BaseUrl` | `Uri?` | `null` | URL where the app will be accessible (required) |
+| `Framework` | `string` | `"net8.0"` | Target framework moniker |
+| `Configuration` | `string` | `"Release"` | Build configuration |
+| `StartupTimeout` | `TimeSpan` | `60s` | Max time to wait for readiness |
+| `HealthCheckEndpoints` | `string[]` | `["/"]` | Endpoints to probe for readiness |
+| `WorkingDirectory` | `string?` | `null` | Working directory (defaults to project dir) |
+| `ProcessName` | `string?` | `null` | Optional process name for identification |
 
-### Core Components
+## Node Hosting
 
-1. **`WebServerManager`** - The main orchestrator that manages server lifecycle
-2. **`IServerLauncher`** - Strategy interface for different server types
-3. Removed: automatic project detection
-4. **`ServerLauncherFactory`** - Factory for creating and managing launchers and detectors
-5. **`ServerConfiguration`** - Configuration class for server startup parameters
-6. **`IProcessRunner` / `IProcess`** - Abstractions to start and manage external processes (testable wrapper over `System.Diagnostics.Process`)
-7. **`IClock`** - Time abstraction to control delays and timing in tests
-8. **`IReadinessProbe`** - Strategy interface to centralize server readiness checks (default: `HttpReadinessProbe`)
-9. **`LaunchPlan`** - Value object describing the planned launch (executable, arguments, environment)
-
-### Design Patterns
-
-- **Strategy Pattern**: `IServerLauncher` and `IProjectDetector` implementations; `IReadinessProbe`
-- **Factory Pattern**: `ServerLauncherFactory` manages component registration and creation
-- **Singleton Pattern**: `WebServerManager` provides singleton access for test scenarios
-
-## Benefits
-
-- **Framework Agnostic**: Works with any UI testing framework (MSTest, NUnit, xUnit)
-- **Multi-Server Support**: Built-in support for ASP.NET Core and Aspire App Host
-- **Automatic Project Detection**: Finds projects without relying on Git repositories
-- **Flexible Configuration**: Supports explicit configuration or automatic detection
-- **Extensible**: Easy to add new server types and project detectors
-- **Robust Error Handling**: Comprehensive logging and error recovery
-
-## Usage Examples
-
-### Basic Usage
+For Node.js applications started with `npm run`:
 
 ```csharp
-var serverConfig = ServerConfiguration.CreateDotNetServer(
-        new Uri("http://localhost:5000"),
-        "/path/to/project.csproj")
-    .WithFramework("net8.0")
-    .WithConfiguration("Release")
-    .WithHealthCheckEndpoints("/", "/index.html")
-    .Build();
-
-await WebServerManager.StartServerAsync(serverConfig);
-```
-
-### Explicit Configuration
-
-```csharp
-var serverConfig = ServerConfiguration.CreateDotNetServer(
-        new Uri("http://localhost:5000"),
-        "/path/to/project.csproj")
-    .WithConfiguration("Release")
-    .WithSpaProxy(true)
-    .WithAspNetCoreEnvironment("Development")
-    .WithStartupTimeout(TimeSpan.FromSeconds(90))
-    .Build();
-
-await WebServerManager.StartServerAsync(serverConfig);
-```
-
-### MSTest Integration
-
-```csharp
-[TestClass]
-public class TestAssemblyHooks
-{
-    [AssemblyInitialize]
-    public static void AssemblyInitialize(TestContext context)
+var app = new FluentUIScaffoldBuilder()
+    .UsePlaywright()
+    .UseNodeHosting(opts =>
     {
-        var serverConfig = ServerConfiguration.CreateDotNetServer(
-                new Uri("http://localhost:5000"),
-                "./path/to/project.csproj")
-            .WithFramework("net8.0")
-            .WithConfiguration("Release")
-            .WithAspNetCoreEnvironment("Development")
-            .Build();
-
-        WebServerManager.StartServerAsync(serverConfig).Wait();
-    }
-
-    [AssemblyCleanup]
-    public static void AssemblyCleanup()
+        opts.BaseUrl = new Uri("http://localhost:3000");
+        opts.ProjectPath = "/path/to/client-app";
+        opts.Script = "dev";
+        opts.StartupTimeout = TimeSpan.FromSeconds(60);
+    })
+    .Web<WebApp>(options =>
     {
-        WebServerManager.StopServer();
-    }
-}
+        options.BaseUrl = new Uri("http://localhost:3000");
+    })
+    .WithAutoPageDiscovery()
+    .Build<WebApp>();
+
+await app.StartAsync();
 ```
 
-## Server Types
+### NodeHostingOptions
 
-### ASP.NET Core Application
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `ProjectPath` | `string` | `""` | Path to the directory containing `package.json` (required) |
+| `BaseUrl` | `Uri?` | `null` | URL where the app will be accessible (required) |
+| `Script` | `string` | `"start"` | npm script to run |
+| `StartupTimeout` | `TimeSpan` | `60s` | Max time to wait for readiness |
+| `HealthCheckEndpoints` | `string[]` | `["/"]` | Endpoints to probe for readiness |
+| `WorkingDirectory` | `string?` | `null` | Working directory for the process |
 
-```csharp
-var config = ServerConfiguration.CreateDotNetServer(
-    new Uri("http://localhost:5000"),
-    "/path/to/project.csproj"
-);
-```
+## External Server
 
-### Aspire App Host Application
-
-```csharp
-var config = ServerConfiguration.CreateAspireServer(
-    new Uri("http://localhost:5000"),
-    "/path/to/apphost.csproj"
-);
-```
-
-## Project Detection
-
-The framework includes two project detectors:
-
-1. **`EnvironmentBasedProjectDetector`** - Checks environment variables and configuration files
-2. **`GitBasedProjectDetector`** - Finds projects relative to Git repository root
-
-### Custom Project Detector
+For pre-started servers in CI environments or staging:
 
 ```csharp
-public class CustomProjectDetector : IProjectDetector
-{
-    public string Name => "CustomProjectDetector";
-    public int Priority => 100;
-
-    public string? DetectProject(ProjectDetectionContext context)
+var app = new FluentUIScaffoldBuilder()
+    .UsePlaywright()
+    .UseExternalServer(new Uri("https://staging.example.com"), "/health")
+    .Web<WebApp>(options =>
     {
-        // Custom detection logic
-        return detectedProjectPath;
-    }
-}
+        options.BaseUrl = new Uri("https://staging.example.com");
+    })
+    .WithAutoPageDiscovery()
+    .Build<WebApp>();
 
-// Register the detector
-var factory = new ServerLauncherFactory();
-factory.RegisterDetector(new CustomProjectDetector());
+await app.StartAsync();
 ```
 
-## Configuration Options
+No process management is performed — only health check probing to verify the server is reachable.
 
-### FluentUIScaffoldOptions
+## Aspire Hosting
 
-- `BaseUrl` - The base URL the tests will use
-- `DefaultWaitTimeout`, `HeadlessMode`, `SlowMo`, `RequestedDriverType` – framework runtime settings
+For Aspire distributed applications (requires the `FluentUIScaffold.AspireHosting` package):
 
-### ServerConfiguration
-
-- `ServerType` - Type of server (aspnetcore, aspire)
-- `ProjectPath` - Path to the project file
-- `WorkingDirectory` - Working directory for the server process
-- `BaseUrl` - Base URL for the server
-- `Arguments` - Additional command line arguments
-- `EnvironmentVariables` - Environment variables to set
-- `EnableSpaProxy` - Whether to enable SPA proxy
-- `StartupTimeout` - Timeout for server startup
-- `HealthCheckEndpoints` - Endpoints to check for server readiness
-
-### Readiness Probes
-
-- Default readiness is provided by `HttpReadinessProbe`, which queries `BaseUrl` and any configured `HealthCheckEndpoints` until the server responds with a success status or times out.
-- Custom readiness strategies can be implemented by providing your own `IReadinessProbe` and registering/injecting it for your launcher.
-
-## Migration Guide
-
-### From TestAssemblyWebHook
-
-Replace:
 ```csharp
-TestAssemblyWebHook.StartServerAsync(options);
+var app = new FluentUIScaffoldBuilder()
+    .UseAspireHosting<Projects.SampleApp_AppHost>(
+        appHost => { /* configure distributed app */ },
+        "sampleapp")
+    .Web<WebApp>(options => { options.UsePlaywright(); })
+    .Build<WebApp>();
+
+await app.StartAsync();
 ```
 
-With:
+The base URL is auto-discovered from the named Aspire resource. See [Architecture](architecture.md) for more details on Aspire integration.
+
+## Environment Configuration
+
+The builder provides environment settings that are applied to all hosting strategies:
+
 ```csharp
-WebServerManager.StartServerAsync(options);
+var app = new FluentUIScaffoldBuilder()
+    .UsePlaywright()
+    .WithEnvironmentName("Development")      // Sets ASPNETCORE_ENVIRONMENT
+    .WithSpaProxy(false)                      // Disables SPA dev proxy
+    .WithEnvironmentVariable("MY_VAR", "x")  // Custom env vars
+    .UseDotNetHosting(opts => { /* ... */ })
+    .Web<WebApp>(options => { /* ... */ })
+    .Build<WebApp>();
 ```
 
-### From WebServerLauncher
+## Readiness Probes
 
-The new framework provides more flexibility and better error handling. Update your configuration to use `ServerConfiguration` and `WebServerManager`.
+All hosting strategies use `HttpReadinessProbe` to verify the application is ready. The probe polls the configured `BaseUrl` and `HealthCheckEndpoints` until the server responds with a success status or the `StartupTimeout` is reached.
 
 ## Best Practices
 
-1. **Use Explicit Configuration for CI/CD**: Provide explicit project paths in CI environments
-2. **Enable Logging**: Use `ILogger` for debugging server startup issues
-3. **Set Appropriate Timeouts**: Configure `StartupTimeout` based on your application's startup time
-4. **Handle Cleanup**: Always call `StopServer()` in test cleanup
-5. **Use Health Checks**: Configure appropriate health check endpoints for your application
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Server Startup Timeout**
-   - Increase `StartupTimeout` in configuration
-   - Check if the server is actually starting (logs, process list)
-   - Verify health check endpoints are correct
-
-2. **Project Not Found**
-   - Enable logging to see detection attempts
-   - Provide explicit `ProjectPath` in configuration
-   - Check `AdditionalSearchPaths` configuration
-
-3. **Port Conflicts**
-   - The framework automatically checks for running servers
-   - Kill existing processes manually if needed
-   - Use different ports for different test runs
-
-### Debugging
-
-Enable detailed logging:
-
-```csharp
-var loggerFactory = LoggerFactory.Create(builder =>
-    builder.AddConsole().SetMinimumLevel(LogLevel.Debug));
-
-var serverConfig = ServerConfiguration.CreateDotNetServer(
-        new Uri("http://localhost:5000"),
-        "/path/to/project.csproj")
-    .Build();
-
-await WebServerManager.StartServerAsync(serverConfig);
-```
-
-## Future Enhancements
-
-- **Container Support**: Launch servers in Docker containers
-- **Load Balancing**: Support for multiple server instances
-- **Health Check Plugins**: Customizable health check strategies
-- **Performance Monitoring**: Built-in performance metrics
-- **Configuration Validation**: Validate configuration before startup
+1. **Use explicit project paths in CI/CD** — don't rely on relative path resolution
+2. **Set appropriate timeouts** — increase `StartupTimeout` for slow-starting applications
+3. **Configure health check endpoints** — use endpoints that verify full readiness, not just TCP connectivity
+4. **Always dispose** — use `await app.DisposeAsync()` in test cleanup to stop hosted processes
