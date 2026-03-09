@@ -1,703 +1,433 @@
-# Element Configuration
+# Browser Interactions
 
 ## Overview
 
-Element configuration in FluentUIScaffold provides a flexible and powerful way to define how elements should be located, waited for, and interacted with. The framework uses a fluent API to configure elements with various options including wait strategies, timeouts, and descriptions.
+FluentUIScaffold uses a deferred execution chain pattern where page objects queue browser actions that execute when the chain is awaited. Interactions are performed using `Enqueue<IPage>`, which provides direct access to Playwright's `IPage` API within a DI-injected lambda.
 
-## Core Concepts
+There is no element abstraction layer, no `ElementBuilder`, and no `WaitStrategy` enum. Pages extend `Page<TSelf>` and use Playwright's native API directly inside `Enqueue` lambdas. The framework's value is hosting orchestration, structured page objects, and fluent chaining -- not wrapping Playwright.
 
-### ElementBuilder
+## Core Concept: Enqueue\<T>
 
-The `ElementBuilder` class provides a fluent API for configuring elements:
+The `Enqueue<T>(Func<T, Task>)` method on `Page<TSelf>` queues a deferred action. The type parameter `T` is resolved from the session's DI container at execution time (not at enqueue time). For browser interactions, `T` is Playwright's `IPage`.
 
 ```csharp
-public class ElementBuilder : IElement
+public HomePage ClickButton() => Enqueue<IPage>(async page =>
 {
-    public ElementBuilder WithDescription(string description)
-    public ElementBuilder WithTimeout(TimeSpan timeout)
-    public ElementBuilder WithWaitStrategy(WaitStrategy strategy)
-    public ElementBuilder WithRetryInterval(TimeSpan interval)
-    public IElement Build()
-}
+    await page.ClickAsync("[data-testid='submit']").ConfigureAwait(false);
+});
 ```
 
-### IElement Interface
-
-The `IElement` interface defines the contract for element interactions:
+Actions execute only when the chain is awaited via the custom `GetAwaiter()` on `Page<TSelf>`. Until then, they are just queued.
 
 ```csharp
-public interface IElement
+// Actions are queued here...
+var chain = app.NavigateTo<HomePage>().ClickButton();
+
+// ...and execute here when awaited
+await chain;
+
+// Or more commonly, in a single line:
+await app.NavigateTo<HomePage>().ClickButton();
+```
+
+## Basic Interactions
+
+### Clicking Elements
+
+```csharp
+public HomePage ClickSubmit() => Enqueue<IPage>(async page =>
 {
-    string Selector { get; }
-    string Description { get; }
-    TimeSpan Timeout { get; }
-    WaitStrategy WaitStrategy { get; }
-    
-    void Click();
-    void Type(string text);
-    void Select(string value);
-    string GetText();
-    bool IsVisible();
-    bool IsEnabled();
-    void WaitFor();
-}
-```
-
-## Basic Element Configuration
-
-### Simple Element
-
-```csharp
-// Basic element with default configuration
-var button = Element("#submit-button");
-```
-
-### Element with Description
-
-```csharp
-// Element with descriptive name for better logging
-var emailInput = Element("#email")
-    .WithDescription("Email Input Field");
-```
-
-### Element with Timeout
-
-```csharp
-// Element with custom timeout
-var slowElement = Element("#slow-loading-element")
-    .WithTimeout(TimeSpan.FromSeconds(30));
-```
-
-### Element with Wait Strategy
-
-```csharp
-// Element that waits for visibility
-var modal = Element("#modal")
-    .WithWaitStrategy(WaitStrategy.Visible);
-
-// Element that waits for clickability
-var button = Element("#button")
-    .WithWaitStrategy(WaitStrategy.Clickable);
-```
-
-## Wait Strategies
-
-### Available Wait Strategies
-
-FluentUIScaffold provides several built-in wait strategies:
-
-```csharp
-public enum WaitStrategy
-{
-    None,           // No waiting
-    Visible,        // Wait for element to be visible
-    Hidden,         // Wait for element to be hidden
-    Clickable,      // Wait for element to be clickable
-    Enabled,        // Wait for element to be enabled
-    Disabled,       // Wait for element to be disabled
-    TextPresent,    // Wait for specific text to be present
-    Smart           // Framework-specific intelligent waiting
-}
-```
-
-### Using Wait Strategies
-
-```csharp
-// No waiting - immediate interaction
-var immediateElement = Element("#instant-button")
-    .WithWaitStrategy(WaitStrategy.None);
-
-// Wait for visibility
-var visibleElement = Element("#modal")
-    .WithWaitStrategy(WaitStrategy.Visible);
-
-// Wait for clickability
-var clickableElement = Element("#submit-button")
-    .WithWaitStrategy(WaitStrategy.Clickable);
-
-// Wait for element to be enabled
-var enabledElement = Element("#input-field")
-    .WithWaitStrategy(WaitStrategy.Enabled);
-
-// Wait for element to be disabled
-var disabledElement = Element("#loading-spinner")
-    .WithWaitStrategy(WaitStrategy.Disabled);
-
-// Wait for text to be present
-var textElement = Element("#message")
-    .WithWaitStrategy(WaitStrategy.TextPresent);
-
-// Smart waiting (framework-specific)
-var smartElement = Element("#dynamic-content")
-    .WithWaitStrategy(WaitStrategy.Smart);
-```
-
-### Custom Wait Conditions
-
-```csharp
-// Custom wait condition
-var customElement = Element("#status")
-    .WithWaitStrategy(WaitStrategy.Custom)
-    .WithCustomWaitCondition(e => e.GetText() == "Complete");
-
-// Wait for multiple conditions
-var complexElement = Element("#complex-element")
-    .WithWaitStrategy(WaitStrategy.Custom)
-    .WithCustomWaitCondition(e => 
-        e.IsVisible() && 
-        e.IsEnabled() && 
-        e.GetText().Contains("Ready"));
-```
-
-## Advanced Configuration
-
-### Complex Element Configuration
-
-```csharp
-var complexElement = Element("[data-testid='user-card']")
-    .WithDescription("User Card Component")
-    .WithTimeout(TimeSpan.FromSeconds(15))
-    .WithWaitStrategy(WaitStrategy.Visible)
-    .WithRetryInterval(TimeSpan.FromMilliseconds(200));
-```
-
-### Framework-Specific Configuration
-
-```csharp
-// Playwright-specific configuration
-var playwrightElement = Element("#playwright-element")
-    .WithDescription("Playwright Element")
-    .WithFrameworkSpecificOption("force", true)
-    .WithFrameworkSpecificOption("trial", false);
-
-// Selenium-specific configuration (future)
-var seleniumElement = Element("#selenium-element")
-    .WithDescription("Selenium Element")
-    .WithFrameworkSpecificOption("scrollIntoView", true);
-```
-
-## Element Factory
-
-### ElementFactory
-
-The `ElementFactory` provides element creation with caching:
-
-```csharp
-public class ElementFactory
-{
-    public IElement CreateElement(string selector, Action<ElementBuilder>? configure = null)
-    public IElement GetOrCreateElement(string selector, Action<ElementBuilder>? configure = null)
-    public void ClearCache()
-}
-```
-
-### Using ElementFactory
-
-```csharp
-// Create new element
-var element = ElementFactory.CreateElement("#button");
-
-// Create element with configuration
-var configuredElement = ElementFactory.CreateElement("#input", builder =>
-{
-    builder.WithDescription("Email Input")
-           .WithTimeout(TimeSpan.FromSeconds(10))
-           .WithWaitStrategy(WaitStrategy.Visible);
+    await page.ClickAsync("[data-testid='submit']").ConfigureAwait(false);
 });
 
-// Get or create element (with caching)
-var cachedElement = ElementFactory.GetOrCreateElement("#cached-button");
-
-// Clear cache
-ElementFactory.ClearCache();
+public HomePage ClickLoginButton() => Enqueue<IPage>(async page =>
+{
+    await page.GetByRole(AriaRole.Button, new() { Name = "Login" })
+        .ClickAsync().ConfigureAwait(false);
+});
 ```
 
-## Element Collections
-
-### IElementCollection Interface
+### Filling Text Fields
 
 ```csharp
-public interface IElementCollection : IEnumerable<IElement>
+public LoginPage EnterEmail(string email) => Enqueue<IPage>(async page =>
 {
-    IElement this[int index] { get; }
-    int Count { get; }
-    IElement First();
-    IElement Last();
-    IElementCollection Where(Func<IElement, bool> predicate);
-    IElementCollection WithText(string text);
-    IElementCollection WithAttribute(string attribute, string value);
+    await page.FillAsync("[data-testid='email-input']", email).ConfigureAwait(false);
+});
+
+public LoginPage EnterSearch(string text) => Enqueue<IPage>(async page =>
+{
+    await page.GetByPlaceholder("Search...").FillAsync(text).ConfigureAwait(false);
+});
+```
+
+### Selecting Options
+
+```csharp
+public TodosPage SelectPriority(string priority) => Enqueue<IPage>(async page =>
+{
+    await page.SelectOptionAsync("[data-testid='priority-select']", priority)
+        .ConfigureAwait(false);
+});
+```
+
+### Combining Multiple Actions
+
+A single `Enqueue` lambda can contain multiple steps when they logically belong together:
+
+```csharp
+public TodosPage AddTodo(string text, string priority = "medium") => Enqueue<IPage>(async page =>
+{
+    await page.FillAsync("[data-testid='new-todo-input']", text).ConfigureAwait(false);
+    await page.SelectOptionAsync("[data-testid='priority-select']", priority).ConfigureAwait(false);
+    await page.ClickAsync("[data-testid='add-todo-btn']").ConfigureAwait(false);
+});
+```
+
+## Waiting for Elements
+
+### Auto-Waiting
+
+Playwright actions like `ClickAsync`, `FillAsync`, and `SelectOptionAsync` automatically wait for elements to be actionable. No additional wait configuration is needed in most cases.
+
+### Explicit Waits with WaitForAsync
+
+For elements that appear dynamically, use Playwright's `WaitForAsync` on a locator:
+
+```csharp
+public HomePage VerifyWelcomeVisible() => Enqueue<IPage>(async page =>
+{
+    await page.Locator("h2:has-text('Welcome')").WaitForAsync().ConfigureAwait(false);
+});
+
+public MyPage WaitForLoadingToFinish() => Enqueue<IPage>(async page =>
+{
+    await page.Locator(".loading-spinner")
+        .WaitForAsync(new() { State = WaitForSelectorState.Hidden })
+        .ConfigureAwait(false);
+});
+```
+
+### Playwright Expect Assertions
+
+Use `Assertions.Expect()` for assertions that auto-retry until a timeout:
+
+```csharp
+public MyPage VerifyVisible(string testId) => Enqueue<IPage>(async page =>
+{
+    await Assertions.Expect(page.GetByTestId(testId))
+        .ToBeVisibleAsync().ConfigureAwait(false);
+});
+
+public MyPage VerifyText(string testId, string expected) => Enqueue<IPage>(async page =>
+{
+    await Assertions.Expect(page.GetByTestId(testId))
+        .ToHaveTextAsync(expected).ConfigureAwait(false);
+});
+
+public MyPage VerifyUrl(string expected) => Enqueue<IPage>(async page =>
+{
+    await Assertions.Expect(page).ToHaveURLAsync(expected).ConfigureAwait(false);
+});
+```
+
+### Wait for Load State
+
+```csharp
+public MyPage WaitForDOMReady() => Enqueue<IPage>(async page =>
+{
+    await page.WaitForLoadStateAsync(LoadState.DOMContentLoaded).ConfigureAwait(false);
+});
+```
+
+Prefer `DOMContentLoaded` over `NetworkIdle` -- it saves 500ms+ per navigation and is sufficient for most SPA interactions.
+
+## Getting Text and Attribute Values
+
+Read values from the page within an `Enqueue` lambda and use them for assertions or further logic:
+
+```csharp
+public HomePage VerifyTitle(string expectedText) => Enqueue<IPage>(async page =>
+{
+    var title = await page.TitleAsync().ConfigureAwait(false);
+    if (!title.Contains(expectedText, StringComparison.OrdinalIgnoreCase))
+        throw new Exception($"Expected title to contain '{expectedText}' but was '{title}'.");
+});
+
+public MyPage VerifyAttribute(string testId, string attr, string expected) => Enqueue<IPage>(async page =>
+{
+    var value = await page.GetByTestId(testId)
+        .GetAttributeAsync(attr).ConfigureAwait(false);
+    Assert.AreEqual(expected, value);
+});
+
+public MyPage VerifyInputValue(string testId, string expected) => Enqueue<IPage>(async page =>
+{
+    var value = await page.GetByTestId(testId)
+        .InputValueAsync().ConfigureAwait(false);
+    Assert.AreEqual(expected, value);
+});
+```
+
+## Custom DI Services via Enqueue\<TService>
+
+`Enqueue<T>` is not limited to `IPage`. Any service registered in the session or root DI container can be injected.
+
+### IBrowserContext
+
+```csharp
+public MyPage ClearCookies() => Enqueue<IBrowserContext>(async context =>
+{
+    await context.ClearCookiesAsync().ConfigureAwait(false);
+});
+```
+
+### FluentUIScaffoldOptions
+
+```csharp
+public MyPage NavigateToSpecialPage() => Enqueue<IPage>(async page =>
+{
+    // Access options from the session provider
+    var options = ServiceProvider.GetRequiredService<FluentUIScaffoldOptions>();
+    var url = options.BaseUrl + "/special-page";
+    await page.GotoAsync(url).ConfigureAwait(false);
+});
+```
+
+### Multiple Services
+
+For actions requiring multiple services, use the parameterless `Enqueue` and resolve from `ServiceProvider` directly:
+
+```csharp
+public MyPage ComplexAction() => Enqueue(async () =>
+{
+    var page = ServiceProvider.GetRequiredService<IPage>();
+    var options = ServiceProvider.GetRequiredService<FluentUIScaffoldOptions>();
+
+    await page.GotoAsync(options.BaseUrl + "/dashboard").ConfigureAwait(false);
+});
+```
+
+Only two `Enqueue` overloads exist: `Enqueue(Func<Task>)` (no DI) and `Enqueue<T>(Func<T, Task>)` (one service). This covers the vast majority of cases. Use `ServiceProvider` directly when you need two or more services.
+
+## Complete Page Object Example
+
+```csharp
+using FluentUIScaffold.Core.Pages;
+using Microsoft.Playwright;
+
+[Route("/login")]
+public class LoginPage : Page<LoginPage>
+{
+    protected LoginPage(IServiceProvider serviceProvider) : base(serviceProvider) { }
+
+    public LoginPage EnterEmail(string email) => Enqueue<IPage>(async page =>
+    {
+        await page.FillAsync("[data-testid='email-input']", email).ConfigureAwait(false);
+    });
+
+    public LoginPage EnterPassword(string password) => Enqueue<IPage>(async page =>
+    {
+        await page.FillAsync("[data-testid='password-input']", password).ConfigureAwait(false);
+    });
+
+    public LoginPage Submit() => Enqueue<IPage>(async page =>
+    {
+        await page.ClickAsync("[data-testid='login-submit']").ConfigureAwait(false);
+    });
+
+    public LoginPage VerifyErrorMessage(string expected) => Enqueue<IPage>(async page =>
+    {
+        await Assertions.Expect(page.GetByTestId("error-message"))
+            .ToHaveTextAsync(expected).ConfigureAwait(false);
+    });
+
+    public DashboardPage LoginAs(string email, string password)
+    {
+        return EnterEmail(email)
+            .EnterPassword(password)
+            .Submit()
+            .NavigateTo<DashboardPage>();
+    }
 }
 ```
 
-### Working with Element Collections
+## Fluent Chaining
+
+All `Enqueue` methods return `TSelf`, enabling fluent chaining. The entire chain executes sequentially when awaited:
 
 ```csharp
-// Get all buttons
-var buttons = ElementCollection("#buttons button");
-
-// Get first button
-var firstButton = buttons.First();
-
-// Get last button
-var lastButton = buttons.Last();
-
-// Filter buttons by text
-var submitButtons = buttons.WithText("Submit");
-
-// Filter buttons by attribute
-var enabledButtons = buttons.WithAttribute("disabled", "false");
-
-// Custom filtering
-var visibleButtons = buttons.Where(button => button.IsVisible());
+await app.NavigateTo<LoginPage>()
+    .EnterEmail("admin@example.com")
+    .EnterPassword("secret")
+    .Submit();
 ```
 
-## Element Interactions
+### Cross-Page Chaining
 
-### Basic Interactions
+`NavigateTo<TTarget>()` freezes the current page and returns a new page that shares the same action queue. Subsequent calls enqueue on the target page:
 
 ```csharp
-var element = Element("#button");
-
-// Click element
-element.Click();
-
-// Type text
-element.Type("Hello World");
-
-// Select value (for dropdowns)
-element.Select("Option 1");
-
-// Get text
-string text = element.GetText();
-
-// Check visibility
-bool isVisible = element.IsVisible();
-
-// Check if enabled
-bool isEnabled = element.IsEnabled();
-
-// Wait for element
-element.WaitFor();
+await app.NavigateTo<LoginPage>()
+    .EnterEmail("admin@example.com")
+    .EnterPassword("secret")
+    .LoginAs("admin@example.com", "secret")  // Returns DashboardPage
+    .VerifyWelcomeText("Hello, Admin");       // Executes on DashboardPage
 ```
 
-### Advanced Interactions
-
-```csharp
-// Clear element
-element.Clear();
-
-// Get attribute value
-string href = element.GetAttribute("href");
-
-// Get CSS property
-string color = element.GetCssValue("color");
-
-// Execute JavaScript
-element.ExecuteScript("arguments[0].scrollIntoView();");
-
-// Take screenshot
-element.TakeScreenshot("element-screenshot.png");
-```
-
-## Element Selectors
-
-### CSS Selectors
-
-```csharp
-// ID selector
-var element = Element("#submit-button");
-
-// Class selector
-var element = Element(".btn-primary");
-
-// Attribute selector
-var element = Element("[data-testid='user-card']");
-
-// Complex selector
-var element = Element("div.container > button.btn[type='submit']");
-
-// Pseudo-selector
-var element = Element("input:focus");
-```
-
-### XPath Selectors
-
-```csharp
-// Basic XPath
-var element = Element("//button[@id='submit']");
-
-// XPath with text
-var element = Element("//button[contains(text(), 'Submit')]");
-
-// XPath with attribute
-var element = Element("//input[@type='email']");
-
-// XPath with position
-var element = Element("//div[@class='item'][1]");
-```
-
-### Data Attributes
-
-```csharp
-// Using data-testid
-var element = Element("[data-testid='submit-button']");
-
-// Using custom data attributes
-var element = Element("[data-user-id='123']");
-
-// Using multiple data attributes
-var element = Element("[data-role='admin'][data-status='active']");
-```
+Once a page is frozen (after `NavigateTo<T>()` is called on it), any attempt to enqueue on it throws `FrozenPageException`.
 
 ## Best Practices
 
-### 1. Descriptive Element Names
+### 1. Use data-testid Selectors
+
+Selectors based on `data-testid` attributes are stable across refactors and decoupled from presentation:
 
 ```csharp
-// Good - descriptive
-var emailInput = Element("#email")
-    .WithDescription("Email Input Field");
-
-// Bad - generic
-var input = Element("#email");
-```
-
-### 2. Appropriate Wait Strategies
-
-```csharp
-// For buttons that need to be clickable
-var button = Element("#submit")
-    .WithWaitStrategy(WaitStrategy.Clickable);
-
-// For loading spinners that should disappear
-var spinner = Element(".loading-spinner")
-    .WithWaitStrategy(WaitStrategy.Hidden);
-
-// For dynamic content
-var content = Element("#dynamic-content")
-    .WithWaitStrategy(WaitStrategy.Smart);
-```
-
-### 3. Reasonable Timeouts
-
-```csharp
-// Short timeout for fast elements
-var quickElement = Element("#instant-button")
-    .WithTimeout(TimeSpan.FromSeconds(5));
-
-// Longer timeout for slow elements
-var slowElement = Element("#slow-loading-element")
-    .WithTimeout(TimeSpan.FromSeconds(30));
-```
-
-### 4. Element Organization
-
-```csharp
-public class WellOrganizedPage : Page<WellOrganizedPage>
+// Preferred: stable, decoupled from CSS and layout
+public MyPage ClickSubmit() => Enqueue<IPage>(async page =>
 {
-    // Group related elements
-    public IElement EmailInput { get; private set; } = null!;
-    public IElement PasswordInput { get; private set; } = null!;
-    public IElement LoginButton { get; private set; } = null!;
+    await page.ClickAsync("[data-testid='submit-button']").ConfigureAwait(false);
+});
 
-    public WellOrganizedPage(IServiceProvider sp, Uri url) : base(sp, url) { }
-
-    protected override void ConfigureElements()
-    {
-        ConfigureLoginElements();
-    }
-
-    private void ConfigureLoginElements()
-    {
-        EmailInput = Element("#email")
-            .WithDescription("Email Input")
-            .WithWaitStrategy(WaitStrategy.Visible)
-            .Build();
-
-        PasswordInput = Element("#password")
-            .WithDescription("Password Input")
-            .WithWaitStrategy(WaitStrategy.Visible)
-            .Build();
-
-        LoginButton = Element("#login-btn")
-            .WithDescription("Login Button")
-            .WithWaitStrategy(WaitStrategy.Clickable)
-            .Build();
-    }
-}
+// Avoid: brittle, tied to CSS structure
+public MyPage ClickSubmit() => Enqueue<IPage>(async page =>
+{
+    await page.ClickAsync("div.form > button.btn-primary:last-child").ConfigureAwait(false);
+});
 ```
 
-### 5. Reusable Element Patterns
+### 2. Always Use ConfigureAwait(false)
+
+All `await` calls inside `Enqueue` lambdas should use `.ConfigureAwait(false)`. The framework's internal execution uses `ConfigureAwait(false)` throughout; your lambdas should follow the same pattern:
 
 ```csharp
-// Create reusable element patterns
-public static class ElementPatterns
+public MyPage DoSomething() => Enqueue<IPage>(async page =>
 {
-    public static IElement Button(string id) =>
-        Element($"#{id}")
-            .WithWaitStrategy(WaitStrategy.Clickable)
-            .WithDescription($"Button: {id}");
-    
-    public static IElement Input(string id) =>
-        Element($"#{id}")
-            .WithWaitStrategy(WaitStrategy.Visible)
-            .WithDescription($"Input: {id}");
-    
-    public static IElement Link(string text) =>
-        Element($"a:contains('{text}')")
-            .WithWaitStrategy(WaitStrategy.Visible)
-            .WithDescription($"Link: {text}");
-}
-
-// Usage
-var submitButton = ElementPatterns.Button("submit");
-var emailInput = ElementPatterns.Input("email");
-var homeLink = ElementPatterns.Link("Home");
+    await page.ClickAsync("[data-testid='btn']").ConfigureAwait(false);
+    await page.WaitForLoadStateAsync(LoadState.DOMContentLoaded).ConfigureAwait(false);
+});
 ```
 
-## Performance Optimization
+### 3. Keep Methods Small and Focused
 
-### Element Caching
+Each page method should do one logical thing. Compose via fluent chaining:
 
 ```csharp
-public class OptimizedPage : Page<OptimizedPage>
+// Good: each method does one thing
+public MyPage EnterEmail(string email) => Enqueue<IPage>(async page =>
 {
-    public IElement Button { get; private set; } = null!;
-    public IElement Input { get; private set; } = null!;
+    await page.FillAsync("[data-testid='email']", email).ConfigureAwait(false);
+});
 
-    public OptimizedPage(IServiceProvider sp, Uri url) : base(sp, url) { }
+public MyPage ClickSubmit() => Enqueue<IPage>(async page =>
+{
+    await page.ClickAsync("[data-testid='submit']").ConfigureAwait(false);
+});
 
-    protected override void ConfigureElements()
-    {
-        // Elements are automatically cached by ElementFactory
-        Button = Element("#button").Build();
-        Input = Element("#input").Build();
-    }
-
-    public OptimizedPage ClickButtonMultipleTimes(int times)
-    {
-        // Element is cached, no need to re-find
-        for (int i = 0; i < times; i++)
-        {
-            Button.Click();
-        }
-        return this;
-    }
-}
+// Compose via chaining
+public MyPage SubmitEmail(string email) =>
+    EnterEmail(email).ClickSubmit();
 ```
 
-### Lazy Loading
+### 4. Always Await the Chain
+
+Forgetting `await` means your actions are queued but never executed. In DEBUG builds, a finalizer warning will be emitted if a chain with queued actions is garbage collected without being awaited:
 
 ```csharp
-public class LazyPage : Page<LazyPage>
-{
-    private IElement? _lazyElement;
+// Correct: chain is awaited, actions execute
+await app.NavigateTo<HomePage>().ClickButton();
 
-    public LazyPage(IServiceProvider sp, Uri url) : base(sp, url) { }
-
-    protected override void ConfigureElements() { }
-
-    private IElement LazyElement => _lazyElement ??= Element("#lazy-loaded-element").Build();
-
-    public LazyPage InteractWithLazyElement()
-    {
-        // Element is only found when first accessed
-        LazyElement.Click();
-        return this;
-    }
-}
+// Wrong: actions are queued but never execute!
+app.NavigateTo<HomePage>().ClickButton(); // Missing await
 ```
 
-### Batch Operations
+### 5. Use Playwright Assertions Over Manual Checks
+
+Playwright's `Assertions.Expect()` auto-retries until timeout, making tests more resilient to timing issues:
 
 ```csharp
-public class BatchPage : Page<BatchPage>
+// Preferred: auto-retries until element has expected text
+public MyPage VerifyGreeting(string name) => Enqueue<IPage>(async page =>
 {
-    public BatchPage(IServiceProvider sp, Uri url) : base(sp, url) { }
+    await Assertions.Expect(page.GetByTestId("greeting"))
+        .ToHaveTextAsync($"Hello, {name}").ConfigureAwait(false);
+});
 
-    protected override void ConfigureElements() { }
-
-    public BatchPage FillMultipleInputs(Dictionary<string, string> data)
-    {
-        foreach (var item in data)
-        {
-            var element = Element($"#{item.Key}").Build();
-            element.Type(item.Value);
-        }
-        return this;
-    }
-
-    public BatchPage ClickMultipleButtons(List<string> buttonIds)
-    {
-        foreach (var id in buttonIds)
-        {
-            var element = Element($"#{id}").Build();
-            element.Click();
-        }
-        return this;
-    }
-}
+// Less resilient: single-shot check that can be flaky
+public MyPage VerifyGreeting(string name) => Enqueue<IPage>(async page =>
+{
+    var text = await page.GetByTestId("greeting").TextContentAsync().ConfigureAwait(false);
+    Assert.AreEqual($"Hello, {name}", text);
+});
 ```
 
 ## Error Handling
 
-### Element Not Found
+Exceptions inside `Enqueue` lambdas propagate to the `await` site. The chain uses fail-fast behavior: the first exception stops execution and subsequent actions are skipped.
 
 ```csharp
-public class RobustPage : Page<RobustPage>
+public MyPage ClickWithFallback() => Enqueue<IPage>(async page =>
 {
-    public RobustPage(IServiceProvider sp, Uri url) : base(sp, url) { }
-
-    protected override void ConfigureElements() { }
-
-    public RobustPage ClickButtonSafely()
+    try
     {
-        try
-        {
-            var button = Element("#button").Build();
-            button.Click();
-        }
-        catch (ElementTimeoutException ex)
-        {
-            // Log and use fallback logic
-            Driver.ExecuteScript("document.querySelector('#button').click();");
-        }
-        return this;
+        await page.ClickAsync("[data-testid='primary-btn']", new() { Timeout = 5000 })
+            .ConfigureAwait(false);
     }
-}
+    catch (TimeoutException)
+    {
+        await page.ClickAsync("[data-testid='secondary-btn']").ConfigureAwait(false);
+    }
+});
 ```
 
-### Retry Logic
+If `Enqueue<T>` cannot resolve the requested service from the session provider, it throws an `InvalidOperationException` at execution time with a message identifying both the service type and the page type.
+
+## Advanced Interactions
+
+### Keyboard and Mouse
 
 ```csharp
-public class RetryPage : Page<RetryPage>
+public MyPage PressEnter() => Enqueue<IPage>(async page =>
 {
-    public RetryPage(IServiceProvider sp, Uri url) : base(sp, url) { }
+    await page.Keyboard.PressAsync("Enter").ConfigureAwait(false);
+});
 
-    protected override void ConfigureElements() { }
+public MyPage TypeSlowly(string text) => Enqueue<IPage>(async page =>
+{
+    await page.GetByTestId("username")
+        .PressSequentiallyAsync(text).ConfigureAwait(false);
+});
 
-    public IElement GetElementWithRetry(string selector, int maxRetries = 3)
-    {
-        for (int i = 0; i < maxRetries; i++)
-        {
-            try
-            {
-                var element = Element(selector).Build();
-                element.WaitFor();
-                return element;
-            }
-            catch (ElementTimeoutException)
-            {
-                if (i == maxRetries - 1) throw;
-                Thread.Sleep(1000);
-            }
-        }
-
-        throw new ElementTimeoutException($"Element {selector} not found after {maxRetries} attempts");
-    }
-}
+public MyPage HoverOverMenu() => Enqueue<IPage>(async page =>
+{
+    await page.HoverAsync("[data-testid='menu-trigger']").ConfigureAwait(false);
+});
 ```
 
-## Testing Element Configuration
-
-### Unit Testing
+### JavaScript Execution
 
 ```csharp
-[TestClass]
-public class ElementConfigurationTests
+public MyPage ScrollToBottom() => Enqueue<IPage>(async page =>
 {
-    [TestMethod]
-    public void Element_WithDescription_ShouldSetDescription()
-    {
-        // Arrange
-        var element = Element("#button")
-            .WithDescription("Test Button");
-        
-        // Assert
-        Assert.AreEqual("Test Button", element.Description);
-    }
-    
-    [TestMethod]
-    public void Element_WithTimeout_ShouldSetTimeout()
-    {
-        // Arrange
-        var timeout = TimeSpan.FromSeconds(10);
-        var element = Element("#button")
-            .WithTimeout(timeout);
-        
-        // Assert
-        Assert.AreEqual(timeout, element.Timeout);
-    }
-    
-    [TestMethod]
-    public void Element_WithWaitStrategy_ShouldSetWaitStrategy()
-    {
-        // Arrange
-        var element = Element("#button")
-            .WithWaitStrategy(WaitStrategy.Clickable);
-        
-        // Assert
-        Assert.AreEqual(WaitStrategy.Clickable, element.WaitStrategy);
-    }
-}
+    await page.EvaluateAsync("window.scrollTo(0, document.body.scrollHeight)")
+        .ConfigureAwait(false);
+});
+
+public MyPage ClearLocalStorage() => Enqueue<IPage>(async page =>
+{
+    await page.EvaluateAsync("localStorage.clear()").ConfigureAwait(false);
+});
 ```
 
-### Integration Testing
+### Screenshots
 
 ```csharp
-[TestClass]
-public class ElementInteractionTests
+public MyPage TakeScreenshot(string path) => Enqueue<IPage>(async page =>
 {
-    private static AppScaffold<WebApp>? _app;
-
-    [ClassInitialize]
-    public static async Task ClassInitialize(TestContext context)
-    {
-        _app = new FluentUIScaffoldBuilder()
-            .UsePlugin(new PlaywrightPlugin())
-            .Web<WebApp>(opts =>
-            {
-                opts.BaseUrl = new Uri("https://your-app.com");
-            })
-            .WithAutoPageDiscovery()
-            .Build<WebApp>();
-
-        await _app.StartAsync();
-    }
-
-    [TestMethod]
-    public void Can_Interact_With_Configured_Element()
-    {
-        // Arrange
-        var page = _app!.NavigateTo<TestPage>();
-
-        // Act
-        page.InteractWithConfiguredElement();
-
-        // Assert
-        page.Verify.Visible(p => p.ResultElement);
-    }
-
-    [ClassCleanup]
-    public static async Task ClassCleanup()
-    {
-        if (_app != null)
-            await _app.DisposeAsync();
-    }
-}
+    await page.ScreenshotAsync(new PageScreenshotOptions { Path = path })
+        .ConfigureAwait(false);
+});
 ```
 
-## Conclusion
-
-Element configuration in FluentUIScaffold provides a powerful and flexible way to define element behavior. By following the best practices outlined in this guide, you can create robust and maintainable element configurations that handle various scenarios effectively.
-
-Key takeaways:
-
-- **Use descriptive names** for better logging and debugging
-- **Choose appropriate wait strategies** for different element types
-- **Set reasonable timeouts** based on element behavior
-- **Organize elements logically** for better maintainability
-- **Implement proper error handling** for robust tests
-- **Optimize performance** with caching and lazy loading
-
-For more information, see the [API Reference](api-reference.md) and [Page Object Pattern](page-object-pattern.md) guides. 
+For more information, see the [API Reference](api-reference.md) and [Playwright Integration](playwright-integration.md) guides.

@@ -2,7 +2,9 @@
 
 ## Overview
 
-FluentUIScaffold is a framework-agnostic E2E testing library that provides a fluent API for building maintainable and reusable UI test automation. It abstracts underlying testing frameworks (Playwright, Selenium) while providing a consistent developer experience.
+FluentUIScaffold is a framework-agnostic E2E testing library that provides a deferred execution chain pattern for building maintainable UI test automation. Pages queue actions via `Enqueue<T>` that execute sequentially when the chain is awaited. The framework abstracts the underlying testing framework (currently Playwright) while giving tests direct access to the native API.
+
+The framework's core value is **hosting orchestration + structured page objects + fluent deferred execution chains** -- not wrapping Playwright's API.
 
 ## Core Architecture
 
@@ -11,22 +13,28 @@ FluentUIScaffold is a framework-agnostic E2E testing library that provides a flu
 ```csharp
 // Build and configure the application scaffold
 var app = new FluentUIScaffoldBuilder()
-    .UsePlugin(new PlaywrightPlugin())
+    .UsePlaywright()
     .Web<WebApp>(opts =>
     {
         opts.BaseUrl = new Uri("https://localhost:5001");
-        opts.DefaultWaitTimeout = TimeSpan.FromSeconds(30);
     })
-    .WithAutoPageDiscovery()
     .Build<WebApp>();
 
-// Start the application (async-first design)
+// Start hosting + initialize browser (async-first design)
 await app.StartAsync();
 
-// Use the app for testing
-app.NavigateTo<HomePage>();
+// Per-test: create an isolated browser session
+await app.CreateSessionAsync();
 
-// Clean up when done
+// Navigate and interact via awaitable page chains
+await app.NavigateTo<HomePage>()
+    .VerifyWelcomeVisible()
+    .ClickGetStarted();
+
+// Per-test: dispose the session
+await app.DisposeSessionAsync();
+
+// Clean up when done (assembly teardown)
 await app.DisposeAsync();
 ```
 
@@ -36,448 +44,724 @@ await app.DisposeAsync();
 public class FluentUIScaffoldOptions
 {
     public Uri? BaseUrl { get; set; }
+    public bool? HeadlessMode { get; set; } = null;  // null = auto (debugger/CI)
+    public int? SlowMo { get; set; } = null;         // null = auto (debugger/CI)
     public TimeSpan DefaultWaitTimeout { get; set; } = TimeSpan.FromSeconds(30);
-    public bool? HeadlessMode { get; set; } = null; // null = automatic (debugger/CI)
-    public int? SlowMo { get; set; } = null;        // null = automatic (debugger/CI)
-    public Type? RequestedDriverType { get; set; }
 }
 ```
 
-## Framework Plugin System
+## Plugin System
 
 ### Plugin Interface
 
 ```csharp
-public interface IUITestingFrameworkPlugin
+public interface IUITestingPlugin : IAsyncDisposable
 {
-    string Name { get; }
-    string Version { get; }
-    Type[] SupportedDriverTypes { get; }
-    bool CanHandle(Type driverType);
-    IUIDriver CreateDriver(FluentUIScaffoldOptions options);
     void ConfigureServices(IServiceCollection services);
+    Task InitializeAsync(FluentUIScaffoldOptions options, CancellationToken ct = default);
+    Task<IBrowserSession> CreateSessionAsync(IServiceProvider rootProvider);
 }
 ```
+
+The plugin owns the browser singleton, configures shared DI services, and acts as a factory for per-test browser sessions. There is no separate factory interface -- `CreateSessionAsync()` lives directly on the plugin.
 
 ### Plugin Registration
 
 ```csharp
-// Explicit registration (recommended)
+// Explicit registration
 var builder = new FluentUIScaffoldBuilder();
 builder.UsePlugin(new PlaywrightPlugin());
+
+// Convenience extension method
+builder.UsePlaywright();
 ```
 
-### Built-in Plugins
+### PlaywrightPlugin
 
 ```csharp
-// Playwright Plugin
-public class PlaywrightPlugin : IUITestingFrameworkPlugin
+public class PlaywrightPlugin : IUITestingPlugin
 {
-    public string Name => "Playwright";
-    public string Version => "1.0.0";
-    public Type[] SupportedDriverTypes => new[] { typeof(PlaywrightDriver) };
-
-    public bool CanHandle(Type driverType) => driverType == typeof(PlaywrightDriver);
-    public IUIDriver CreateDriver(FluentUIScaffoldOptions options) => new PlaywrightDriver(options);
-    public void ConfigureServices(IServiceCollection services) { /* ... */ }
+    // InitializeAsync: creates IPlaywright, launches IBrowser (singleton)
+    // CreateSessionAsync: creates IBrowserContext + IPage (isolated per test)
+    // DisposeAsync: closes browser, disposes Playwright
 }
 ```
 
-## Base Classes and Interfaces
+## Browser Sessions
 
-### Page Base Class
+### IBrowserSession
 
 ```csharp
-public abstract class Page<TSelf> : IPage<TSelf>, IAsyncDisposable
-    where TSelf : Page<TSelf>
+public interface IBrowserSession : IAsyncDisposable
 {
-    protected Page(IServiceProvider serviceProvider, Uri urlPattern);
+    Task NavigateToUrlAsync(Uri url);
+    IServiceProvider ServiceProvider { get; }
+}
+```
 
-    // DI-resolved properties
+Each session represents an isolated browser context (like an incognito window) with its own cookies, localStorage, and cache. Sessions are cheap to create (~70-130ms) and independently disposable.
+
+### Session Service Provider
+
+Each session has a `SessionServiceProvider` that resolves session-scoped services first, then falls back to the root provider:
+
+| Session Service | Description |
+|----------------|-------------|
+| `IPage` | Playwright page for this test |
+| `IBrowserContext` | Playwright browser context for this test |
+| `IBrowser` | Shared Playwright browser instance |
+
+Root services (logging, options, hosting, Aspire `DistributedApplication`) are resolved via fallback. There is no dual-provider concept -- pages receive a single `IServiceProvider` that handles both session and root resolution.
+
+### Session Lifecycle
+
+Sessions are created and disposed per test. `AppScaffold` tracks the current session via `AsyncLocal<IBrowserSession>` for parallel test safety.
+
+```csharp
+// In TestInitialize
+await app.CreateSessionAsync();
+
+// In TestCleanup
+await app.DisposeSessionAsync();
+```
+
+## AppScaffold
+
+### Application Orchestrator
+
+```csharp
+public class AppScaffold<TWebApp> : IAsyncDisposable
+{
     public IServiceProvider ServiceProvider { get; }
-    public IUIDriver Driver { get; }
-    public Uri UrlPattern { get; }
-    protected ILogger Logger { get; }
-    protected FluentUIScaffoldOptions Options { get; }
 
-    // Element Building
-    protected ElementBuilder Element(string selector);
+    // Lifecycle
+    public Task StartAsync(CancellationToken ct = default);
+    public ValueTask DisposeAsync();
 
-    // Abstract Configuration
-    protected abstract void ConfigureElements();
+    // Session management (per-test)
+    public Task<IBrowserSession> CreateSessionAsync();
+    public Task DisposeSessionAsync();
 
-    // Fluent Navigation (returns TSelf)
-    public virtual TSelf Navigate();
-    public TSelf NavigateAndWait(Uri url);
+    // Page navigation (requires active session)
+    public TPage NavigateTo<TPage>() where TPage : Page<TPage>;
+    public TPage NavigateTo<TPage>(object routeParams) where TPage : Page<TPage>;
+    public TPage On<TPage>() where TPage : Page<TPage>;
 
-    // Cross-Page Navigation
+    // Service resolution
+    public T GetService<T>() where T : notnull;
+}
+```
+
+- `NavigateTo<TPage>()` synchronously creates the page via `ActivatorUtilities.CreateInstance` with the session provider, enqueues navigation to the page's `[Route]` URL, and returns the page for chaining.
+- `NavigateTo<TPage>()` throws `InvalidOperationException` if no session is active: `"No browser session is active. Call CreateSessionAsync() in [TestInitialize] before navigating."`
+- `NavigateTo<TPage>(object routeParams)` supports parameterized routes with `{param}` placeholders.
+- `On<TPage>()` resolves a page without enqueuing navigation (for asserting current page state).
+
+## Page Base Class
+
+### Deferred Execution Chain Builder
+
+`Page<TSelf>` is the core abstraction. It is an awaitable chain builder -- page methods queue actions internally, and `GetAwaiter()` executes them all when the chain is awaited.
+
+```csharp
+public abstract class Page<TSelf> where TSelf : Page<TSelf>
+{
+    // Public constructor -- AppScaffold.NavigateTo creates initial page with fresh action list
+    protected Page(IServiceProvider serviceProvider);
+
+    // Internal constructor -- Page.NavigateTo passes shared action list for cross-page chains
+    internal Page(IServiceProvider serviceProvider, List<Func<IServiceProvider, Task>> sharedActions);
+
+    // Properties
+    protected IServiceProvider ServiceProvider { get; }
+    protected TSelf Self { get; }
+
+    // Enqueue actions for deferred execution
+    protected TSelf Enqueue(Func<Task> action);             // no DI
+    protected TSelf Enqueue<T>(Func<T, Task> action);       // 1 service resolved from DI
+
+    // Cross-page navigation (freezes current page, shares action queue)
     public TTarget NavigateTo<TTarget>() where TTarget : Page<TTarget>;
 
-    // Fluent Interactions (all return TSelf)
-    public TSelf Click(Func<TSelf, IElement> elementSelector);
-    public TSelf Type(Func<TSelf, IElement> elementSelector, string text);
-    public TSelf Select(Func<TSelf, IElement> elementSelector, string option);
-    public TSelf WaitForElement(Func<TSelf, IElement> elementSelector);
-    public TSelf WaitForVisible(Func<TSelf, IElement> elementSelector);
-    public TSelf WaitForHidden(Func<TSelf, IElement> elementSelector);
-
-    // Verification
-    public IVerificationContext<TSelf> Verify { get; }
-
-    // Validation
-    public virtual bool IsCurrentPage();
-    public virtual void ValidateCurrentPage();
+    // Makes the chain awaitable
+    public TaskAwaiter GetAwaiter();
 }
 ```
 
-### Page Interface
+### Key Behaviors
+
+- **Deferred execution:** Actions enqueued via `Enqueue()` do not execute immediately. They run sequentially when the chain is `await`ed.
+- **Fluent chaining:** All `Enqueue` calls return `TSelf`, enabling method chaining.
+- **DI resolution at execution time:** `Enqueue<T>()` resolves the service from `IServiceProvider` when the action runs, not when it is enqueued.
+- **Shared action queue:** `NavigateTo<TTarget>()` freezes the current page and creates the target page sharing the same action list. The entire chain executes as one unit when any page in the chain is awaited.
+- **Freeze semantics:** After `NavigateTo<T>()`, the source page is frozen. Any subsequent `Enqueue` or `NavigateTo` calls on a frozen page throw `FrozenPageException`.
+- **Fail-fast:** The first exception stops the chain immediately; subsequent queued actions are skipped.
+- **Double-await safety:** Awaiting an already-consumed chain is a no-op (consistent with `Task` behavior).
+- **Unawaited chain detection:** In DEBUG builds, a finalizer warns if actions were queued but never executed.
+- **ConfigureAwait:** All internal awaits use `ConfigureAwait(false)`. The `Task` returned by `GetAwaiter()` does NOT -- the caller's `SynchronizationContext` controls the final continuation.
+
+### Two Enqueue Overloads
+
+Only two overloads are provided. For actions needing multiple services, resolve from `IServiceProvider` directly:
 
 ```csharp
-public interface IPage<TSelf> where TSelf : IPage<TSelf>
-{
-    IServiceProvider ServiceProvider { get; }
-    IUIDriver Driver { get; }
-    Uri UrlPattern { get; }
+// No DI -- simple deferred action
+protected TSelf Enqueue(Func<Task> action);
 
-    TSelf Navigate();
-    TSelf NavigateAndWait(Uri url);
-    TTarget NavigateTo<TTarget>() where TTarget : Page<TTarget>;
-    IVerificationContext<TSelf> Verify { get; }
+// 1 service -- covers the vast majority of cases
+protected TSelf Enqueue<T>(Func<T, Task> action);
+
+// For 2+ services, use the no-DI overload with manual resolution:
+Enqueue(async () =>
+{
+    var page = ServiceProvider.GetRequiredService<IPage>();
+    var logger = ServiceProvider.GetRequiredService<ILogger<MyPage>>();
+    // ...
+});
+```
+
+### Route Attribute
+
+```csharp
+[AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = true)]
+public sealed class RouteAttribute : Attribute
+{
+    public string Path { get; }
+    public RouteAttribute(string path);
 }
 ```
 
-### Driver Abstraction
+#### Static Routes
 
 ```csharp
-public interface IUIDriver : IDisposable
+[Route("/login")]
+public class LoginPage : Page<LoginPage>
 {
-    Uri? CurrentUrl { get; }
-    void Click(string selector);
-    void Type(string selector, string text);
-    void SelectOption(string selector, string value);
-    string GetText(string selector);
-    string GetAttribute(string selector, string attributeName);
-    string GetValue(string selector);
-    bool IsVisible(string selector);
-    bool IsEnabled(string selector);
-    void WaitForElement(string selector);
-    void WaitForElementToBeVisible(string selector);
-    void WaitForElementToBeHidden(string selector);
-    void Focus(string selector);
-    void Hover(string selector);
-    void Clear(string selector);
-    string GetPageTitle();
-    void NavigateToUrl(Uri url);
-    TTarget NavigateTo<TTarget>() where TTarget : class;
-    TDriver GetFrameworkDriver<TDriver>() where TDriver : class;
+    public LoginPage(IServiceProvider services) : base(services) { }
 }
+
+// Navigates to: BaseUrl + "/login"
+await app.NavigateTo<LoginPage>();
 ```
 
-## Element Configuration
-
-### Fluent Element Configuration
+#### Parameterized Routes
 
 ```csharp
-public class RosterDetailsPage : Page<RosterDetailsPage>
+[Route("/users/{userId}")]
+public class UserProfilePage : Page<UserProfilePage>
 {
-    public IElement RosterGrid { get; private set; } = null!;
-    public IElement AddShiftButton { get; private set; } = null!;
-    public IElement EmployeeDropdown { get; private set; } = null!;
+    public UserProfilePage(IServiceProvider services) : base(services) { }
 
-    public RosterDetailsPage(IServiceProvider sp, Uri url) : base(sp, url) { }
-
-    protected override void ConfigureElements()
-    {
-        RosterGrid = Element("#roster-grid")
-            .WithTimeout(TimeSpan.FromSeconds(10))
-            .WithWaitStrategy(WaitStrategy.Visible)
-            .Build();
-
-        AddShiftButton = Element(".add-shift-btn")
-            .WithDescription("Add Shift Button")
-            .WithWaitStrategy(WaitStrategy.Clickable)
-            .Build();
-
-        EmployeeDropdown = Element("[data-testid='employee-dropdown']")
-            .WithRetryInterval(TimeSpan.FromMilliseconds(200))
-            .Build();
-    }
-}
-
-public interface IElement
-{
-    string Selector { get; }
-    string Description { get; }
-    TimeSpan Timeout { get; }
-    WaitStrategy WaitStrategy { get; }
-
-    void Click();
-    void Type(string text);
-    void Select(string value);
-    string GetText();
-    bool IsVisible();
-    bool IsEnabled();
-    void WaitFor();
-}
-```
-
-## Wait Strategies
-
-```csharp
-public enum WaitStrategy
-{
-    None,
-    Visible,
-    Hidden,
-    Clickable,
-    Enabled,
-    Disabled,
-    TextPresent,
-    Smart // Framework-specific intelligent waiting
-}
-
-public class WaitStrategyConfig
-{
-    public TimeSpan Timeout { get; set; } = TimeSpan.FromSeconds(30);
-    public TimeSpan RetryInterval { get; set; } = TimeSpan.FromMilliseconds(500);
-    public string ExpectedText { get; set; }
-    public bool IgnoreExceptions { get; set; }
-}
-```
-
-## Verification System
-
-```csharp
-public interface IVerificationContext<TSelf>
-{
-    // Element verifications (fluent with lambda selectors)
-    IVerificationContext<TSelf> Visible(Func<TSelf, IElement> elementSelector);
-    IVerificationContext<TSelf> Hidden(Func<TSelf, IElement> elementSelector);
-    IVerificationContext<TSelf> Enabled(Func<TSelf, IElement> elementSelector);
-    IVerificationContext<TSelf> Disabled(Func<TSelf, IElement> elementSelector);
-    IVerificationContext<TSelf> TextContains(Func<TSelf, IElement> elementSelector, string text);
-    IVerificationContext<TSelf> HasAttribute(Func<TSelf, IElement> elementSelector, string attribute, string value);
-
-    // Page verifications
-    IVerificationContext<TSelf> CurrentPageIs<TPage>() where TPage : Page<TPage>;
-    IVerificationContext<TSelf> UrlMatches(string pattern);
-    IVerificationContext<TSelf> TitleContains(string text);
-
-    // Custom verifications
-    IVerificationContext<TSelf> That(Func<bool> condition, string description);
-    IVerificationContext<TSelf> That<T>(Func<T> actual, Func<T, bool> condition, string description);
-}
-```
-
-## Example Page Implementation
-
-```csharp
-public class RosterDetailsPage : Page<RosterDetailsPage>
-{
-    public override Uri UrlPattern => new Uri("/roster/details/{rosterId:int}", UriKind.Relative);
-
-    // Elements configured in ConfigureElements()
-    public IElement RosterGrid { get; private set; } = null!;
-    public IElement AddShiftButton { get; private set; } = null!;
-    public IElement EmployeeDropdown { get; private set; } = null!;
-    public IElement StartTimeInput { get; private set; } = null!;
-    public IElement EndTimeInput { get; private set; } = null!;
-    public IElement SaveButton { get; private set; } = null!;
-
-    public RosterDetailsPage(IServiceProvider sp, Uri url) : base(sp, url) { }
-
-    protected override void ConfigureElements()
-    {
-        RosterGrid = Element("#roster-grid").Build();
-        AddShiftButton = Element(".add-shift-btn").Build();
-        EmployeeDropdown = Element("[data-testid='employee-dropdown']").Build();
-        StartTimeInput = Element("#start-time").Build();
-        EndTimeInput = Element("#end-time").Build();
-        SaveButton = Element(".save-btn").Build();
-    }
-
-    // Custom action methods (return this for fluent chaining)
-    public RosterDetailsPage OpenRoster(int rosterId)
-    {
-        Logger.LogInformation($"Opening roster {rosterId}");
-        Driver.NavigateToUrl(new Uri($"/roster/details/{rosterId}", UriKind.Relative));
-        ValidateCurrentPage();
-        return this;
-    }
-
-    public RosterDetailsPage AddShift(RosterShift shift)
-    {
-        Logger.LogInformation($"Adding shift for employee {shift.EmployeeId}");
-
-        return this
-            .Click(p => p.AddShiftButton)
-            .Select(p => p.EmployeeDropdown, shift.EmployeeId.ToString())
-            .Type(p => p.StartTimeInput, shift.StartTime.ToString("HH:mm"))
-            .Type(p => p.EndTimeInput, shift.EndTime.ToString("HH:mm"))
-            .Click(p => p.SaveButton);
-    }
-
-    public HomePage NavigateToHome()
-    {
-        return NavigateTo<HomePage>();
-    }
-
-    // Custom verification methods
-    public RosterDetailsPage VerifyShiftAdded(RosterShift shift)
-    {
-        var shiftSelector = $".shift-row[data-employee-id='{shift.EmployeeId}']";
-
-        Verify
-            .That(() => Driver.IsVisible(shiftSelector), $"Shift row visible for employee {shift.EmployeeId}")
-            .That(() => Driver.GetText($"{shiftSelector} .start-time").Contains(shift.StartTime.ToString("HH:mm")), "Start time matches");
-
-        return this;
-    }
-}
-```
-
-## Usage Example
-
-```csharp
-[TestClass]
-public class RosterTests
-{
-    private static AppScaffold<WebApp>? _app;
-
-    [ClassInitialize]
-    public static async Task ClassInitialize(TestContext context)
-    {
-        _app = new FluentUIScaffoldBuilder()
-            .UsePlugin(new PlaywrightPlugin())
-            .Web<WebApp>(opts =>
-            {
-                opts.BaseUrl = new Uri("https://localhost:5001");
-                opts.DefaultWaitTimeout = TimeSpan.FromSeconds(30);
-            })
-            .WithAutoPageDiscovery()
-            .Build<WebApp>();
-
-        await _app.StartAsync();
-    }
-
-    [ClassCleanup]
-    public static async Task ClassCleanup()
-    {
-        if (_app != null)
-            await _app.DisposeAsync();
-    }
-
-    [TestMethod]
-    public void Can_Add_Shift_To_Roster()
-    {
-        var rosterId = 123;
-        var shift = new RosterShift
+    public UserProfilePage VerifyDisplayName(string expected)
+        => Enqueue(async (IPage page) =>
         {
-            StartTime = DateTime.Now.AddHours(1),
-            EndTime = DateTime.Now.AddHours(2),
-            EmployeeId = 456
-        };
-
-        _app!.NavigateTo<RosterDetailsPage>()
-            .OpenRoster(rosterId)
-            .AddShift(shift)
-            .VerifyShiftAdded(shift)
-            .NavigateTo<HomePage>()
-            .Verify.Visible(p => p.RosterSchedule);
-    }
+            await Assertions.Expect(page.GetByTestId("display-name"))
+                .ToHaveTextAsync(expected);
+        });
 }
+
+// Navigates to: BaseUrl + "/users/42"
+await app.NavigateTo<UserProfilePage>(new { userId = "42" })
+    .VerifyDisplayName("Jane Doe");
+
+// Multiple parameters
+[Route("/users/{userId}/posts/{postId}")]
+public class UserPostPage : Page<UserPostPage> { /* ... */ }
+
+await app.NavigateTo<UserPostPage>(new { userId = "456", postId = "789" });
 ```
 
-## Framework-Specific Features
+## Example Page Implementations
+
+### Basic Page Object
 
 ```csharp
-// Accessing Playwright-specific features
-var page = app.Framework<IPage>();
-await page.ScreenshotAsync(new PageScreenshotOptions { Path = "screenshot.png" });
-```
-
-## Error Handling and Debugging
-
-```csharp
-public class FluentUIScaffoldException : Exception
+[Route("/")]
+public class HomePage : Page<HomePage>
 {
-    public string ScreenshotPath { get; set; }
-    public string DOMState { get; set; }
-    public string CurrentUrl { get; set; }
-    public Dictionary<string, object> Context { get; set; }
-}
+    public HomePage(IServiceProvider services) : base(services) { }
 
-public class InvalidPageException : FluentUIScaffoldException { }
-public class ElementNotFoundException : FluentUIScaffoldException { }
-public class TimeoutException : FluentUIScaffoldException { }
+    public HomePage VerifyWelcomeVisible()
+        => Enqueue(async (IPage page) =>
+        {
+            await Assertions.Expect(page.GetByTestId("welcome-message"))
+                .ToBeVisibleAsync();
+        });
+
+    public HomePage ClickGetStarted()
+        => Enqueue(async (IPage page) =>
+        {
+            await page.GetByRole(AriaRole.Link, new() { Name = "Get Started" })
+                .ClickAsync();
+        });
+
+    public HomePage SearchFor(string query)
+        => Enqueue(async (IPage page) =>
+        {
+            await page.GetByPlaceholder("Search products...").FillAsync(query);
+            await page.GetByRole(AriaRole.Button, new() { Name = "Search" }).ClickAsync();
+        });
+
+    // Cross-page navigation: search and transition to results
+    public SearchResultsPage SearchAndNavigate(string query)
+        => Enqueue(async (IPage page) =>
+        {
+            await page.GetByPlaceholder("Search products...").FillAsync(query);
+            await page.GetByRole(AriaRole.Button, new() { Name = "Search" }).ClickAsync();
+            await page.WaitForURLAsync("**/search**");
+        }).NavigateTo<SearchResultsPage>();
+}
 ```
 
-## Logging Integration
+### Page with Complex Interactions
 
 ```csharp
-public interface IFluentUIScaffoldLogger
+[Route("/")]
+public class CarouselPage : Page<CarouselPage>
 {
-    void LogAction(string action, string target, Dictionary<string, object> context);
-    void LogNavigation(string from, string to, TimeSpan duration);
-    void LogVerification(string verification, bool success, string details);
-    void LogError(Exception exception, Dictionary<string, object> context);
+    public CarouselPage(IServiceProvider services) : base(services) { }
+
+    public CarouselPage SelectItemFromCarousel(int index)
+        => Enqueue(async (IPage page) =>
+        {
+            var carousel = page.Locator(".carousel");
+            var targetItem = carousel.Locator($"[data-index='{index}']");
+
+            // Use Playwright's full API -- conditionals, waits, everything
+            if (!await targetItem.IsVisibleAsync())
+            {
+                var nextBtn = carousel.GetByRole(AriaRole.Button, new() { Name = "Next" });
+                while (!await targetItem.IsVisibleAsync())
+                    await nextBtn.ClickAsync();
+            }
+
+            await targetItem.ClickAsync();
+        });
 }
+```
+
+### Page with Verification
+
+Verification uses Playwright's `Assertions.Expect()` directly, which provides built-in auto-retry:
+
+```csharp
+[Route("/search")]
+public class SearchResultsPage : Page<SearchResultsPage>
+{
+    public SearchResultsPage(IServiceProvider services) : base(services) { }
+
+    public SearchResultsPage VerifyResultCount(int expected)
+        => Enqueue(async (IPage page) =>
+        {
+            await Assertions.Expect(page.Locator(".result-count"))
+                .ToHaveTextAsync($"{expected} results");
+        });
+
+    public SearchResultsPage ClickProduct(int index)
+        => Enqueue(async (IPage page) =>
+        {
+            await page.Locator($".product-card:nth-child({index + 1})").ClickAsync();
+        });
+}
+```
+
+### Form Interaction Page
+
+```csharp
+[Route("/login")]
+public class LoginPage : Page<LoginPage>
+{
+    public LoginPage(IServiceProvider services) : base(services) { }
+
+    public LoginPage EnterCredentials(string username, string password)
+        => Enqueue(async (IPage page) =>
+        {
+            await page.GetByLabel("Username").FillAsync(username);
+            await page.GetByLabel("Password").FillAsync(password);
+        });
+
+    public LoginPage Submit()
+        => Enqueue(async (IPage page) =>
+        {
+            await page.GetByRole(AriaRole.Button, new() { Name = "Sign In" }).ClickAsync();
+        });
+
+    public HomePage LoginAs(string username, string password)
+        => EnterCredentials(username, password)
+            .Submit()
+            .NavigateTo<HomePage>();
+}
+```
+
+### Domain-Specific Page with Composition
+
+```csharp
+[Route("/roster/details/{rosterId}")]
+public class RosterDetailsPage : Page<RosterDetailsPage>
+{
+    public RosterDetailsPage(IServiceProvider sp) : base(sp) { }
+
+    public RosterDetailsPage ClickAddShift() => Enqueue(async (IPage page) =>
+    {
+        await page.ClickAsync("[data-testid='add-shift-btn']");
+    });
+
+    public RosterDetailsPage SelectEmployee(string employeeId) => Enqueue(async (IPage page) =>
+    {
+        await page.SelectOptionAsync("[data-testid='employee-dropdown']", employeeId);
+    });
+
+    public RosterDetailsPage EnterStartTime(string time) => Enqueue(async (IPage page) =>
+    {
+        await page.FillAsync("#start-time", time);
+    });
+
+    public RosterDetailsPage EnterEndTime(string time) => Enqueue(async (IPage page) =>
+    {
+        await page.FillAsync("#end-time", time);
+    });
+
+    public RosterDetailsPage Save() => Enqueue(async (IPage page) =>
+    {
+        await page.ClickAsync("[data-testid='save-btn']");
+    });
+
+    // Compose smaller actions into domain-level operations
+    public RosterDetailsPage AddShift(string employeeId, string start, string end) =>
+        ClickAddShift()
+            .SelectEmployee(employeeId)
+            .EnterStartTime(start)
+            .EnterEndTime(end)
+            .Save();
+
+    public RosterDetailsPage VerifyShiftAdded(string employeeId) => Enqueue(async (IPage page) =>
+    {
+        var shiftRow = page.Locator($".shift-row[data-employee-id='{employeeId}']");
+        await Assertions.Expect(shiftRow).ToBeVisibleAsync();
+    });
+
+    public HomePage NavigateToHome() => NavigateTo<HomePage>();
+}
+```
+
+## Cross-Page Navigation Chains
+
+`NavigateTo<TTarget>()` on a page freezes the current page and returns the target page sharing the same action queue. The entire chain executes when awaited:
+
+```csharp
+// Continuous chain across multiple pages
+await app.NavigateTo<HomePage>()
+    .SearchFor("laptop")               // HomePage method
+    .NavigateTo<SearchResultsPage>()   // freezes HomePage, returns SearchResultsPage
+    .VerifyResultCount(5)              // SearchResultsPage method
+    .ClickProduct(0)
+    .NavigateTo<ProductDetailPage>()   // freezes SearchResultsPage, returns ProductDetailPage
+    .VerifyPrice("$999");              // await executes entire chain in order
 ```
 
 ## Component Transitions
 
 ```csharp
+[Route("/")]
 public class HomePage : Page<HomePage>
 {
-    public IElement RosterLink { get; private set; } = null!;
-    public IElement DeleteRosterButton { get; private set; } = null!;
+    public HomePage(IServiceProvider sp) : base(sp) { }
 
-    public HomePage(IServiceProvider sp, Uri url) : base(sp, url) { }
-
-    protected override void ConfigureElements()
+    public HomePage VerifyRosterScheduleVisible() => Enqueue(async (IPage page) =>
     {
-        RosterLink = Element(".roster-link").Build();
-        DeleteRosterButton = Element(".delete-roster").Build();
-    }
+        await Assertions.Expect(page.Locator(".roster-schedule")).ToBeVisibleAsync();
+    });
 
     public RosterDetailsPage OpenRosterDetails(int rosterId)
     {
-        Driver.Click($".roster-link[data-roster-id='{rosterId}']");
+        Enqueue(async (IPage page) =>
+        {
+            await page.ClickAsync($".roster-link[data-roster-id='{rosterId}']");
+        });
         return NavigateTo<RosterDetailsPage>();
     }
 
     public ConfirmationDialog DeleteRoster(int rosterId)
     {
-        Driver.Click($".delete-roster[data-roster-id='{rosterId}']");
+        Enqueue(async (IPage page) =>
+        {
+            await page.ClickAsync($".delete-roster[data-roster-id='{rosterId}']");
+        });
         return NavigateTo<ConfirmationDialog>();
     }
 }
 
 public class ConfirmationDialog : Page<ConfirmationDialog>
 {
-    public IElement ConfirmButton { get; private set; } = null!;
-    public IElement CancelButton { get; private set; } = null!;
+    public ConfirmationDialog(IServiceProvider sp) : base(sp) { }
 
-    public ConfirmationDialog(IServiceProvider sp, Uri url) : base(sp, url) { }
-
-    protected override void ConfigureElements()
+    public HomePage Confirm()
     {
-        ConfirmButton = Element(".confirm-button").Build();
-        CancelButton = Element(".cancel-button").Build();
+        Enqueue(async (IPage page) =>
+        {
+            await page.ClickAsync("[data-testid='confirm']");
+        });
+        return NavigateTo<HomePage>();
     }
 
-    public HomePage ConfirmDelete()
+    public HomePage Cancel()
     {
-        return Click(p => p.ConfirmButton)
-            .NavigateTo<HomePage>();
-    }
-
-    public HomePage CancelDelete()
-    {
-        return Click(p => p.CancelButton)
-            .NavigateTo<HomePage>();
+        Enqueue(async (IPage page) =>
+        {
+            await page.ClickAsync("[data-testid='cancel']");
+        });
+        return NavigateTo<HomePage>();
     }
 }
 ```
 
-This specification provides a comprehensive foundation for the FluentUIScaffold E2E testing framework, supporting all features while maintaining flexibility for future enhancements.
+## Hosting Strategies
+
+Hosting is orthogonal to the plugin/session architecture. All strategies implement `IHostingStrategy`:
+
+### DotNetHostingStrategy
+Manages .NET application lifecycle via `dotnet run` with HTTP readiness probing.
+
+### NodeHostingStrategy
+Manages Node.js application lifecycle via `npm run` with environment variable configuration.
+
+### ExternalHostingStrategy
+For pre-started servers (CI environments, staging) with health check only.
+
+### AspireHostingStrategy
+Wraps `DistributedApplicationTestingBuilder` for full Aspire distributed application lifecycle with resource-based URL discovery.
+
+## Usage Examples
+
+### Standard Test Setup
+
+```csharp
+[TestClass]
+public class TestAssemblyHooks
+{
+    private static AppScaffold<WebApp>? _app;
+
+    [AssemblyInitialize]
+    public static async Task Init(TestContext context)
+    {
+        _app = new FluentUIScaffoldBuilder()
+            .UsePlaywright()
+            .Web<WebApp>(opts => opts.BaseUrl = new Uri("http://localhost:5000"))
+            .Build<WebApp>();
+
+        await _app.StartAsync();
+    }
+
+    [AssemblyCleanup]
+    public static async Task Cleanup() => await _app!.DisposeAsync();
+
+    public static AppScaffold<WebApp> App => _app!;
+}
+
+[TestClass]
+public class TestBase
+{
+    [TestInitialize]
+    public async Task TestSetup()
+        => await TestAssemblyHooks.App.CreateSessionAsync();
+
+    [TestCleanup]
+    public async Task TestCleanup()
+        => await TestAssemblyHooks.App.DisposeSessionAsync();
+}
+```
+
+### Aspire Test Setup
+
+```csharp
+[TestClass]
+public class TestAssemblyHooks
+{
+    private static AppScaffold<WebApp>? _app;
+
+    [AssemblyInitialize]
+    public static async Task Init(TestContext context)
+    {
+        _app = new FluentUIScaffoldBuilder()
+            .UseAspireHosting<Projects.MyApp_AppHost>(
+                appHost => { /* configure distributed app */ },
+                "myapp")
+            .Web<WebApp>(options => { options.UsePlaywright(); })
+            .Build<WebApp>();
+
+        await _app.StartAsync();
+    }
+
+    [AssemblyCleanup]
+    public static async Task Cleanup() => await _app!.DisposeAsync();
+
+    public static AppScaffold<WebApp> App => _app!;
+}
+```
+
+### Test Examples
+
+```csharp
+[TestClass]
+public class SearchTests : TestBase
+{
+    [TestMethod]
+    public async Task SearchForProduct_ShowsResults()
+    {
+        await TestAssemblyHooks.App.NavigateTo<HomePage>()
+            .SearchAndNavigate("laptop")
+            .VerifyResultCount(5);
+    }
+
+    [TestMethod]
+    public async Task CarouselSelection_NavigatesToProduct()
+    {
+        await TestAssemblyHooks.App.NavigateTo<HomePage>()
+            .SelectItemFromCarousel(3)
+            .NavigateTo<ProductDetailPage>()
+            .VerifyPrice("$999");
+    }
+
+    [TestMethod]
+    public async Task ParameterizedRoute_NavigatesCorrectly()
+    {
+        await TestAssemblyHooks.App.NavigateTo<UserProfilePage>(new { userId = "42" })
+            .VerifyDisplayName("Jane Doe");
+    }
+
+    [TestMethod]
+    public async Task LoginFlow_RedirectsToHome()
+    {
+        await TestAssemblyHooks.App.NavigateTo<LoginPage>()
+            .LoginAs("testuser", "password123")
+            .VerifyWelcomeVisible();
+    }
+
+    [TestMethod]
+    public async Task Can_Add_Shift_To_Roster()
+    {
+        await TestAssemblyHooks.App.NavigateTo<RosterDetailsPage>(new { rosterId = 123 })
+            .AddShift("456", "09:00", "17:00")
+            .VerifyShiftAdded("456");
+    }
+}
+```
+
+## Framework-Specific Access
+
+Playwright's API is accessed directly inside `Enqueue<T>()` lambdas. There is no `IUIDriver` abstraction. The framework coupling is in user-written page objects, not in the library:
+
+```csharp
+// Playwright's IPage injected via DI into the lambda
+public HomePage TakeScreenshot(string path)
+    => Enqueue(async (IPage page) =>
+    {
+        await page.ScreenshotAsync(new PageScreenshotOptions { Path = path });
+    });
+
+// Access IBrowserContext for cookie manipulation
+public HomePage ClearCookies()
+    => Enqueue(async () =>
+    {
+        var context = ServiceProvider.GetRequiredService<IBrowserContext>();
+        await context.ClearCookiesAsync();
+    });
+```
+
+## Custom Page Base Classes
+
+The CRTP pattern supports custom base classes for shared behavior:
+
+```csharp
+public abstract class AuthenticatedPage<TSelf> : Page<TSelf>
+    where TSelf : AuthenticatedPage<TSelf>
+{
+    protected AuthenticatedPage(IServiceProvider services) : base(services) { }
+
+    public TSelf VerifyLoggedIn()
+        => Enqueue(async (IPage page) =>
+        {
+            await Assertions.Expect(page.GetByTestId("user-avatar"))
+                .ToBeVisibleAsync();
+        });
+
+    public LoginPage Logout()
+        => Enqueue(async (IPage page) =>
+        {
+            await page.GetByRole(AriaRole.Button, new() { Name = "Logout" }).ClickAsync();
+        }).NavigateTo<LoginPage>();
+}
+
+[Route("/dashboard")]
+public class DashboardPage : AuthenticatedPage<DashboardPage>
+{
+    public DashboardPage(IServiceProvider services) : base(services) { }
+
+    public DashboardPage VerifyWidgetCount(int expected)
+        => Enqueue(async (IPage page) =>
+        {
+            await Assertions.Expect(page.Locator(".widget"))
+                .ToHaveCountAsync(expected);
+        });
+}
+```
+
+## Error Handling
+
+### FrozenPageException
+
+Thrown when attempting to enqueue actions on a page that has been frozen by `NavigateTo<T>()`. Message includes the source page type and the target page type.
+
+```csharp
+public class FrozenPageException : InvalidOperationException
+{
+    public Type PageType { get; }
+}
+```
+
+### InvalidOperationException
+
+Thrown by `AppScaffold.NavigateTo<TPage>()` when no browser session is active.
+
+### Chain Errors
+
+Chains fail fast. The first exception stops execution and propagates to the `await` site. Subsequent queued actions are skipped.
+
+## Common Mistakes
+
+```csharp
+// WRONG: Missing await -- actions never execute!
+app.NavigateTo<HomePage>().ClickGetStarted();
+
+// CORRECT: Always await the chain
+await app.NavigateTo<HomePage>().ClickGetStarted();
+
+// WRONG: Using a page after NavigateTo (page is frozen)
+var home = app.NavigateTo<HomePage>();
+var results = home.NavigateTo<SearchResultsPage>();
+home.SearchFor("laptop"); // throws FrozenPageException
+
+// CORRECT: Continuous chain
+await app.NavigateTo<HomePage>()
+    .SearchFor("laptop")
+    .NavigateTo<SearchResultsPage>()
+    .VerifyResultCount(5);
+
+// WRONG: Forgetting to create a session
+await app.NavigateTo<HomePage>(); // throws InvalidOperationException
+
+// CORRECT: Create session first
+await app.CreateSessionAsync();
+await app.NavigateTo<HomePage>().VerifyWelcomeVisible();
+
+// WRONG: Conditional logic inside a chain (not supported)
+await app.NavigateTo<HomePage>()
+    .MaybeDoSomething(); // chains are linear
+
+// CORRECT: Break chain with await, use C# if, start new chain
+await app.NavigateTo<HomePage>();
+if (someCondition)
+    await app.On<HomePage>().DoSomething();
+```
+
+This specification describes the deferred execution chain architecture of FluentUIScaffold, where pages use `Enqueue<IPage>` for direct Playwright access and chains must be awaited to execute.

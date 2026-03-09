@@ -76,7 +76,7 @@ dotnet run
 **`IUITestingPlugin`** — plugin contract for UI testing frameworks:
 - `ConfigureServices(IServiceCollection)`: registers shared services into DI
 - `InitializeAsync(FluentUIScaffoldOptions, CancellationToken)`: one-time init (e.g., launches browser)
-- `CreateSessionAsync()`: creates an isolated `IBrowserSession` per test
+- `CreateSessionAsync(IServiceProvider rootProvider)`: creates an isolated `IBrowserSession` per test
 
 **`IBrowserSession`** — per-test isolation boundary:
 - `NavigateToUrlAsync(Uri)`: navigates the session's page
@@ -98,7 +98,7 @@ dotnet run
 **`AppScaffold<TWebApp>`** — the unified async-first application orchestrator:
 - Async lifecycle with `StartAsync()` and `IAsyncDisposable`
 - **Session lifecycle**: `CreateSessionAsync()` / `DisposeSessionAsync()` per test
-- **`AsyncLocal<IBrowserSession>`**: per-test session tracking for parallel execution
+- **Instance field** for `IBrowserSession` tracking (AsyncLocal and ThreadStatic both failed due to MSTest thread scheduling; works because AppScaffold is shared via a static accessor)
 - Page navigation: `NavigateTo<TPage>()`, `NavigateTo<TPage>(routeParams)`, `On<TPage>()`
 - Service resolution via `GetService<T>()`
 - Built via `FluentUIScaffoldBuilder` fluent API
@@ -286,7 +286,7 @@ var builder = new FluentUIScaffoldBuilder()
 2. **Single self-referencing generic** (`Page<TSelf>`) provides clean fluent API with correct return types
 3. **Direct Playwright access** — pages use `Enqueue<IPage>()` for native Playwright API, no wrapper layer
 4. **Plugin + session architecture** — `IUITestingPlugin` owns browser, creates `IBrowserSession` per test
-5. **`AsyncLocal<IBrowserSession>`** — enables parallel test execution with per-test isolation
+5. **Instance field for session tracking** — `IBrowserSession` stored as a plain instance field on `AppScaffold`; works because `AppScaffold` is shared via a static accessor (AsyncLocal/ThreadStatic both failed under MSTest thread scheduling)
 6. **Assembly-level server lifecycle** — start once, reuse across tests for efficiency
 7. **Pluggable hosting strategies** — support for .NET, Node, External, and Aspire hosts
 8. **Aspire as first-class citizen** — full integration with distributed app testing

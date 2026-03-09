@@ -1,22 +1,22 @@
 # FluentUIScaffold Architecture Diagram
 
-This diagram illustrates the high-level architecture of the FluentUIScaffold framework, showing the relationships between the core components, plugins, drivers, and hosting strategies.
+This diagram illustrates the high-level architecture of the FluentUIScaffold framework, showing the relationships between the core components, plugins, sessions, and hosting strategies.
 
 ```mermaid
 graph TD
     subgraph "Core Framework (FluentUIScaffold.Core)"
         App["AppScaffold&lt;TApp&gt;"]
         Builder["FluentUIScaffoldBuilder"]
-        PM["PluginManager"]
-        PR["PluginRegistry"]
+        Plugin["IUITestingPlugin"]
+        Session["IBrowserSession"]
         HS["IHostingStrategy"]
-        Driver["IUIDriver (Abstract)"]
-        Page["Page&lt;TSelf&gt;"]
+        Page["Page&lt;TSelf&gt; (Deferred Chain)"]
     end
 
-    subgraph "Plugins & Drivers"
+    subgraph "Playwright Plugin"
         PP["PlaywrightPlugin"]
-        PD["PlaywrightDriver"]
+        PBS["PlaywrightBrowserSession"]
+        SSP["SessionServiceProvider"]
     end
 
     subgraph "Hosting Strategies"
@@ -33,15 +33,14 @@ graph TD
 
     %% Relationships
     Builder -->|Creates| App
-    App -->|Uses| PM
-    PM -->|Discovers via| PR
-    PM -->|Creates| Driver
+    App -->|Uses| Plugin
+    Plugin -->|Creates| Session
     App -->|Manages| HS
-    App -->|Discovers| Page
+    App -->|Creates| Page
 
-    PP -.->|Implements| PR
-    PD -.->|Implements| Driver
-    PP -->|Creates| PD
+    PP -.->|Implements| Plugin
+    PBS -.->|Implements| Session
+    PBS -->|Wraps| SSP
 
     DHS -.->|Implements| HS
     NHS -.->|Implements| HS
@@ -52,27 +51,31 @@ graph TD
     AH -->|Configures| Builder
     AH -->|Creates| AHS
 
-    Page -->|Uses| Driver
+    Page -->|Enqueue&lt;IPage&gt;| SSP
 ```
 
 ## Key Components
 
-### 1. AppScaffold<TApp>
-The main entry point and async-first orchestrator for the testing framework. It manages the lifecycle of the driver, hosting strategy, and provides methods for navigation and page interaction.
+### 1. AppScaffold\<TApp>
+The central hub for test infrastructure. Manages hosting, plugin lifecycle, and per-test browser session creation.
 
 Key Features:
-- `StartAsync()` - Starts hosting strategy and initializes framework
-- `DisposeAsync()` - Cleans up resources
-- `NavigateTo<TPage>()` - Navigates to a page object
-- `On<TPage>()` - Attaches to current page without navigation
-- `WaitFor<TPage>()` - Waits for a page to be ready
+- `StartAsync()` - Starts hosting strategy and initializes plugin (launches browser)
+- `CreateSessionAsync()` / `DisposeSessionAsync()` - Per-test session lifecycle
+- `NavigateTo<TPage>()` - Creates page objects with navigation enqueued
+- `On<TPage>()` - Creates page objects without navigation
+- `DisposeAsync()` - Cleans up everything
 
 ### 2. Plugin Architecture
-- **IUITestingFrameworkPlugin**: Interface for adding new UI testing frameworks (e.g., Playwright).
-- **PluginManager / PluginRegistry**: Handle the registration and activation of plugins.
-- **IUIDriver**: An abstraction layer over specific UI testing tools, allowing the core framework to remain tool-agnostic.
+- **IUITestingPlugin**: Plugin contract that owns the browser singleton and creates per-test sessions. Methods: `ConfigureServices()`, `InitializeAsync()`, `CreateSessionAsync()`.
+- **PlaywrightPlugin**: Concrete implementation that manages the Playwright browser and creates `PlaywrightBrowserSession` instances.
 
-### 3. Hosting Strategies
+### 3. Browser Sessions
+- **IBrowserSession**: Per-test isolated session with its own browser context and page. Provides a `ServiceProvider` for resolving session-scoped services.
+- **PlaywrightBrowserSession**: Owns an `IBrowserContext` and `IPage`. Disposed after each test.
+- **SessionServiceProvider**: Lightweight wrapper that resolves session services (`IPage`, `IBrowserContext`, `IBrowser`) first, then falls back to the root provider.
+
+### 4. Hosting Strategies
 
 The `IHostingStrategy` interface provides a unified abstraction for managing application servers:
 
@@ -83,37 +86,32 @@ The `IHostingStrategy` interface provides a unified abstraction for managing app
 | `ExternalHostingStrategy` | Health check only, no process management | CI/staging environments |
 | `AspireHostingStrategy` | Wraps Aspire testing builder | Aspire distributed apps |
 
-### 4. Page Object Model
+### 5. Page Object Model (Deferred Execution Chain)
 
-The `Page<TSelf>` base class implements the Page Object Pattern with a self-referencing generic for fluent API support:
+The `Page<TSelf>` base class implements a deferred execution chain pattern:
 
 ```csharp
+[Route("/")]
 public class HomePage : Page<HomePage>
 {
-    public IElement Button { get; private set; } = null!;
+    public HomePage(IServiceProvider serviceProvider) : base(serviceProvider) { }
 
-    public HomePage(IServiceProvider sp, Uri url) : base(sp, url) { }
-
-    protected override void ConfigureElements()
+    public HomePage ClickButton() => Enqueue<IPage>(async page =>
     {
-        Button = Element("#button")
-            .WithWaitStrategy(WaitStrategy.Clickable)
-            .Build();
-    }
+        await page.ClickAsync("#button");
+    });
 
-    public HomePage ClickButton()
-    {
-        return Click(p => p.Button);
-    }
+    public LoginPage GoToLogin() => NavigateTo<LoginPage>();
 }
 ```
 
 Key Features:
-- **Auto-Discovery**: The framework can automatically discover and register page components via `WithAutoPageDiscovery()`.
-- **Fluent Interactions**: `Click()`, `Type()`, `Select()`, `WaitForVisible()` all return `TSelf` for chaining.
-- **Fluent Verification**: `page.Verify.Visible(p => p.Element)` for type-safe assertions.
+- **Deferred Execution**: Actions are queued, not executed immediately. The chain executes when awaited via `GetAwaiter()`.
+- **DI-Injected Lambdas**: `Enqueue<T>` resolves services from the session provider at execution time.
+- **Cross-Page Chaining**: `NavigateTo<TTarget>()` freezes the source page and shares the action list with the target page.
+- **Direct Playwright Access**: `Enqueue<IPage>` gives full access to Playwright's `IPage` API.
 
-### 5. Aspire Integration
+### 6. Aspire Integration
 - **AspireHostingExtensions**: Provides fluent methods to integrate Aspire's distributed application testing with FluentUIScaffold.
 - **AspireHostingStrategy**: Wraps `DistributedApplicationTestingBuilder` from Aspire.Hosting.Testing.
 - **DistributedApplicationHolder**: Stores the `DistributedApplication` instance in DI for test access.
@@ -126,47 +124,64 @@ sequenceDiagram
     participant Builder as FluentUIScaffoldBuilder
     participant App as AppScaffold
     participant HS as IHostingStrategy
-    participant PM as PluginManager
-    participant Driver as IUIDriver
+    participant Plugin as IUITestingPlugin
+    participant Session as IBrowserSession
+    participant Page as Page<TSelf>
 
     Test->>Builder: new FluentUIScaffoldBuilder()
-    Test->>Builder: UsePlugin(new PlaywrightPlugin())
+    Test->>Builder: UsePlaywright()
     Test->>Builder: Web<WebApp>(opts => ...)
     Test->>Builder: Build<WebApp>()
     Builder->>App: Create AppScaffold
+
+    Note over Test,App: Assembly/Class Setup
     Test->>App: StartAsync()
     App->>HS: StartAsync()
     HS-->>App: HostingResult (BaseUrl)
-    App->>PM: CreateDriver()
-    PM-->>App: IUIDriver
+    App->>Plugin: InitializeAsync() (launch browser)
+
+    Note over Test,Session: Per-Test Setup
+    Test->>App: CreateSessionAsync()
+    App->>Plugin: CreateSessionAsync(rootProvider)
+    Plugin-->>App: IBrowserSession (context + page)
+
+    Note over Test,Page: Test Execution
     Test->>App: NavigateTo<HomePage>()
-    App->>Driver: Navigate and return page
+    App->>Page: Create page with session provider
+    App->>Page: Enqueue navigation action
+    App-->>Test: HomePage (deferred chain)
+    Test->>Page: .ClickButton() (enqueues action)
+    Test->>Page: await (executes all actions)
+
+    Note over Test,Session: Per-Test Cleanup
+    Test->>App: DisposeSessionAsync()
+    App->>Session: DisposeAsync() (close context)
 ```
 
 ## Configuration Example
 
 ```csharp
 var app = new FluentUIScaffoldBuilder()
-    .UsePlugin(new PlaywrightPlugin())
+    .UsePlaywright()
     .Web<WebApp>(opts =>
     {
         opts.BaseUrl = new Uri("https://localhost:5001");
-        opts.DefaultWaitTimeout = TimeSpan.FromSeconds(30);
         opts.HeadlessMode = true;
     })
-    .WithAutoPageDiscovery()
     .Build<WebApp>();
 
 await app.StartAsync();
 
-// Use the app
-app.NavigateTo<HomePage>()
-    .Click(p => p.LoginButton)
-    .NavigateTo<LoginPage>()
-    .Type(p => p.Username, "admin")
-    .Type(p => p.Password, "password")
-    .Click(p => p.SubmitButton)
-    .Verify.Visible(p => p.WelcomeMessage);
+// Per-test lifecycle
+await app.CreateSessionAsync();
 
+await app.NavigateTo<HomePage>()
+    .ClickLogin()
+    .NavigateTo<LoginPage>()
+    .EnterUsername("admin")
+    .EnterPassword("password")
+    .SubmitForm();
+
+await app.DisposeSessionAsync();
 await app.DisposeAsync();
 ```
