@@ -1,7 +1,7 @@
 ---
 title: "refactor: Foundational API Redesign"
 type: refactor
-status: active
+status: completed
 date: 2026-03-09
 deepened: 2026-03-09
 brainstorm: docs/brainstorms/2026-03-09-foundational-api-redesign-brainstorm.md
@@ -116,7 +116,7 @@ Build the deferred execution engine in `FluentUIScaffold.Core`. No Playwright de
 
 **Deliverables:**
 
-- [ ] `Page<TSelf>` rewrite — becomes the chain builder with inlined action queue
+- [x] `Page<TSelf>` rewrite — becomes the chain builder with inlined action queue
   - **Action queue inlined as fields** (not a separate class — per simplicity review):
     - `private readonly List<Func<IServiceProvider, Task>> _actions = new(capacity: 8);`
     - `private bool _isFrozen;` — freeze state per-page (not on queue)
@@ -164,7 +164,7 @@ Build the deferred execution engine in `FluentUIScaffold.Core`. No Playwright de
   - Fail-fast: first exception stops chain, propagates to await site
   - File: `src/FluentUIScaffold.Core/Pages/Page.cs` (rewrite in place)
 
-- [ ] **Runtime unawaited-chain detection** (moved from Phase 6 — critical safety net)
+- [x] **Runtime unawaited-chain detection** (moved from Phase 6 — critical safety net)
   - In DEBUG builds, add a finalizer that warns if actions were queued but never executed:
     ```csharp
     #if DEBUG
@@ -194,15 +194,15 @@ Build the deferred execution engine in `FluentUIScaffold.Core`. No Playwright de
     ```
   - Roslyn analyzer remains a follow-up issue (tracked separately, not in this plan)
 
-- [ ] `FrozenPageException` — thrown when enqueuing on a frozen page
+- [x] `FrozenPageException` — thrown when enqueuing on a frozen page
   - Message includes source page type, target page type
   - Also thrown when calling `NavigateTo<T>()` on an already-frozen page
   - File: `src/FluentUIScaffold.Core/Exceptions/FrozenPageException.cs`
 
-- [ ] `RouteAttribute` — kept as-is, no changes
+- [x] `RouteAttribute` — kept as-is, no changes
   - File: `src/FluentUIScaffold.Core/Pages/RouteAttribute.cs`
 
-- [ ] Unit tests for chain engine
+- [x] Unit tests for chain engine
   - Empty chain await (should be a successful no-op)
   - Single action execution
   - Multiple actions execute in order
@@ -238,26 +238,26 @@ New plugin contract and browser session abstraction in Core.
 
 **Deliverables:**
 
-- [ ] `IUITestingPlugin` — replaces `IUITestingFrameworkPlugin`
+- [x] `IUITestingPlugin` — replaces `IUITestingFrameworkPlugin`
   - `void ConfigureServices(IServiceCollection services)`
   - `Task InitializeAsync(FluentUIScaffoldOptions options, CancellationToken cancellationToken = default)` — added CancellationToken per pattern review
   - `Task<IBrowserSession> CreateSessionAsync()` — **factory method directly on plugin** (no separate IBrowserSessionFactory — per simplicity review)
   - Extends `IAsyncDisposable`
   - File: `src/FluentUIScaffold.Core/Interfaces/IUITestingPlugin.cs`
 
-- [ ] `IBrowserSession` — per-test isolation boundary
+- [x] `IBrowserSession` — per-test isolation boundary
   - `Task NavigateToUrlAsync(Uri url)`
   - `IServiceProvider ServiceProvider { get; }` — wrapper provider with session-specific services + root fallback
   - Extends `IAsyncDisposable`
   - File: `src/FluentUIScaffold.Core/Interfaces/IBrowserSession.cs`
 
-- [ ] `FluentUIScaffoldOptions` — simplified
+- [x] `FluentUIScaffoldOptions` — simplified
   - Remove: `DefaultWaitTimeout` (Playwright handles timeouts), `RequestedDriverType` (no driver concept)
   - Keep: `BaseUrl`, `HeadlessMode`, `SlowMo`
   - **No `SessionLifecycle` enum** (per simplicity review — always PerTest, users can hold session references themselves for class/assembly sharing)
   - File: `src/FluentUIScaffold.Core/Configuration/FluentUIScaffoldOptions.cs` (modify in place)
 
-- [ ] `FluentUIScaffoldBuilder` — updated
+- [x] `FluentUIScaffoldBuilder` — updated
   - `UsePlugin(IUITestingPlugin plugin)` — replaces old overload
   - Remove: `UsePlaywright()` convenience (plugin is passed directly)
   - Remove: `WithAutoPageDiscovery()` / `RegisterPage<T>()` — pages registered as transient services
@@ -265,7 +265,7 @@ New plugin contract and browser session abstraction in Core.
   - Builder registers pages via assembly scanning into DI as transient
   - File: `src/FluentUIScaffold.Core/Configuration/FluentUIScaffoldBuilder.cs` (modify in place)
 
-- [ ] `AppScaffold<TWebApp>` — updated
+- [x] `AppScaffold<TWebApp>` — updated
   - **Explicit session lifecycle methods:**
     ```csharp
     public async Task<IBrowserSession> CreateSessionAsync()
@@ -280,7 +280,7 @@ New plugin contract and browser session abstraction in Core.
   - Add: type-safe navigation constraints: `where TPage : Page<TPage>`
   - File: `src/FluentUIScaffold.Core/AppScaffold.cs` (modify in place)
 
-- [ ] Unit tests for plugin + session
+- [x] Unit tests for plugin + session
   - Plugin ConfigureServices registers expected types
   - Plugin InitializeAsync called during StartAsync
   - Plugin CreateSessionAsync creates isolated sessions
@@ -424,7 +424,7 @@ Rewrite `PlaywrightPlugin` to implement new contracts.
 
 **Deliverables:**
 
-- [ ] `PlaywrightPlugin` — implements `IUITestingPlugin` (**single class — merged per simplicity review**)
+- [x] `PlaywrightPlugin` — implements `IUITestingPlugin` (**single class — merged per simplicity review**)
   - Owns `IPlaywright` and `IBrowser` fields directly (no separate `PlaywrightBrowserManager`)
   - `ConfigureServices()` — registers shared services (logging, options forwarding)
   - `InitializeAsync()` — creates `IPlaywright`, launches `IBrowser` with headless/slowmo from options
@@ -432,22 +432,22 @@ Rewrite `PlaywrightPlugin` to implement new contracts.
   - `DisposeAsync()` — closes browser, disposes playwright
   - File: `src/FluentUIScaffold.Playwright/PlaywrightPlugin.cs` (rewrite in place)
 
-- [ ] `PlaywrightBrowserSession` — implements `IBrowserSession`
+- [x] `PlaywrightBrowserSession` — implements `IBrowserSession`
   - Owns `IBrowserContext` and `IPage` for this session
   - `NavigateToUrlAsync(Uri)` — `_page.GotoAsync(url)` with **`WaitUntilState.DOMContentLoaded`** (not NetworkIdle — per performance review, saves 500ms+ per navigation)
   - `ServiceProvider` — `SessionServiceProvider` wrapper (session-specific `IPage`/`IBrowserContext` + root fallback)
   - `DisposeAsync()` — explicitly `CloseAsync()` context before scope disposal
   - File: `src/FluentUIScaffold.Playwright/PlaywrightBrowserSession.cs`
 
-- [ ] `SessionServiceProvider` — lightweight wrapper IServiceProvider
+- [x] `SessionServiceProvider` — lightweight wrapper IServiceProvider
   - Checks session-local dictionary first, falls back to root
   - File: `src/FluentUIScaffold.Playwright/SessionServiceProvider.cs`
 
-- [ ] `FluentUIScaffoldPlaywrightBuilder` — convenience extensions
+- [x] `FluentUIScaffoldPlaywrightBuilder` — convenience extensions
   - `UsePlaywright()` extension on `FluentUIScaffoldBuilder` that calls `UsePlugin(new PlaywrightPlugin())`
   - File: `src/FluentUIScaffold.Playwright/FluentUIScaffoldPlaywrightBuilder.cs` (rewrite in place)
 
-- [ ] Integration tests
+- [x] Integration tests
   - PlaywrightPlugin initializes browser successfully
   - Plugin creates isolated sessions directly (no factory indirection)
   - Session IPage navigates correctly
@@ -487,7 +487,7 @@ Rewrite all sample page objects and tests to demonstrate the new API.
 
 **Deliverables:**
 
-- [ ] `HomePage` — new-style page object
+- [x] `HomePage` — new-style page object
   ```csharp
   [Route("/")]
   public class HomePage : Page<HomePage>
@@ -511,20 +511,20 @@ Rewrite all sample page objects and tests to demonstrate the new API.
   ```
   - File: `samples/SampleApp.Tests/Pages/HomePage.cs` (rewrite)
 
-- [ ] `LoginPage` — demonstrates form interaction
+- [x] `LoginPage` — demonstrates form interaction
   - File: `samples/SampleApp.Tests/Pages/LoginPage.cs` (rewrite)
 
-- [ ] `RegistrationPage` — demonstrates multi-field form + navigation
+- [x] `RegistrationPage` — demonstrates multi-field form + navigation
   - File: `samples/SampleApp.Tests/Pages/RegistrationPage.cs` (rewrite)
 
-- [ ] `TodosPage` — demonstrates dynamic content interaction
+- [x] `TodosPage` — demonstrates dynamic content interaction
   - File: `samples/SampleApp.Tests/Pages/TodosPage.cs` (rewrite)
 
-- [ ] `ProfilePage`, `UserPage` — demonstrates parameterized routes
+- [x] `ProfilePage`, `UserPage` — demonstrates parameterized routes
   - File: `samples/SampleApp.Tests/Pages/ProfilePage.cs` (rewrite)
   - File: `samples/SampleApp.Tests/Pages/UserPage.cs` (rewrite)
 
-- [ ] `TestAssemblyHooks` — new setup pattern with explicit session lifecycle
+- [x] `TestAssemblyHooks` — new setup pattern with explicit session lifecycle
   ```csharp
   [TestClass]
   public class TestAssemblyHooks
@@ -550,7 +550,7 @@ Rewrite all sample page objects and tests to demonstrate the new API.
   ```
   - File: `samples/SampleApp.Tests/TestAssemblyHooks.cs` (rewrite)
 
-- [ ] `TestBase` — per-test session management pattern
+- [x] `TestBase` — per-test session management pattern
   ```csharp
   [TestClass]
   public class TestBase
@@ -566,7 +566,7 @@ Rewrite all sample page objects and tests to demonstrate the new API.
   ```
   - File: `samples/SampleApp.Tests/TestBase.cs` (new)
 
-- [ ] Example tests — rewrite all in `samples/SampleApp.Tests/Examples/`
+- [x] Example tests — rewrite all in `samples/SampleApp.Tests/Examples/`
   - `HomePageTests.cs` — basic navigation + verification
   - `LoginFlowTests.cs` — multi-page chain with scope switching
   - `FormInteractionTests.cs` — Enqueue with Playwright form APIs
@@ -575,11 +575,11 @@ Rewrite all sample page objects and tests to demonstrate the new API.
   - `VerificationTests.cs` — assertions using Playwright Assertions.Expect()
   - Remove tests that tested old API features (AdvancedNavigationTests, BDDStepDefinitionsExample, DebugModeTests, FrameworkTests)
 
-- [ ] **"Common Mistakes" documentation** — include in sample tests as comments showing:
+- [x] **"Common Mistakes" documentation** — include in sample tests as comments showing:
   - Correct: `await app.NavigateTo<HomePage>().ClickGetStarted();`
   - Wrong: `app.NavigateTo<HomePage>().ClickGetStarted(); // Missing await — actions never execute!`
 
-- [ ] Aspire sample tests — rewrite `samples/SampleApp.AspireTests/`
+- [x] Aspire sample tests — rewrite `samples/SampleApp.AspireTests/`
   - `TestAssemblyHooks.cs` — Aspire + new plugin pattern
   - `SimpleAspireTests.cs` — basic Aspire test with new API
 
@@ -589,51 +589,51 @@ Delete all files that are no longer needed. **Grep for references to each delete
 
 **Files to DELETE from `src/FluentUIScaffold.Core/`:**
 
-- [ ] `Element.cs`
-- [ ] `ElementBuilder.cs`
-- [ ] `ElementCollection.cs`
-- [ ] `ElementFactory.cs`
-- [ ] `FluentUIScaffold.cs` (facade class, if unused)
-- [ ] `Interfaces/IElement.cs`
-- [ ] `Interfaces/IElementCollection.cs`
-- [ ] `Interfaces/IUIDriver.cs`
-- [ ] `Interfaces/IUITestingFrameworkPlugin.cs` (replaced by `IUITestingPlugin.cs`)
-- [ ] `Interfaces/IVerificationContext.cs`
-- [ ] `Configuration/VerificationContext.cs`
-- [ ] `Configuration/WaitStrategy.cs`
-- [ ] `Configuration/FrameworkOptions.cs` (if unused after builder rewrite)
-- [ ] `Configuration/SharedOptionsManager.cs` (if unused)
-- [ ] `Plugins/PluginManager.cs`
-- [ ] `Plugins/PluginRegistry.cs`
-- [ ] `Exceptions/ElementTimeoutException.cs`
-- [ ] `Exceptions/ElementValidationException.cs`
-- [ ] `Exceptions/VerificationException.cs`
+- [x] `Element.cs`
+- [x] `ElementBuilder.cs`
+- [x] `ElementCollection.cs`
+- [x] `ElementFactory.cs`
+- [x] `FluentUIScaffold.cs` (facade class, if unused)
+- [x] `Interfaces/IElement.cs`
+- [x] `Interfaces/IElementCollection.cs`
+- [x] `Interfaces/IUIDriver.cs`
+- [x] `Interfaces/IUITestingFrameworkPlugin.cs` (replaced by `IUITestingPlugin.cs`)
+- [x] `Interfaces/IVerificationContext.cs`
+- [x] `Configuration/VerificationContext.cs`
+- [x] `Configuration/WaitStrategy.cs`
+- [x] `Configuration/FrameworkOptions.cs` (if unused after builder rewrite)
+- [x] `Configuration/SharedOptionsManager.cs` (if unused)
+- [x] `Plugins/PluginManager.cs`
+- [x] `Plugins/PluginRegistry.cs`
+- [x] `Exceptions/ElementTimeoutException.cs`
+- [x] `Exceptions/ElementValidationException.cs`
+- [x] `Exceptions/VerificationException.cs`
 
 **Files to DELETE from `src/FluentUIScaffold.Playwright/`:**
 
-- [ ] `PlaywrightDriver.cs`
-- [ ] `PlaywrightWaitStrategy.cs`
-- [ ] `PlaywrightAdvancedFeatures.cs`
-- [ ] `PlaywrightExceptions.cs` (if only driver-related)
+- [x] `PlaywrightDriver.cs`
+- [x] `PlaywrightWaitStrategy.cs`
+- [x] `PlaywrightAdvancedFeatures.cs`
+- [x] `PlaywrightExceptions.cs` (if only driver-related)
 
 **Test files to DELETE or REWRITE:**
 
-- [ ] `tests/FluentUIScaffold.Core.Tests/ElementBuilderTests.cs`
-- [ ] `tests/FluentUIScaffold.Core.Tests/ElementCollectionTests.cs`
-- [ ] `tests/FluentUIScaffold.Core.Tests/ElementFactoryTests.cs`
-- [ ] `tests/FluentUIScaffold.Core.Tests/ElementTests.cs`
-- [ ] `tests/FluentUIScaffold.Core.Tests/PluginManagerTests.cs`
-- [ ] `tests/FluentUIScaffold.Core.Tests/PluginRegistryTests.cs`
-- [ ] `tests/FluentUIScaffold.Core.Tests/VerificationContextTests.cs`
-- [ ] `tests/FluentUIScaffold.Core.Tests/VerificationContextV2Tests.cs`
-- [ ] `tests/FluentUIScaffold.Core.Tests/MockDriverScriptTests.cs`
-- [ ] `tests/FluentUIScaffold.Core.Tests/Mocks/MockUIDriver.cs`
-- [ ] `tests/FluentUIScaffold.Core.Tests/Mocks/StatefulMockDriver.cs`
-- [ ] `tests/FluentUIScaffold.Playwright.Tests/PlaywrightDriverTests.cs`
-- [ ] `tests/FluentUIScaffold.Playwright.Tests/PlaywrightDriverSingletonTests.cs`
-- [ ] `tests/FluentUIScaffold.Playwright.Tests/PlaywrightDriverScriptTests.cs`
-- [ ] `tests/FluentUIScaffold.Playwright.Tests/PlaywrightWaitStrategyTests.cs`
-- [ ] `tests/FluentUIScaffold.Playwright.Tests/PlaywrightAdvancedFeaturesTests.cs`
+- [x] `tests/FluentUIScaffold.Core.Tests/ElementBuilderTests.cs`
+- [x] `tests/FluentUIScaffold.Core.Tests/ElementCollectionTests.cs`
+- [x] `tests/FluentUIScaffold.Core.Tests/ElementFactoryTests.cs`
+- [x] `tests/FluentUIScaffold.Core.Tests/ElementTests.cs`
+- [x] `tests/FluentUIScaffold.Core.Tests/PluginManagerTests.cs`
+- [x] `tests/FluentUIScaffold.Core.Tests/PluginRegistryTests.cs`
+- [x] `tests/FluentUIScaffold.Core.Tests/VerificationContextTests.cs`
+- [x] `tests/FluentUIScaffold.Core.Tests/VerificationContextV2Tests.cs`
+- [x] `tests/FluentUIScaffold.Core.Tests/MockDriverScriptTests.cs`
+- [x] `tests/FluentUIScaffold.Core.Tests/Mocks/MockUIDriver.cs`
+- [x] `tests/FluentUIScaffold.Core.Tests/Mocks/StatefulMockDriver.cs`
+- [x] `tests/FluentUIScaffold.Playwright.Tests/PlaywrightDriverTests.cs`
+- [x] `tests/FluentUIScaffold.Playwright.Tests/PlaywrightDriverSingletonTests.cs`
+- [x] `tests/FluentUIScaffold.Playwright.Tests/PlaywrightDriverScriptTests.cs`
+- [x] `tests/FluentUIScaffold.Playwright.Tests/PlaywrightWaitStrategyTests.cs`
+- [x] `tests/FluentUIScaffold.Playwright.Tests/PlaywrightAdvancedFeaturesTests.cs`
 
 **Validation step:** After all deletions, run:
 ```bash
@@ -644,42 +644,42 @@ Fix any remaining references to deleted types.
 
 #### Phase 6: Documentation
 
-- [ ] **Update CLAUDE.md** with new architecture, patterns, and code examples
+- [x] **Update CLAUDE.md** with new architecture, patterns, and code examples
 
-- [ ] **Update `docs/future-enhancement-framework-escape-hatch.md`** — mark as superseded
+- [x] **Update `docs/future-enhancement-framework-escape-hatch.md`** — mark as superseded
 
-- [ ] **Run `dotnet format`** on all changed files
+- [x] **Run `dotnet format`** on all changed files
 
 ## Acceptance Criteria
 
 ### Functional Requirements
 
-- [ ] `Page<TSelf>` implements `GetAwaiter()` — chains are awaitable
-- [ ] `Enqueue<T>()` resolves services from DI at execution time (not enqueue time)
-- [ ] `NavigateTo<T>()` freezes source page and returns target page sharing action list
-- [ ] Frozen page throws `FrozenPageException` on enqueue attempts
-- [ ] Chain fail-fast: first exception stops execution, propagates to await
-- [ ] `IUITestingPlugin.CreateSessionAsync()` creates isolated sessions per test
-- [ ] `PlaywrightPlugin` implements `IUITestingPlugin` with browser singleton + session creation
-- [ ] Sample page objects demonstrate the new API pattern
-- [ ] All existing hosting strategies work unchanged with new architecture
-- [ ] Parameterized routes work: `app.NavigateTo<UserPage>(new { userId = "123" })`
-- [ ] Runtime unawaited-chain detection fires in DEBUG builds
+- [x] `Page<TSelf>` implements `GetAwaiter()` — chains are awaitable
+- [x] `Enqueue<T>()` resolves services from DI at execution time (not enqueue time)
+- [x] `NavigateTo<T>()` freezes source page and returns target page sharing action list
+- [x] Frozen page throws `FrozenPageException` on enqueue attempts
+- [x] Chain fail-fast: first exception stops execution, propagates to await
+- [x] `IUITestingPlugin.CreateSessionAsync()` creates isolated sessions per test
+- [x] `PlaywrightPlugin` implements `IUITestingPlugin` with browser singleton + session creation
+- [x] Sample page objects demonstrate the new API pattern
+- [x] All existing hosting strategies work unchanged with new architecture
+- [x] Parameterized routes work: `app.NavigateTo<UserPage>(new { userId = "123" })`
+- [x] Runtime unawaited-chain detection fires in DEBUG builds
 
 ### Non-Functional Requirements
 
-- [ ] Core has zero Playwright dependency (framework-agnostic)
-- [ ] All async operations use `ConfigureAwait(false)` internally
-- [ ] No sync-over-async anywhere in the codebase
-- [ ] `dotnet build` succeeds for all target frameworks (net6.0, net7.0, net8.0, net9.0)
-- [ ] `dotnet test` passes for Core and Playwright test projects
+- [x] Core has zero Playwright dependency (framework-agnostic)
+- [x] All async operations use `ConfigureAwait(false)` internally
+- [x] No sync-over-async anywhere in the codebase
+- [x] `dotnet build` succeeds for all target frameworks (net6.0, net7.0, net8.0, net9.0)
+- [x] `dotnet test` passes for Core and Playwright test projects
 
 ### Quality Gates
 
-- [ ] All new code has unit tests
-- [ ] Sample app tests pass end-to-end
-- [ ] `dotnet format` clean
-- [ ] No references to deleted types remain (verified by full build)
+- [x] All new code has unit tests
+- [x] Sample app tests pass end-to-end
+- [x] `dotnet format` clean
+- [x] No references to deleted types remain (verified by full build)
 
 ## Risk Analysis & Mitigation
 
