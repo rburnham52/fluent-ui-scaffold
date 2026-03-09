@@ -59,110 +59,91 @@ dotnet run
 
 ## Code Architecture
 
-### Core Abstraction Layers
+### Deferred Execution Chain (Page Object Model)
 
-**Element Interaction Pattern (3-layer)**:
-- `IElement` interface: Contract for UI element interactions (Click, Type, SelectOption, etc.) with wait strategies
-- `Element` class: Implementation that delegates to `IUIDriver` with wait/retry logic
-- `ElementBuilder`: Fluent builder for configuring elements (`WithWaitStrategy()`, `WithTimeout()`, etc.)
-
-**Page Object Model**:
-- `Page<TSelf>`: Base class for all page objects
-  - Single self-referencing generic (`TSelf : Page<TSelf>`) enables fluent API
-  - Abstract `ConfigureElements()` method for element setup in derived classes
-  - Fluent methods: `Click()`, `Type()`, `Select()`, `WaitForVisible()`, `NavigateTo<TTarget>()`
-  - Verification context via `Verify` property for assertions
-  - Access to `Driver` (IUIDriver) and `IServiceProvider` for DI
+**`Page<TSelf>`** — the core abstraction. Acts as a deferred execution chain builder:
+- Single self-referencing generic (`TSelf : Page<TSelf>`) enables fluent API with correct return types
+- **Custom awaitable**: implements `GetAwaiter()` returning `TaskAwaiter` — chains execute when awaited
+- **`Enqueue(Func<Task>)`**: queues a deferred action (no DI)
+- **`Enqueue<T>(Func<T, Task>)`**: queues an action with a DI-resolved service (resolved at execution time)
+- **`NavigateTo<TTarget>()`**: freezes current page, creates target sharing the action list
+- **Freeze-on-navigate**: frozen pages throw `FrozenPageException` if you try to enqueue more actions
+- **DEBUG finalizer**: warns via `Trace.TraceWarning` if a chain with actions is never awaited
 - Example: `samples/SampleApp.Tests/Pages/HomePage.cs`
 
-**Driver Abstraction**:
-- `IUIDriver`: Framework-agnostic interface for browser automation (navigation, clicks, waits, state checks)
-- `PlaywrightDriver`: Concrete implementation managing Playwright lifecycle (IPlaywright → IBrowser → IBrowserContext → IPage)
-  - Auto-detects headless mode based on debugger attachment
-  - Implements all IUIDriver contract methods
+### Plugin + Session Architecture
 
-### Plugin System
+**`IUITestingPlugin`** — plugin contract for UI testing frameworks:
+- `ConfigureServices(IServiceCollection)`: registers shared services into DI
+- `InitializeAsync(FluentUIScaffoldOptions, CancellationToken)`: one-time init (e.g., launches browser)
+- `CreateSessionAsync(IServiceProvider rootProvider)`: creates an isolated `IBrowserSession` per test
 
-**Architecture**:
-- `IUITestingFrameworkPlugin`: Interface for adding new UI frameworks
-  - `CreateDriver()`: Factory method for driver instantiation
-  - `ConfigureServices()`: DI registration hook
-  - `SupportedDriverTypes` and `CanHandle()` for driver type matching
-- `PluginManager`: Routes driver creation to appropriate plugin based on `FluentUIScaffoldOptions.RequestedDriverType`
-- `PluginRegistry`: Global static registry for shared plugins
+**`IBrowserSession`** — per-test isolation boundary:
+- `NavigateToUrlAsync(Uri)`: navigates the session's page
+- `ServiceProvider`: scoped provider with session-local services (IPage, IBrowserContext, IBrowser)
+- Implements `IAsyncDisposable` for cleanup
 
-**PlaywrightPlugin** (`src/FluentUIScaffold.Playwright/`):
-- Registers `PlaywrightDriver`, `IPage`, `IBrowser`, `IBrowserContext` with DI
-- Supports .NET 6, 7, 8, 9
+**`PlaywrightPlugin`** — implements `IUITestingPlugin`:
+- Owns `IPlaywright` and `IBrowser` as singletons
+- `CreateSessionAsync()` creates a new `IBrowserContext` + `IPage` per test
+- Uses `DOMContentLoaded` instead of `NetworkIdle` for navigation (saves 500ms+)
+
+**`SessionServiceProvider`** — lightweight wrapper `IServiceProvider`:
+- Checks session-local dict (IPage, IBrowserContext, IBrowser) first
+- Falls back to root provider for other services
+- Implements `IServiceProviderIsService` for `ActivatorUtilities` compatibility
 
 ### Application Orchestration
 
-**AppScaffold<TWebApp>** - The unified async-first application orchestrator:
+**`AppScaffold<TWebApp>`** — the unified async-first application orchestrator:
 - Async lifecycle with `StartAsync()` and `IAsyncDisposable`
-- Startup logic as pluggable `Func<IServiceProvider, Task>` actions
+- **Session lifecycle**: `CreateSessionAsync()` / `DisposeSessionAsync()` per test
+- **Instance field** for `IBrowserSession` tracking (AsyncLocal and ThreadStatic both failed due to MSTest thread scheduling; works because AppScaffold is shared via a static accessor)
+- Page navigation: `NavigateTo<TPage>()`, `NavigateTo<TPage>(routeParams)`, `On<TPage>()`
+- Service resolution via `GetService<T>()`
 - Built via `FluentUIScaffoldBuilder` fluent API
-- Page navigation: `NavigateTo<TPage>()`, `On<TPage>()`, `WaitFor<TPage>()`
-- Service resolution via `GetService<T>()` and `Framework<TResult>()`
-- Base URL configuration via `WithBaseUrl()` and `NavigateToUrl()`
 
 ### Hosting Strategies
 
-**IHostingStrategy** - Pluggable abstraction for managing application hosts:
+**IHostingStrategy** — pluggable abstraction for managing application hosts:
 
 1. **DotNetHostingStrategy**: Manages .NET application lifecycle via `dotnet run`
-   - Process launching with configurable project path
-   - HTTP readiness probing for health checks
-   - Configuration hashing for server reuse
-
 2. **NodeHostingStrategy**: Manages Node.js application lifecycle via `npm run`
-   - npm/node-specific process handling
-   - Environment variable configuration (PORT, NODE_ENV)
-
 3. **ExternalHostingStrategy**: For pre-started servers (CI environments, staging)
-   - Health check only, no process management
-   - HTTP readiness probing to verify availability
-
 4. **AspireHostingStrategy**: Wraps `DistributedApplicationTestingBuilder`
-   - Full Aspire distributed application lifecycle
-   - Resource-based URL discovery
 
 ### Aspire Integration
 
 **Components** (`src/FluentUIScaffold.AspireHosting/`):
 - `AspireHostingExtensions.UseAspireHosting<TEntryPoint>()`: Configures `FluentUIScaffoldBuilder` for Aspire
-  - Creates `DistributedApplicationTestingBuilder` from Aspire.Hosting.Testing
   - Auto-discovers base URL from named resource
-  - Stores `DistributedApplication` instance in DI via `DistributedApplicationHolder`
-  - Optional `baseUrlPrefix` parameter to append a prefix to auto-discovered BaseUrl (e.g., `"#"` for hash-based SPA routing, `"/app"` for a common base path)
-- `AspireResourceExtensions`: Helpers for creating HTTP clients from Aspire resources
+  - Optional `baseUrlPrefix` parameter for hash-based SPA routing
 
 ### Configuration
 
 **FluentUIScaffoldOptions**:
 - `BaseUrl`: Application under test URL
-- `DefaultWaitTimeout`: Global element timeout (default 30s)
-- `HeadlessMode`: Explicit headless control (auto-detect if null)
-- `SlowMo`: Browser slow-motion delay (auto-detect if null)
-- `RequestedDriverType`: Hints plugin selection
+- `HeadlessMode`: Explicit headless control (auto-detect if null based on debugger attachment)
+- `SlowMo`: Browser slow-motion delay
+- `EnvironmentVariables`: Custom env vars for hosted applications
+- `EnvironmentName`: Logical environment (default: "Testing")
+- `SpaProxyEnabled`: ASP.NET SPA dev server proxy toggle
 
 **FluentUIScaffoldBuilder**: Instance-based fluent configuration builder:
-- `UsePlugin()`: Register UI testing framework plugins
+- `UsePlugin(IUITestingPlugin)`: Register a UI testing framework plugin
 - `UsePlaywright()`: Convenience method to register Playwright plugin
 - `UseAspireHosting<TEntryPoint>()`: Configure Aspire-based hosting
+- `UseDotNetHosting()`, `UseNodeHosting()`, `UseExternalServer()`: Hosting strategies
 - `Web<TApp>()`: Configure web application options
-- `WithAutoPageDiscovery()`: Enable automatic page class discovery
-- `RegisterPage<TPage>()`: Manually register page classes
 - `Build<TApp>()`: Build the `AppScaffold<TApp>` instance
 
 ## Test Patterns
 
 ### Standard Test Pattern
 
-Pattern: Build AppScaffold with plugin and hosting strategy:
-
 ```csharp
 [TestClass]
-public class TestAssemblyHooks
+public static class TestAssemblyHooks
 {
     private static AppScaffold<WebApp>? _app;
 
@@ -170,71 +151,124 @@ public class TestAssemblyHooks
     public static async Task AssemblyInitialize(TestContext context)
     {
         _app = new FluentUIScaffoldBuilder()
-            .UsePlugin(new PlaywrightPlugin())
+            .UsePlaywright()
             .Web<WebApp>(opts => opts.BaseUrl = new Uri("http://localhost:5000"))
-            .WithAutoPageDiscovery()
             .Build<WebApp>();
-
         await _app.StartAsync();
     }
 
     [AssemblyCleanup]
     public static async Task AssemblyCleanup()
     {
-        if (_app != null)
-            await _app.DisposeAsync();
+        if (_app != null) await _app.DisposeAsync();
     }
 
     public static AppScaffold<WebApp> App => _app!;
 }
 ```
 
-### Aspire Testing Pattern
-
-Pattern: Build AppScaffold with Aspire hosting:
-
-```csharp
-[AssemblyInitialize]
-public static async Task AssemblyInitialize(TestContext context)
-{
-    _sessionApp = new FluentUIScaffoldBuilder()
-        .UseAspireHosting<Projects.SampleApp_AppHost>(
-            appHost => { /* configure distributed app */ },
-            "sampleapp")
-        .Web<WebApp>(options => { options.UsePlaywright(); })
-        .Build<WebApp>();
-
-    await _sessionApp.StartAsync();
-}
-
-[AssemblyCleanup]
-public static async Task AssemblyCleanup()
-{
-    await _sessionApp.DisposeAsync();
-}
-```
-
-### Test Example
+### Test with Session Lifecycle
 
 ```csharp
 [TestMethod]
-public void NavigateToHomePage_DisplaysWelcomeMessage()
+public async Task NavigateToHomePage_DisplaysWelcome()
 {
-    var homePage = TestAssemblyHooks.App.NavigateTo<HomePage>();
-
-    homePage.Verify
-        .TitleContains("Welcome")
-        .Visible(p => p.WelcomeMessage)
-        .And
-        .Click(p => p.GetStartedButton);
+    var session = await TestAssemblyHooks.App.CreateSessionAsync();
+    try
+    {
+        await TestAssemblyHooks.App.NavigateTo<HomePage>()
+            .VerifyWelcomeVisible();
+    }
+    finally
+    {
+        await TestAssemblyHooks.App.DisposeSessionAsync();
+    }
 }
+```
+
+### Aspire Testing Pattern
+
+```csharp
+_app = new FluentUIScaffoldBuilder()
+    .UsePlaywright()
+    .UseAspireHosting<Projects.SampleApp_AppHost>(
+        appHost => { },
+        "sampleapp")
+    .Web<WebApp>(options => { })
+    .Build<WebApp>();
+await _app.StartAsync();
+```
+
+## Important Code Patterns
+
+### Page Object Implementation
+
+Pages use `Enqueue<IPage>()` to inject Playwright's `IPage` for direct browser interaction:
+
+```csharp
+[Route("/")]
+public class HomePage : Page<HomePage>
+{
+    protected HomePage(IServiceProvider serviceProvider)
+        : base(serviceProvider) { }
+
+    public HomePage ClickCounter()
+    {
+        return Enqueue<IPage>(async page =>
+        {
+            await page.ClickAsync("button:has-text('count is')").ConfigureAwait(false);
+        });
+    }
+
+    public HomePage VerifyWelcomeVisible()
+    {
+        return Enqueue<IPage>(async page =>
+        {
+            await page.Locator("h2:has-text('Welcome')").WaitForAsync().ConfigureAwait(false);
+        });
+    }
+}
+```
+
+### Cross-Page Navigation (Fluent Chaining)
+
+```csharp
+await app.NavigateTo<HomePage>()
+    .VerifyWelcomeVisible()
+    .NavigateTo<LoginPage>()    // freezes HomePage, shares action list
+    .ClickLoginTab()
+    .EnterEmail("test@example.com");
+```
+
+### Parameterized Routes
+
+```csharp
+[Route("/users/{userId}")]
+public class UserPage : Page<UserPage>
+{
+    protected UserPage(IServiceProvider sp) : base(sp) { }
+}
+
+var userPage = app.NavigateTo<UserPage>(new { userId = "123" });
+// Navigates to: http://localhost:5000/users/123
+```
+
+### Plugin Registration
+
+```csharp
+var builder = new FluentUIScaffoldBuilder()
+    .UsePlaywright();  // Convenience extension
+
+// Or register directly:
+var builder = new FluentUIScaffoldBuilder()
+    .UsePlugin(new PlaywrightPlugin());
 ```
 
 ## Multi-Targeting
 
 - **Core projects** target: net6.0, net7.0, net8.0
 - **Playwright projects** target: net6.0, net7.0, net8.0, net9.0
-- **Sample/Test projects** typically target: net6.0, net7.0, net8.0
+- **Sample/Test projects** typically target: net8.0
 - When adding features, ensure compatibility across all target frameworks
 
 ## Sample Application Structure
@@ -242,137 +276,21 @@ public void NavigateToHomePage_DisplaysWelcomeMessage()
 - **SampleApp**: ASP.NET Core backend (net8.0) with Vite+Svelte frontend
   - Uses `Microsoft.AspNetCore.SpaProxy` for reverse proxy to `http://localhost:5173`
   - Frontend: `samples/SampleApp/ClientApp/` (npm-based)
-  - Automatic npm install in Debug builds if node_modules missing
 - **SampleApp.AppHost**: Aspire AppHost for distributed testing scenarios
-- **SampleApp.Tests**: Standard .NET app testing (no Aspire)
+- **SampleApp.Tests**: Standard .NET app testing (MSTest, no Aspire)
 - **SampleApp.AspireTests**: Aspire-hosted testing (requires Docker)
-
-## Important Code Patterns
-
-### Page Object Implementation with Route Attribute
-
-Use the `[Route]` attribute to define the URL path for a page. The route is combined with `BaseUrl`:
-
-```csharp
-[Route("/login")]  // Page URL will be: BaseUrl + "/login"
-public class LoginPage : Page<LoginPage>
-{
-    public IElement SubmitButton { get; private set; } = null!;
-    public IElement UsernameField { get; private set; } = null!;
-
-    public LoginPage(IServiceProvider serviceProvider, Uri pageUrl)
-        : base(serviceProvider, pageUrl)
-    {
-    }
-
-    protected override void ConfigureElements()
-    {
-        SubmitButton = Element("[data-testid='submit']")
-            .WithDescription("Submit Button")
-            .WithWaitStrategy(WaitStrategy.Clickable)
-            .Build();
-
-        UsernameField = Element("#username")
-            .WithDescription("Username Field")
-            .Build();
-    }
-
-    public LoginPage EnterUsername(string username)
-    {
-        return Type(p => p.UsernameField, username);
-    }
-
-    public LoginPage SubmitForm()
-    {
-        return Click(p => p.SubmitButton);
-    }
-}
-```
-
-### Parameterized Routes
-
-For pages with dynamic URL segments, use placeholders in the `[Route]` attribute:
-
-```csharp
-[Route("/users/{userId}")]
-public class UserPage : Page<UserPage>
-{
-    public UserPage(IServiceProvider serviceProvider, Uri pageUrl)
-        : base(serviceProvider, pageUrl)
-    {
-    }
-
-    protected override void ConfigureElements() { /* ... */ }
-}
-
-// Navigate with parameters:
-var userPage = app.NavigateTo<UserPage>(new { userId = "123" });
-// Navigates to: http://localhost:5000/users/123
-
-// Multiple parameters:
-[Route("/users/{userId}/posts/{postId}")]
-public class UserPostPage : Page<UserPostPage> { /* ... */ }
-
-var postPage = app.NavigateTo<UserPostPage>(new { userId = "456", postId = "789" });
-// Navigates to: http://localhost:5000/users/456/posts/789
-```
-
-### Wait Strategies
-
-Available strategies: `None`, `Visible`, `Hidden`, `Clickable`, `Enabled`, `Disabled`, `TextPresent`, `Smart`
-
-Smart waiting is preferred - framework handles retries/timeouts automatically.
-
-### Fluent Page Actions
-
-All page actions return `TSelf` for fluent chaining:
-
-```csharp
-homePage
-    .Click(p => p.LoginLink)
-    .WaitForVisible(p => p.LoginForm)
-    .Type(p => p.Username, "testuser")
-    .Type(p => p.Password, "password")
-    .Click(p => p.SubmitButton);
-```
-
-### Verification Context
-
-Use the `Verify` property for assertions with fluent chaining:
-
-```csharp
-page.Verify
-    .TitleContains("Dashboard")
-    .UrlContains("/dashboard")
-    .Visible(p => p.WelcomeMessage)
-    .TextContains(p => p.UserGreeting, "Hello")
-    .And  // Returns to page for continued interaction
-    .Click(p => p.LogoutButton);
-```
-
-### Plugin Registration
-
-Plugins are registered on builder instances:
-
-```csharp
-var builder = new FluentUIScaffoldBuilder()
-    .UsePlugin(new PlaywrightPlugin());
-
-// Or use convenience method
-var builder = new FluentUIScaffoldBuilder()
-    .UsePlaywright();
-```
 
 ## Key Architectural Decisions
 
-1. **Element abstraction** allows uniform interaction across any driver implementation
+1. **Deferred execution chain** — `Page<TSelf>` queues actions that execute on `await`, no sync-over-async
 2. **Single self-referencing generic** (`Page<TSelf>`) provides clean fluent API with correct return types
-3. **Explicit plugin registration** - no implicit assembly scanning for plugins
-4. **Assembly-level server lifecycle** - start once, reuse across tests for efficiency
-5. **DI-based page resolution** - pages auto-instantiated with required dependencies
-6. **Async-first design** - `AppScaffold<TApp>` uses async lifecycle (`StartAsync`/`DisposeAsync`)
-7. **Pluggable hosting strategies** - support for .NET, Node, External, and Aspire hosts
-8. **Aspire as first-class citizen** - full integration with distributed app testing
+3. **Direct Playwright access** — pages use `Enqueue<IPage>()` for native Playwright API, no wrapper layer
+4. **Plugin + session architecture** — `IUITestingPlugin` owns browser, creates `IBrowserSession` per test
+5. **Instance field for session tracking** — `IBrowserSession` stored as a plain instance field on `AppScaffold`; works because `AppScaffold` is shared via a static accessor (AsyncLocal/ThreadStatic both failed under MSTest thread scheduling)
+6. **Assembly-level server lifecycle** — start once, reuse across tests for efficiency
+7. **Pluggable hosting strategies** — support for .NET, Node, External, and Aspire hosts
+8. **Aspire as first-class citizen** — full integration with distributed app testing
+9. **`ConfigureAwait(false)`** on all internal awaits; NOT on Task returned by `GetAwaiter()`
 
 ## Code Formatting
 

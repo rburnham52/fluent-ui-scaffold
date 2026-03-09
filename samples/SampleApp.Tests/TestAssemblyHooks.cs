@@ -6,28 +6,32 @@ using FluentUIScaffold.Core;
 using FluentUIScaffold.Core.Configuration;
 using FluentUIScaffold.Playwright;
 
-using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace SampleApp.Tests
 {
     /// <summary>
-    /// MSTest-specific assembly hooks that use the new AppScaffold pattern.
-    /// This provides automatic project detection and flexible server startup.
+    /// Assembly-level hooks for standard (non-Aspire) testing.
+    /// Starts the sample app via DotNet hosting and shares it across all tests.
     /// </summary>
     [TestClass]
-    public class TestAssemblyHooks
+    public static class TestAssemblyHooks
     {
-        private static AppScaffold<WebApp>? _sessionApp;
+        private static AppScaffold<WebApp>? _app;
+
+        public static AppScaffold<WebApp> App => SharedTestApp.App;
 
         [AssemblyInitialize]
         public static async Task AssemblyInitialize(TestContext context)
         {
-            var projectRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+            var projectRoot = Path.GetFullPath(
+                Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
             var projectPath = Path.Combine(projectRoot, "samples", "SampleApp", "SampleApp.csproj");
+            var workingDirectory = Path.Combine(projectRoot, "samples", "SampleApp");
 
-            _sessionApp = new FluentUIScaffoldBuilder()
+            _app = new FluentUIScaffoldBuilder()
                 .UsePlaywright()
+                .WithHeadlessMode(TestConfiguration.IsHeadlessMode)
                 .WithEnvironmentName("Development")
                 .WithSpaProxy(false)
                 .UseDotNetHosting(opts =>
@@ -39,45 +43,27 @@ namespace SampleApp.Tests
                     opts.HealthCheckEndpoints = new[] { "/", "/index.html" };
                     opts.StartupTimeout = TimeSpan.FromSeconds(120);
                     opts.ProcessName = "SampleApp";
-                    opts.WorkingDirectory = Path.Combine(projectRoot, "samples", "SampleApp");
+                    opts.WorkingDirectory = workingDirectory;
                 })
                 .Web<WebApp>(options =>
                 {
                     options.BaseUrl = TestConfiguration.BaseUri;
-                    options.DefaultWaitTimeout = TimeSpan.FromSeconds(30);
                 })
-                .WithAutoPageDiscovery()
                 .Build<WebApp>();
 
-            await _sessionApp.StartAsync();
-            Console.WriteLine("Web server started successfully via AppScaffold.");
+            SharedTestApp.App = _app;
+            await _app.StartAsync();
+            Console.WriteLine("Web server started successfully via DotNet hosting.");
         }
 
         [AssemblyCleanup]
         public static async Task AssemblyCleanup()
         {
-            if (_sessionApp != null)
+            if (_app != null)
             {
-                await _sessionApp.DisposeAsync();
+                await _app.DisposeAsync();
                 Console.WriteLine("Web server stopped.");
             }
         }
-
-        public static AppScaffold<WebApp> CreateApp()
-        {
-            var app = new FluentUIScaffoldBuilder()
-                .UsePlaywright()
-                .Web<WebApp>(options =>
-                {
-                    options.BaseUrl = TestConfiguration.BaseUri;
-                    options.DefaultWaitTimeout = TimeSpan.FromSeconds(30);
-                })
-                .WithAutoPageDiscovery()
-                .Build<WebApp>();
-
-            return app;
-        }
-
-        // No additional build steps here; MSBuild handles SPA build/copy for Release
     }
 }

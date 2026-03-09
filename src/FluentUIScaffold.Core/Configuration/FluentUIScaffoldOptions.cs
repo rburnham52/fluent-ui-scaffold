@@ -15,11 +15,6 @@ namespace FluentUIScaffold.Core.Configuration
         public Uri? BaseUrl { get; set; }
 
         /// <summary>
-        /// Gets or sets the default wait timeout for element operations.
-        /// </summary>
-        public TimeSpan DefaultWaitTimeout { get; set; } = TimeSpan.FromSeconds(30);
-
-        /// <summary>
         /// Gets or sets whether to run the browser in headless mode.
         /// When null, the framework will resolve this at Build() time:
         /// debugger attached = false (visible), otherwise true (headless).
@@ -31,18 +26,6 @@ namespace FluentUIScaffold.Core.Configuration
         /// When null, the framework will determine SlowMo automatically based on headless mode.
         /// </summary>
         public int? SlowMo { get; set; } = null;
-
-        /// <summary>
-        /// Gets or sets the explicitly requested driver type.
-        /// When set, the plugin selection will prefer plugins that can handle this driver type.
-        /// </summary>
-        public Type? RequestedDriverType { get; set; }
-
-        /// <summary>
-        /// Gets or sets whether to automatically discover and register page classes from loaded assemblies.
-        /// When true, the framework will scan assemblies for classes inheriting from Page&lt;TSelf&gt;.
-        /// </summary>
-        public bool AutoDiscoverPages { get; set; }
 
         /// <summary>
         /// Custom environment variables applied to hosted applications.

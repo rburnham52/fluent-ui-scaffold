@@ -1,15 +1,16 @@
 # FluentUIScaffold Sample Application
 
-This directory contains a comprehensive sample application that demonstrates the FluentUIScaffold E2E testing framework. The sample includes a Svelte-based web application with various UI components and corresponding test examples.
+This directory contains a sample application demonstrating the FluentUIScaffold E2E testing framework. The sample includes an ASP.NET Core backend with a Svelte frontend and two test projects: one using standard hosting and one using .NET Aspire.
 
 ## Overview
 
 The sample application showcases:
 
-- **Modern Web Application**: ASP.NET Core backend with Svelte frontend using Vite
-- **Complex UI Components**: Todo list, user profile forms, interactive elements
-- **Comprehensive Testing**: Page objects, fluent API usage, various testing scenarios
-- **Framework Features**: Element configuration, wait strategies, navigation, verification
+- **Modern Web Application**: ASP.NET Core backend with Svelte frontend (Vite)
+- **Deferred Execution Page Objects**: `Page<TSelf>` chain builder with `Enqueue<IPage>()` for browser interactions
+- **Awaitable Fluent Chains**: `GetAwaiter()` makes page action chains directly awaitable
+- **Cross-Page Navigation**: Type-safe `NavigateTo<TTarget>()` transitions
+- **Aspire Integration**: Distributed application testing via `.UseAspireHosting<T>()`
 
 ## Project Structure
 
@@ -27,426 +28,295 @@ samples/
 │   ├── Controllers/             # API controllers
 │   ├── Program.cs               # ASP.NET Core startup
 │   └── SampleApp.csproj
-├── SampleApp.AppHost/           # 🆕 Aspire AppHost orchestrator
+├── SampleApp.AppHost/           # Aspire AppHost orchestrator
 │   ├── Program.cs               # Aspire application setup
-│   ├── Properties/
 │   └── SampleApp.AppHost.csproj
-├── SampleApp.Tests/             # Original test project (WebServerManager)
-│   ├── Pages/                   # Page object implementations
-│   ├── Examples/                # Example test implementations
+├── SampleApp.Tests/             # Standard test project
+│   ├── Pages/                   # Page objects (HomePage, TodosPage, LoginPage)
+│   ├── TestBases/               # Abstract base test classes
+│   ├── Examples/                # Concrete test wrappers
+│   ├── SharedTestApp.cs         # Assembly hooks (AppScaffold lifecycle)
+│   ├── TestConfiguration.cs     # Config (headless mode, base URL)
 │   └── SampleApp.Tests.csproj
-├── SampleApp.AspireTests/       # 🆕 Aspire lifecycle management tests
-│   ├── AspireServerLifecycleTests.cs    # Server lifecycle demos
-│   ├── MigrationExampleTests.cs         # Migration examples
-│   ├── README.md                         # Aspire tests documentation
+├── SampleApp.AspireTests/       # Aspire-hosted test project
+│   ├── Examples/                # Concrete test wrappers (own namespace)
+│   ├── TestAssemblyHooks.cs     # Aspire assembly hooks
 │   └── SampleApp.AspireTests.csproj
-└── ASPIRE_INTEGRATION.md        # 🆕 Complete Aspire integration guide
 ```
 
-## Features Demonstrated
+## Getting Started
 
-### Web Application Features
+### Prerequisites
+
+- .NET 8.0 SDK or later
+- Node.js 16+ and npm
+- Docker (required for Aspire tests)
+
+### Running the Sample Application
+
+1. **Install frontend dependencies**:
+   ```bash
+   cd samples/SampleApp/ClientApp
+   npm install
+   cd ..
+   ```
+
+2. **Run the application**:
+   ```bash
+   dotnet run --project samples/SampleApp/SampleApp.csproj
+   ```
+
+3. **Access the application** at `http://localhost:5001`. The application automatically proxies to the Vite dev server.
+
+### Running the Tests
+
+#### Standard Tests
+```bash
+dotnet test samples/SampleApp.Tests/SampleApp.Tests.csproj
+```
+
+#### Aspire Tests (requires Docker)
+```bash
+dotnet test samples/SampleApp.AspireTests/SampleApp.AspireTests.csproj
+```
+
+No Aspire workload installation is required. The Aspire hosting libraries are referenced as NuGet packages.
+
+## Framework Usage
+
+### Assembly Setup with AppScaffold
+
+Tests share a single `AppScaffold<TApp>` instance configured via `FluentUIScaffoldBuilder`. The scaffold is started once at assembly initialization and disposed at cleanup.
+
+#### Standard Setup (SharedTestApp.cs)
+
+```csharp
+[TestClass]
+public class SharedTestApp
+{
+    private static AppScaffold<WebApp>? _app;
+
+    [AssemblyInitialize]
+    public static async Task AssemblyInitialize(TestContext context)
+    {
+        _app = new FluentUIScaffoldBuilder()
+            .UsePlaywright()
+            .Web<WebApp>(opts => opts.BaseUrl = new Uri("http://localhost:5000"))
+            .WithAutoPageDiscovery()
+            .Build<WebApp>();
+
+        await _app.StartAsync();
+    }
+
+    [AssemblyCleanup]
+    public static async Task AssemblyCleanup()
+    {
+        if (_app != null)
+            await _app.DisposeAsync();
+    }
+
+    public static AppScaffold<WebApp> App => _app!;
+}
+```
+
+#### Aspire Setup (TestAssemblyHooks.cs)
+
+```csharp
+[TestClass]
+public class TestAssemblyHooks
+{
+    private static AppScaffold<WebApp>? _app;
+
+    [AssemblyInitialize]
+    public static async Task AssemblyInitialize(TestContext context)
+    {
+        _app = new FluentUIScaffoldBuilder()
+            .UseAspireHosting<Projects.SampleApp_AppHost>(
+                appHost => { /* configure distributed app */ },
+                "sampleapp")
+            .Web<WebApp>(options => { options.UsePlaywright(); })
+            .Build<WebApp>();
+
+        await _app.StartAsync();
+    }
+
+    [AssemblyCleanup]
+    public static async Task AssemblyCleanup()
+    {
+        if (_app != null)
+            await _app.DisposeAsync();
+    }
+
+    public static AppScaffold<WebApp> App => _app!;
+}
+```
+
+### Per-Test Sessions
+
+Each test (or test class) creates and disposes its own browser session:
+
+```csharp
+[TestInitialize]
+public async Task TestInitialize()
+{
+    await SharedTestApp.App.CreateSessionAsync();
+}
+
+[TestCleanup]
+public async Task TestCleanup()
+{
+    await SharedTestApp.App.DisposeSessionAsync();
+}
+```
+
+Abstract base test classes in `TestBases/` encapsulate this session lifecycle. Concrete test classes in `Examples/` inherit from the base classes to avoid boilerplate.
+
+### Page Object Pattern
+
+Page objects extend `Page<TSelf>` and use the `[Route]` attribute for URL mapping. Browser interactions are enqueued as deferred async actions via `Enqueue<IPage>()`, building a chain that executes when awaited.
+
+```csharp
+[Route("/")]
+public class HomePage : Page<HomePage>
+{
+    protected HomePage(IServiceProvider serviceProvider) : base(serviceProvider) { }
+
+    public HomePage VerifyWelcomeVisible() => Enqueue<IPage>(async page =>
+    {
+        await page.Locator("h2:has-text('Welcome')").WaitForAsync().ConfigureAwait(false);
+    });
+
+    public HomePage ClickCounter() => Enqueue<IPage>(async page =>
+    {
+        await page.ClickAsync("button:has-text('count is')").ConfigureAwait(false);
+    });
+
+    public HomePage VerifyCounterValue(string expected) => Enqueue<IPage>(async page =>
+    {
+        var button = page.Locator("button:has-text('count is')");
+        await Assertions.Expect(button).ToContainTextAsync(expected).ConfigureAwait(false);
+    });
+}
+```
+
+Key differences from the old API:
+
+- No `ConfigureElements()` override or `IElement` fields.
+- No `WaitStrategy` configuration. Waiting is handled directly in `Enqueue` lambdas using Playwright's built-in waiting (e.g., `WaitForAsync()`, `ToContainTextAsync()`).
+- Constructor takes only `IServiceProvider`; no driver, options, or logger parameters.
+- Methods return `this` (typed as `TSelf`) for chaining, but the chain is deferred until awaited via `GetAwaiter()`.
+
+### Cross-Page Navigation
+
+Navigate between pages using `NavigateTo<TTarget>()`:
+
+```csharp
+[Route("/todos")]
+public class TodosPage : Page<TodosPage>
+{
+    protected TodosPage(IServiceProvider serviceProvider) : base(serviceProvider) { }
+
+    public TodosPage VerifyTodoCount(int expected) => Enqueue<IPage>(async page =>
+    {
+        var items = page.Locator("[data-testid='todo-item']");
+        await Assertions.Expect(items).ToHaveCountAsync(expected).ConfigureAwait(false);
+    });
+
+    public HomePage NavigateToHome() => NavigateTo<HomePage>();
+}
+```
+
+### Writing Tests
+
+Tests await the fluent page chain directly. The `GetAwaiter()` on `Page<TSelf>` executes all enqueued actions in order.
+
+```csharp
+[TestMethod]
+public async Task HomePage_DisplaysWelcomeMessage()
+{
+    await SharedTestApp.App.NavigateTo<HomePage>()
+        .VerifyWelcomeVisible();
+}
+
+[TestMethod]
+public async Task Counter_IncrementsOnClick()
+{
+    await SharedTestApp.App.NavigateTo<HomePage>()
+        .ClickCounter()
+        .ClickCounter()
+        .ClickCounter()
+        .VerifyCounterValue("3");
+}
+
+[TestMethod]
+public async Task Navigation_BetweenPages()
+{
+    await SharedTestApp.App.NavigateTo<HomePage>()
+        .VerifyWelcomeVisible();
+
+    await SharedTestApp.App.NavigateTo<TodosPage>()
+        .VerifyTodoCount(3);
+}
+```
+
+### Test Organization
+
+The sample tests use a layered structure:
+
+- **`TestBases/`** -- Abstract base test classes that handle `CreateSessionAsync()` / `DisposeSessionAsync()` lifecycle and provide helper methods.
+- **`Examples/`** -- Concrete test classes that inherit from the base classes and contain the actual test methods. Both `SampleApp.Tests` and `SampleApp.AspireTests` have their own `Examples/` folder with tests in their respective namespaces.
+
+This separation keeps session management DRY while allowing each test project to define its own assembly hooks and configuration.
+
+## Web Application Features
+
+The Svelte frontend provides several UI components for testing:
 
 1. **Multi-tab Navigation**: Home, Todos, and Profile tabs
 2. **Interactive Counter**: Clickable counter with state management
 3. **Todo Management**: Add, edit, filter, and delete todos
 4. **User Profile Form**: Complex form with validation
 5. **Weather Data**: Async data loading and display
-6. **Responsive Design**: Modern UI with CSS Grid and Flexbox
-
-### Testing Framework Features
-
-1. **Fluent API**: Chainable method calls for readable tests
-2. **Page Object Pattern**: Encapsulated page interactions
-3. **Element Configuration**: Flexible element definition with wait strategies
-4. **Navigation**: Seamless page transitions
-5. **Verification**: Comprehensive assertion methods
-6. **Error Handling**: Graceful handling of timeouts and failures
-
-### 🚀 **NEW: Aspire Server Lifecycle Management**
-
-7. **Automatic Server Lifecycle**: Integrated Aspire AppHost management
-8. **Process Reuse**: 3-10x faster test execution through server reuse
-9. **Configuration Drift Detection**: Automatic server restart on config changes
-10. **CI/CD Integration**: Built-in headless mode and asset building
-11. **Health Check Validation**: Comprehensive readiness verification
-12. **Orphan Process Cleanup**: Automatic cleanup of stale processes
-
-## Getting Started
-
-### Prerequisites
-
-- .NET 6.0 SDK or later
-- Node.js 16+ and npm
-- Visual Studio 2022 or VS Code
-
-### Running the Sample Application
-
-1. **Navigate to the sample app directory**:
-   ```bash
-   cd samples/SampleApp
-   ```
-
-2. **Install frontend dependencies**:
-   ```bash
-   cd ClientApp
-   npm install
-   cd ..
-   ```
-
-3. **Run the application**:
-   ```bash
-   dotnet run
-   ```
-
-4. **Access the application**:
-   - Open your browser to `http://localhost:5001`
-   - The application will automatically proxy to the Vite dev server
-
-### Running the Tests
-
-#### Traditional Tests (WebServerManager)
-1. **Navigate to the original test project**:
-   ```bash
-   cd samples/SampleApp.Tests
-   ```
-
-2. **Run the tests**:
-   ```bash
-   dotnet test
-   ```
-
-#### 🆕 **NEW: Aspire Lifecycle Tests**
-1. **Install Aspire workload** (one-time setup):
-   ```bash
-   dotnet workload install aspire
-   ```
-
-2. **Navigate to the Aspire test project**:
-   ```bash
-   cd samples/SampleApp.AspireTests
-   ```
-
-3. **Run the Aspire lifecycle tests**:
-   ```bash
-   dotnet test
-   ```
-
-4. **Run specific test categories**:
-   ```bash
-   # Server lifecycle tests only
-   dotnet test --filter TestCategory=ServerLifecycle
-   
-   # Migration examples only
-   dotnet test --filter TestCategory=Migration
-   
-   # Performance tests only
-   dotnet test --filter TestCategory=Performance
-   ```
-
-#### Running the Aspire AppHost Directly
-```bash
-# Run the Aspire orchestrator for development
-dotnet run --project samples/SampleApp.AppHost/SampleApp.AppHost.csproj
-
-# Access the Aspire dashboard at https://localhost:15000
-# Access the sample app at http://localhost:5000
-```
-
-## Framework Usage Examples
-
-### Basic Setup
-
-#### Traditional Approach (WebServerManager)
-```csharp
-// Manual server management in TestAssemblyHooks
-[AssemblyInitialize]
-public static void AssemblyInitialize(TestContext context)
-{
-    var plan = ServerConfiguration.CreateDotNetServer(baseUrl, projectPath)
-        .WithFramework("net8.0")
-        .Build();
-    await WebServerManager.StartServerAsync(plan);
-}
-
-// Test class setup
-var options = new FluentUIScaffoldOptionsBuilder()
-    .WithBaseUrl(new Uri("http://localhost:5000"))
-    .WithHeadlessMode(true)
-    .Build();
-
-var fluentUI = new FluentUIScaffoldApp<WebApp>(options);
-```
-
-#### 🆕 **NEW: Aspire Lifecycle Management**
-```csharp
-// Integrated server management (no TestAssemblyHooks needed!)
-var serverConfig = ServerConfiguration.CreateAspireServer(
-    baseUrl, 
-    "path/to/SampleApp.AppHost.csproj")
-    .WithHealthCheckEndpoints("/", "/weatherforecast")
-    .WithAutoCI() // Automatic CI detection
-    .WithHeadless(true)
-    .Build();
-
-using var app = FluentUIScaffoldBuilder.Web<WebApp>(options =>
-{
-    options.WithServerConfiguration(serverConfig); // NEW: Integrated management
-    options.WithBaseUrl(baseUrl);
-    options.WithHeadlessMode(true);
-});
-// Server automatically started and will be stopped on disposal
-```
-
-### Page Object Pattern
-
-```csharp
-public class HomePage : BasePageComponent<WebApp>
-{
-    private IElement _counterButton;
-    private IElement _navTodosButton;
-
-    protected override void ConfigureElements()
-    {
-        _counterButton = Element("button")
-            .WithDescription("Counter Button")
-            .WithWaitStrategy(WaitStrategy.Clickable);
-
-        _navTodosButton = Element("[data-testid='nav-todos']")
-            .WithDescription("Todos Navigation Button")
-            .WithWaitStrategy(WaitStrategy.Clickable);
-    }
-
-    public HomePage ClickCounter()
-    {
-        _counterButton.Click();
-        return this;
-    }
-
-    public TodosPage NavigateToTodos()
-    {
-        _navTodosButton.Click();
-        return new TodosPage(Driver, Options, Logger);
-    }
-}
-```
-
-### Writing Tests
-
-```csharp
-[TestMethod]
-public async Task Can_Interact_With_Counter_Component()
-{
-    // Arrange
-    var homePage = _fluentUI.NavigateTo<HomePage>();
-
-    // Act - Click the counter multiple times
-    homePage
-        .WaitFor(e => e.CounterButton)
-        .ClickCounter()
-        .ClickCounter()
-        .ClickCounter();
-
-    // Assert - Verify the counter shows the expected value
-    homePage.VerifyCounterValue("3");
-}
-```
-
-### Complex Workflows
-
-```csharp
-[TestMethod]
-public async Task Can_Perform_Complex_User_Workflow()
-{
-    // Arrange
-    var homePage = _fluentUI.NavigateTo<HomePage>();
-
-    // Act - Perform a complex workflow
-    homePage
-        .WaitFor(e => e.CounterButton)
-        .ClickCounter() // Click counter once
-        .VerifyCounterValue("1") // Verify counter updated
-        .ClickCounterMultipleTimes(3) // Click 3 more times
-        .VerifyCounterValue("4") // Verify final count
-        .WaitForWeatherData() // Wait for weather data
-        .VerifyWeatherItemsAreDisplayed(); // Verify weather data loaded
-
-    // Act - Navigate to todos page
-    var todosPage = homePage.NavigateToTodos();
-    todosPage.VerifyTodoCount(3); // Verify default todos
-
-    // Act - Navigate back to home
-    var backToHome = todosPage.NavigateToHome();
-    backToHome.VerifyPageTitle("FluentUIScaffold Sample App"); // Verify we're back
-}
-```
-
-## Framework Features
-
-### Element Configuration
-
-The framework provides a fluent API for configuring elements:
-
-```csharp
-private IElement _counterButton = Element("button")
-    .WithDescription("Counter Button")
-    .WithWaitStrategy(WaitStrategy.Clickable)
-    .WithTimeout(TimeSpan.FromSeconds(10))
-    .WithRetryInterval(TimeSpan.FromMilliseconds(200));
-```
-
-### Wait Strategies
-
-- `None`: No waiting
-- `Visible`: Wait for element to be visible
-- `Hidden`: Wait for element to be hidden
-- `Clickable`: Wait for element to be clickable
-- `Enabled`: Wait for element to be enabled
-- `Disabled`: Wait for element to be disabled
-- `TextPresent`: Wait for specific text to be present
-- `Smart`: Framework-specific intelligent waiting
-
-### Navigation
-
-Seamless navigation between pages:
-
-```csharp
-var todosPage = homePage.NavigateToTodos();
-var profilePage = todosPage.NavigateToProfile();
-var backToHome = profilePage.NavigateToHome();
-```
-
-### Verification
-
-Comprehensive verification methods:
-
-```csharp
-homePage
-    .VerifyPageTitle("Expected Title")
-    .VerifyCounterValue("3")
-    .VerifyWeatherItemsAreDisplayed()
-    .VerifyLogosAreVisible();
-```
 
 ## Best Practices
 
-### 1. Page Object Design
+### Page Object Design
 
-- **Encapsulate Elements**: Define all page elements in `ConfigureElements()`
-- **Method Chaining**: Return `this` for fluent method chaining
-- **Clear Descriptions**: Use descriptive names for elements and methods
-- **Separation of Concerns**: Keep page logic separate from test logic
+- **Use `[Route]` attributes** to declare page URLs declaratively.
+- **Keep `Enqueue` lambdas focused** -- each method should perform one logical interaction or assertion.
+- **Return `this`** (via `Enqueue`) for fluent chaining; avoid returning raw `Task`.
+- **Use Playwright locators** directly inside `Enqueue<IPage>()` rather than abstracting element selectors into fields.
 
-### 2. Element Configuration
+### Selectors
 
-- **Use Data Attributes**: Prefer `data-testid` attributes for reliable selection
-- **Appropriate Wait Strategies**: Choose wait strategies based on element behavior
-- **Meaningful Descriptions**: Provide clear descriptions for debugging
+- Prefer `data-testid` attributes for stable selectors that survive UI refactors.
+- Use Playwright's built-in pseudo-selectors like `:has-text()` for readable locators.
 
-### 3. Test Structure
+### Test Structure
 
-- **Arrange-Act-Assert**: Follow the AAA pattern
-- **Single Responsibility**: Each test should verify one specific behavior
-- **Descriptive Names**: Use clear, descriptive test method names
-- **Proper Cleanup**: Always dispose of resources in test cleanup
+- **One behavior per test**: Each test method should verify a single scenario.
+- **Await the chain**: Always `await` the page chain to execute enqueued actions.
+- **Session isolation**: Use `CreateSessionAsync()` / `DisposeSessionAsync()` per test for a clean browser state.
+- **Descriptive names**: Test method names should describe the scenario and expected outcome.
 
-### 4. Error Handling
+### Aspire Tests
 
-- **Graceful Degradation**: Handle missing elements gracefully
-- **Timeout Configuration**: Set appropriate timeouts for your application
-- **Screenshot Capture**: Enable screenshot capture for debugging failures
-
-## Advanced Features
-
-### Framework-Specific Access
-
-Access underlying framework features when needed:
-
-```csharp
-var playwrightDriver = _fluentUI.Framework<PlaywrightDriver>();
-// Use Playwright-specific features
-```
-
-### Custom Wait Conditions
-
-Implement custom wait conditions for complex scenarios:
-
-```csharp
-private IElement _customElement = Element("selector")
-    .WithCustomWaitCondition(() => /* custom condition */)
-    .WithDescription("Custom Element");
-```
-
-### Data-Driven Testing
-
-Structure tests for data-driven scenarios:
-
-```csharp
-[TestMethod]
-[DataRow(1, "1")]
-[DataRow(3, "3")]
-[DataRow(5, "5")]
-public async Task Can_Test_Counter_With_Different_Values(int clickCount, string expectedValue)
-{
-    // Test implementation
-}
-```
+- Docker must be running before executing Aspire tests.
+- Aspire tests share the same page objects and test base classes as standard tests; only the assembly hooks differ.
+- No Aspire workload installation is needed -- the required packages are referenced via NuGet.
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **Element Not Found**: Check selectors and ensure elements are present
-2. **Timeout Errors**: Increase timeout or check element visibility
-3. **Navigation Failures**: Verify URL patterns and page validation
-4. **Framework Errors**: Ensure proper driver configuration
+1. **Element not found / timeout**: Check your Playwright locator. Use the browser dev tools to verify the selector matches.
+2. **Tests hang**: Ensure `await` is used on all page chains. A missing `await` means enqueued actions never execute.
+3. **Aspire tests fail to start**: Verify Docker is running. Check that the AppHost project builds successfully.
+4. **Session errors**: Confirm that `CreateSessionAsync()` is called before navigation and `DisposeSessionAsync()` is called in cleanup.
 
 ### Debugging Tips
 
-1. **Enable Logging**: Set appropriate log levels for debugging
-2. **Screenshot Capture**: Enable screenshots on failure
-3. **Element Inspection**: Use browser dev tools to verify selectors
-4. **Wait Strategies**: Choose appropriate wait strategies for your elements
-
-## Contributing
-
-When contributing to the sample application:
-
-1. **Follow Patterns**: Use existing patterns for consistency
-2. **Add Documentation**: Document new features and examples
-3. **Update Tests**: Ensure all new features have corresponding tests
-4. **Maintain Quality**: Follow coding standards and best practices
-
-## 🚀 **NEW: Aspire Integration**
-
-### Comprehensive Aspire Support
-This sample now includes complete **.NET Aspire integration** demonstrating server lifecycle management for UI testing. 
-
-**📖 See [ASPIRE_INTEGRATION.md](ASPIRE_INTEGRATION.md) for complete documentation including:**
-- Migration guide from WebServerManager to Aspire lifecycle management
-- Performance comparisons (3-10x faster test execution)
-- CI/CD integration patterns
-- Configuration drift detection examples
-- Health checking and process management
-
-### Quick Aspire Demo
-```bash
-# 1. Install Aspire workload
-dotnet workload install aspire
-
-# 2. Run the Aspire lifecycle tests
-dotnet test samples/SampleApp.AspireTests/SampleApp.AspireTests.csproj --filter TestCategory=ServerLifecycle
-
-# 3. See automatic server management in action!
-```
-
-## Next Steps
-
-1. **🆕 Try Aspire Integration**: Start with the [Aspire Integration Guide](ASPIRE_INTEGRATION.md)
-2. **Explore the Framework**: Review the main FluentUIScaffold framework documentation
-3. **Migrate Existing Tests**: Use the migration examples to upgrade your test projects
-4. **Extend Examples**: Add more complex scenarios and edge cases
-5. **Customize**: Adapt the examples to your specific testing needs
-6. **Contribute**: Share improvements and additional examples
-
-This sample application provides a solid foundation for understanding and using the FluentUIScaffold E2E testing framework effectively, with cutting-edge Aspire integration for enterprise scenarios.
+1. **Run headed**: Set headless mode to `false` in `TestConfiguration.cs` to watch the browser.
+2. **Playwright traces**: Enable Playwright tracing for detailed interaction logs.
+3. **Inspect selectors**: Use `page.Locator().HighlightAsync()` inside an `Enqueue` lambda during development.
+4. **Check logs**: Review test output for navigation URLs and session lifecycle events.

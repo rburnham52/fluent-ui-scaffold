@@ -1,175 +1,78 @@
 # Future Enhancement: Framework Escape Hatch & IUIDriver Refactoring
 
-## Problem Statement
+> **Note (Phase 4 — Foundation Redesign):** The concerns in this document have been largely addressed by the foundational API redesign described in [2026-03-09-foundational-api-redesign-brainstorm.md](brainstorms/2026-03-09-foundational-api-redesign-brainstorm.md). The `IUIDriver` abstraction has been removed from the public-facing API, and the "escape hatch" problem is solved by the `Enqueue<T>()` pattern, which gives page objects direct access to native framework services via DI. This document is retained as historical context.
 
-`IUIDriver` currently reimplements 19 methods that mirror what Playwright (and other frameworks) already provide — Click, Type, Hover, Focus, SelectOption, etc. This creates a thin abstraction that adds maintenance overhead without much value, since the fluent `Page<TSelf>` and `Element` layers already provide the framework-agnostic API that test code actually uses.
+## Original Problem Statement
 
-Meanwhile, when tests need framework-specific capabilities (network interception, geolocation, device emulation), there's no clean pattern to "escape" from the fluent API into the native framework.
+`IUIDriver` reimplemented ~19 methods that mirrored what Playwright (and other frameworks) already provide — Click, Type, Hover, Focus, SelectOption, etc. This created a thin abstraction that added maintenance overhead without much value, since the fluent `Page<TSelf>` layer was what test code actually used.
 
-## Vision
+Meanwhile, when tests needed framework-specific capabilities (network interception, geolocation, device emulation), there was no clean pattern to "escape" from the fluent API into the native framework.
 
-1. **Slim down `IUIDriver`** to only browser-level operations that don't have fluent equivalents (navigation, script execution, screenshots, lifecycle)
-2. **Add a framework escape hatch** so tests can drop into native Playwright (or Selenium, etc.) code when needed, with full DI support
+## How the Redesign Solves This
 
-## Design: Framework Escape Hatch
+### Enqueue<T>() as the Universal Escape Hatch
 
-### Option A: Lambda-based access on AppScaffold
+The foundation redesign replaces `IUIDriver` entirely. Page objects now use `Enqueue<T>()` to get direct access to any registered service — including Playwright's native `IPage`, `IBrowserContext`, `IBrowser`, or custom services — via DI injection into action lambdas:
 
 ```csharp
-// Inject any registered Playwright services into the lambda
-app.Framework<PlaywrightDriver>(driver =>
+[Route("/products")]
+public class ProductsPage : Page<ProductsPage>
 {
-    // Full access to Playwright's IPage, IBrowser, IBrowserContext
-    var page = driver.GetFrameworkDriver<IPage>();
-    await page.RouteAsync("**/api/*", route => route.FulfillAsync(new()
-    {
-        Body = "{\"mocked\": true}"
-    }));
-});
+    protected ProductsPage(IServiceProvider serviceProvider) : base(serviceProvider) { }
 
-// With return value
-var cookies = app.Framework<PlaywrightDriver, IReadOnlyList<BrowserContextCookiesResult>>(
-    async driver =>
-    {
-        var context = driver.GetFrameworkDriver<IBrowserContext>();
-        return await context.CookiesAsync();
-    });
-```
-
-### Option B: Direct DI resolution (current pattern, enhanced)
-
-```csharp
-// Already works today via Framework<T>()
-var page = app.Framework<IPage>();
-await page.EvaluateAsync("localStorage.clear()");
-
-// Could register PlaywrightAdvancedFeatures in DI
-var advanced = app.Framework<PlaywrightAdvancedFeatures>();
-await advanced.TakeScreenshotAsync("debug.png");
-await advanced.InterceptNetworkRequests("/api/*", handler);
-```
-
-### Option C: Page-level escape hatch
-
-```csharp
-// From within a Page object, access the native framework
-public class MyPage : Page<MyPage>
-{
-    public async Task ClearStorageAsync()
-    {
-        // Escape hatch from within page context
-        await UseFramework<IPage>(async page =>
+    // Direct Playwright IPage access — no IUIDriver indirection
+    public ProductsPage SearchFor(string query)
+        => Enqueue(async (IPage page) =>
         {
-            await page.EvaluateAsync("localStorage.clear()");
+            await page.GetByPlaceholder("Search...").FillAsync(query);
+            await page.GetByRole(AriaRole.Button, new() { Name = "Search" }).ClickAsync();
         });
-    }
+
+    // Framework-specific capabilities that previously had no clean escape hatch
+    public ProductsPage MockApiResponses()
+        => Enqueue(async (IPage page) =>
+        {
+            await page.RouteAsync("**/api/*", route => route.FulfillAsync(new()
+            {
+                Body = "{\"mocked\": true}"
+            }));
+        });
+
+    // Multiple services injected — IBrowserContext for cookies, ILogger for diagnostics
+    public ProductsPage ClearCookiesAndLog()
+        => Enqueue(async (IBrowserContext context, ILogger<ProductsPage> logger) =>
+        {
+            logger.LogInformation("Clearing cookies");
+            await context.ClearCookiesAsync();
+        });
 }
 ```
 
-### Recommendation
+### Why This Works Better Than the Original Proposals
 
-**Option B (enhanced)** is the simplest path — register `PlaywrightAdvancedFeatures` in DI via `PlaywrightPlugin.ConfigureServices()`, and tests access it via `app.Framework<PlaywrightAdvancedFeatures>()`. No new API surface needed.
+The original document proposed three options:
 
-**Option C** is valuable longer-term for keeping framework access scoped to page objects rather than scattered in test methods.
+- **Option A (Lambda-based access on AppScaffold)** — Required a separate `app.Framework<T>()` call outside the fluent chain, breaking flow.
+- **Option B (Direct DI resolution)** — Similar idea but scattered framework calls across test methods rather than encapsulating them in page objects.
+- **Option C (Page-level UseFramework)** — Closest to what we implemented, but as a separate `UseFramework<T>()` method alongside the existing element-based API, creating two parallel interaction patterns.
 
-## Design: Slimming IUIDriver
+`Enqueue<T>()` unifies all of these. There is no separate "escape hatch" because **all page interactions go through `Enqueue<T>()`**. Whether you are clicking a button, intercepting network requests, or reading cookies, the pattern is the same: resolve services from DI, execute async actions, return `TSelf` for fluent chaining.
 
-### Current IUIDriver (19 methods + 1 property)
+### Key Differences from the Original Design
 
-```
-Navigation:     NavigateToUrl, NavigateTo<T>
-Element State:  Click, Type, SelectOption, Focus, Hover, Clear,
-                GetText, GetAttribute, GetValue, IsVisible, IsEnabled
-Waits:          WaitForElement, WaitForElementToBeVisible, WaitForElementToBeHidden
-Page-Level:     GetPageTitle, CurrentUrl
-Framework:      GetFrameworkDriver<T>
-```
+| Original Design | Foundation Redesign |
+|----------------|---------------------|
+| `IUIDriver` with 19+ methods | Removed — no driver abstraction |
+| `Element` / `IElement` abstraction | Removed — use Playwright locators directly |
+| `PlaywrightAdvancedFeatures` in DI | Not needed — `IPage` / `IBrowserContext` available directly |
+| `GetFrameworkDriver<T>()` on IUIDriver | Replaced by `Enqueue<T>()` DI injection |
+| Separate "escape hatch" API | No escape needed — all interactions are native |
+| Sync-over-async throughout | Fully async via deferred execution chains |
 
-### Proposed Minimal IUIDriver
+### Session Isolation
 
-Keep only what the `Element` and `Page<TSelf>` layers actually need, plus browser-level ops:
-
-```csharp
-public interface IUIDriver : IDisposable
-{
-    // Browser-level (no fluent equivalent)
-    Uri? CurrentUrl { get; }
-    void NavigateToUrl(Uri url);
-    string GetPageTitle();
-    Task ExecuteScriptAsync(string script);
-    Task<T> ExecuteScriptAsync<T>(string script);
-    Task TakeScreenshotAsync(string filePath);
-
-    // Element operations (used by Element class internally)
-    void Click(string selector);
-    void Type(string selector, string text);
-    void SelectOption(string selector, string value);
-    void Clear(string selector);
-    void Focus(string selector);
-    void Hover(string selector);
-    string GetText(string selector);
-    string GetAttribute(string selector, string attributeName);
-    string GetValue(string selector);
-    bool IsVisible(string selector);
-    bool IsEnabled(string selector);
-
-    // Wait operations (used by Element class internally)
-    void WaitForElement(string selector);
-    void WaitForElementToBeVisible(string selector);
-    void WaitForElementToBeHidden(string selector);
-
-    // Framework access
-    TDriver GetFrameworkDriver<TDriver>() where TDriver : class;
-}
-```
-
-**Note:** After review, the element operations are still needed because `Element` class delegates to `IUIDriver` directly. The real refactoring opportunity is to consider whether `Element` should instead hold a reference to the native framework driver directly, but that's a larger architectural change.
-
-### Migration Path
-
-The refactoring would be a **major version** change:
-
-1. Add new async methods (`ExecuteScriptAsync`, `TakeScreenshotAsync`) — **non-breaking, do this now**
-2. Register `PlaywrightAdvancedFeatures` in DI — **non-breaking, do this soon**
-3. Add page-level `UseFramework<T>()` escape hatch — **non-breaking, do later**
-4. Evaluate whether `IUIDriver` element methods can be internalized — **breaking, major version**
-
-## Implementation Notes
-
-### Registering PlaywrightAdvancedFeatures in DI
-
-In `PlaywrightPlugin.ConfigureServices()`:
-
-```csharp
-services.AddSingleton<PlaywrightAdvancedFeatures>(provider =>
-{
-    var page = provider.GetRequiredService<IPage>();
-    return new PlaywrightAdvancedFeatures(page);
-});
-```
-
-### Page-level UseFramework (future)
-
-```csharp
-// In Page<TSelf> base class
-protected async Task UseFramework<TFramework>(Func<TFramework, Task> action)
-    where TFramework : class
-{
-    var framework = ServiceProvider.GetRequiredService<TFramework>();
-    await action(framework);
-}
-
-protected async Task<TResult> UseFramework<TFramework, TResult>(
-    Func<TFramework, Task<TResult>> action)
-    where TFramework : class
-{
-    var framework = ServiceProvider.GetRequiredService<TFramework>();
-    return await action(framework);
-}
-```
+The plugin + session architecture also addresses lifecycle concerns. `IBrowserSessionFactory` creates isolated sessions (one `IBrowserContext` + `IPage` per test), so framework access is always scoped correctly. There is no risk of one test's network interception leaking into another.
 
 ## Related
 
-- Brainstorm: [2026-02-15-browser-interaction-apis-brainstorm.md](brainstorms/2026-02-15-browser-interaction-apis-brainstorm.md)
-- Current `PlaywrightAdvancedFeatures`: `src/FluentUIScaffold.Playwright/PlaywrightAdvancedFeatures.cs`
-- Current `IUIDriver`: `src/FluentUIScaffold.Core/Interfaces/IUIDriver.cs`
+- Foundational redesign brainstorm: [2026-03-09-foundational-api-redesign-brainstorm.md](brainstorms/2026-03-09-foundational-api-redesign-brainstorm.md)

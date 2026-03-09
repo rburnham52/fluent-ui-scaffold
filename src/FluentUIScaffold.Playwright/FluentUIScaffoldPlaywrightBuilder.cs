@@ -1,20 +1,21 @@
 using System;
 
+using FluentUIScaffold.Core.Configuration;
+
 namespace FluentUIScaffold.Playwright
 {
     /// <summary>
-    /// Convenience helpers for registering the Playwright plugin.
+    /// Extension methods for configuring Playwright as the UI testing plugin.
     /// </summary>
     public static class FluentUIScaffoldPlaywrightBuilder
     {
         /// <summary>
-        /// Registers the Playwright plugin using the FluentUIScaffoldBuilder fluent API.
+        /// Registers the Playwright plugin for browser automation.
         /// </summary>
-        public static Core.Configuration.FluentUIScaffoldBuilder UsePlaywright(this Core.Configuration.FluentUIScaffoldBuilder builder)
+        public static FluentUIScaffoldBuilder UsePlaywright(this FluentUIScaffoldBuilder builder)
         {
             if (builder == null) throw new ArgumentNullException(nameof(builder));
-            builder.UsePlugin(new PlaywrightPlugin());
-            return builder;
+            return builder.UsePlugin(new PlaywrightPlugin());
         }
     }
 }

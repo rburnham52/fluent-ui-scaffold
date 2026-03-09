@@ -1,74 +1,61 @@
 using System;
-using System.IO;
 using System.Threading.Tasks;
-
-using Aspire.Hosting;
-using Aspire.Hosting.Testing;
 
 using FluentUIScaffold.AspireHosting;
 using FluentUIScaffold.Core;
 using FluentUIScaffold.Core.Configuration;
 using FluentUIScaffold.Playwright;
 
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+using SampleApp.Tests;
 
 namespace SampleApp.AspireTests
 {
     /// <summary>
-    /// Test assembly hooks for managing Aspire server lifecycle at the test session level.
-    /// Simple configuration-focused approach - delegates complex cleanup to the framework.
+    /// Assembly-level hooks for Aspire-hosted testing.
+    /// Starts the Aspire distributed application once for the entire test session.
+    /// Shares the same test Pages and Examples from SampleApp.Tests via linked files.
     /// </summary>
     [TestClass]
     public static class TestAssemblyHooks
     {
-        private static AppScaffold<WebApp>? _sessionApp;
+        private static AppScaffold<WebApp>? _app;
 
-        /// <summary>
-        /// Assembly initialization - starts the Aspire server once for the entire test session.
-        /// </summary>
+        public static AppScaffold<WebApp> App => SharedTestApp.App;
+
         [AssemblyInitialize]
         public static async Task AssemblyInitialize(TestContext context)
         {
-            // Create and build the app scaffold
-            _sessionApp = new FluentUIScaffold.Core.Configuration.FluentUIScaffoldBuilder()
+            if (!TestEnvironmentHelper.CanRunAspireTests)
+            {
+                Console.WriteLine(TestEnvironmentHelper.GetEnvironmentStatus());
+                Assert.Inconclusive("Aspire tests require Docker and the Aspire workload. Skipping.");
+                return;
+            }
+
+            _app = new FluentUIScaffoldBuilder()
                 .UsePlaywright()
-                .WithHeadlessMode(false)
-                .UseAspireHosting<Projects.SampleApp_AppHost>(appHost =>
-                    {
-                        // Configure the app host builder if needed
-                    },
+                .WithHeadlessMode(TestConfiguration.IsHeadlessMode)
+                .UseAspireHosting<Projects.SampleApp_AppHost>(
+                    appHost => { },
                     "sampleapp")
-                .Web<WebApp>(options =>
-                {
-                    // Base URL is determined by Aspire hosting
-                })
+                .Web<WebApp>(options => { })
                 .Build<WebApp>();
 
-            // Start the scaffolding (which starts Aspire)
-            await _sessionApp.StartAsync();
+            SharedTestApp.App = _app;
+            await _app.StartAsync();
+            Console.WriteLine("Aspire-hosted server started successfully.");
         }
 
-        /// <summary>
-        /// Assembly cleanup - stops the Aspire server and cleans up resources.
-        /// </summary>
         [AssemblyCleanup]
         public static async Task AssemblyCleanup()
         {
-            if (_sessionApp != null)
+            if (_app != null)
             {
-                await _sessionApp.DisposeAsync();
-                Console.WriteLine("Web server (Aspire) stopped.");
+                await _app.DisposeAsync();
+                Console.WriteLine("Aspire-hosted server stopped.");
             }
-        }
-
-        /// <summary>
-        /// Gets the shared FluentUIScaffold app instance for the test session.
-        /// </summary>
-        public static AppScaffold<WebApp>? GetSessionApp()
-        {
-            return _sessionApp;
         }
     }
 }

@@ -2,728 +2,32 @@
 
 ## Overview
 
-FluentUIScaffold provides comprehensive integration with Microsoft Playwright, offering access to all Playwright features while maintaining the framework's fluent API. This integration allows you to leverage Playwright's powerful capabilities while using FluentUIScaffold's abstraction layer.
+FluentUIScaffold integrates with Microsoft Playwright through the `PlaywrightPlugin`, which implements `IUITestingPlugin`. The plugin owns a shared Chromium browser instance and creates isolated per-test sessions via `PlaywrightBrowserSession`. Page objects interact with the browser using `Enqueue<IPage>`, giving you direct access to Playwright's full API while preserving the deferred execution chain pattern.
 
-## Core Components
+## 1. Setup and Registration
 
-### PlaywrightPlugin
+### Install the Package
 
-The main plugin that integrates Playwright with FluentUIScaffold:
-
-```csharp
-public class PlaywrightPlugin : IUITestingFrameworkPlugin
-{
-    public string Name => "Playwright";
-    public string Version => "1.0.0";
-    public IReadOnlyList<Type> SupportedDriverTypes { get; }
-
-    public bool CanHandle(Type driverType) => driverType == typeof(PlaywrightDriver);
-    public IUIDriver CreateDriver(FluentUIScaffoldOptions options) => new PlaywrightDriver(options);
-    public void ConfigureServices(IServiceCollection services) { /* ... */ }
-}
+```bash
+dotnet add package FluentUIScaffold.Playwright
 ```
 
-### PlaywrightDriver
+Playwright browsers must also be installed:
 
-The main driver that implements the `IUIDriver` interface using Playwright:
-
-```csharp
-public class PlaywrightDriver : IUIDriver
-{
-    public Uri CurrentUrl { get; }
-
-    // Core interactions
-    public void Click(string selector);
-    public void Type(string selector, string text);
-    public void SelectOption(string selector, string value);
-    public string GetText(string selector);
-    public string GetValue(string selector);
-    public string GetAttribute(string selector, string attributeName);
-    public bool IsVisible(string selector);
-    public bool IsEnabled(string selector);
-    public void WaitForElement(string selector);
-    public void WaitForElementToBeVisible(string selector);
-    public void WaitForElementToBeHidden(string selector);
-
-    // Navigation
-    public void NavigateToUrl(Uri url);
-    public TTarget NavigateTo<TTarget>() where TTarget : class;
-
-    // Framework-specific access
-    public TDriver GetFrameworkDriver<TDriver>() where TDriver : class;
-
-    // Lifecycle
-    public void Dispose();
-}
+```bash
+pwsh bin/Debug/net8.0/playwright.ps1 install
 ```
 
-## Basic Usage
+### Register the Plugin
 
-### Setting Up Playwright
+The `UsePlaywright()` extension method is the recommended way to register the Playwright plugin. It is a convenience wrapper around `.UsePlugin(new PlaywrightPlugin())`.
 
 ```csharp
-// Configure FluentUIScaffold with Playwright
 var app = new FluentUIScaffoldBuilder()
-    .UsePlugin(new PlaywrightPlugin())
+    .UsePlaywright()
     .Web<WebApp>(opts =>
     {
-        opts.BaseUrl = new Uri("https://your-app.com");
-        opts.DefaultWaitTimeout = TimeSpan.FromSeconds(30);
-        opts.HeadlessMode = false;
-        opts.SlowMo = 1000;
-    })
-    .Build<WebApp>();
-
-await app.StartAsync();
-
-// Get Playwright driver
-var playwrightDriver = app.Framework<PlaywrightDriver>();
-```
-
-### Basic Interactions
-
-```csharp
-[TestMethod]
-public void Can_Interact_With_Playwright()
-{
-    // Arrange
-    var page = TestAssemblyHooks.App.NavigateTo<HomePage>();
-
-    // Act
-    page.EnterEmail("test@example.com")
-        .EnterPassword("password")
-        .ClickLogin();
-
-    // Assert
-    page.Verify.Visible(p => p.WelcomeMessage);
-}
-```
-
-## Browser Interaction APIs
-
-The `IUIDriver` interface provides framework-agnostic async methods for script execution and screenshots. These work with any driver implementation, not just Playwright.
-
-### Script Execution
-
-```csharp
-// Get the driver (framework-agnostic)
-var driver = app.GetService<IUIDriver>();
-
-// Clear browser storage between tests
-await driver.ExecuteScriptAsync("localStorage.clear(); sessionStorage.clear()");
-
-// Get a typed value from the browser
-var href = await driver.ExecuteScriptAsync<string>("window.location.href");
-
-// Check DOM state
-var count = await driver.ExecuteScriptAsync<int>("document.querySelectorAll('h1').length");
-
-// Check if a feature flag is set
-var flag = await driver.ExecuteScriptAsync<bool>("window.featureFlags?.darkMode ?? false");
-```
-
-### Screenshots
-
-```csharp
-var driver = app.GetService<IUIDriver>();
-
-// Save a screenshot for debugging
-var bytes = await driver.TakeScreenshotAsync("debug-screenshot.png");
-
-// Use in error handling
-try
-{
-    page.Verify.Visible(p => p.WelcomeMessage);
-}
-catch
-{
-    await driver.TakeScreenshotAsync($"failure-{DateTime.Now:yyyyMMdd-HHmmss}.png");
-    throw;
-}
-```
-
-### IUIDriver vs PlaywrightAdvancedFeatures
-
-| Capability | `IUIDriver` | `PlaywrightAdvancedFeatures` |
-|------------|-------------|------------------------------|
-| Script execution | `ExecuteScriptAsync` | `EvaluateJavaScriptAsync` |
-| Page screenshot | `TakeScreenshotAsync` | `TakeScreenshotAsync` |
-| Element screenshot | - | `TakeElementScreenshotAsync` |
-| PDF generation | - | `GeneratePdfAsync` |
-| Network interception | - | `InterceptNetworkRequests` |
-| Geolocation | - | `SetGeolocationAsync` |
-
-Use `IUIDriver` for portable, framework-agnostic operations. Use `PlaywrightAdvancedFeatures` for Playwright-specific capabilities.
-
-## Advanced Features
-
-### PlaywrightAdvancedFeatures
-
-Access to advanced Playwright-specific capabilities beyond `IUIDriver`:
-
-```csharp
-public class PlaywrightAdvancedFeatures
-{
-    public void InterceptNetworkRequests(string urlPattern, Action<IResponse> handler);
-    public async Task<byte[]> TakeScreenshotAsync(string path = null);
-    public async Task<byte[]> GeneratePdfAsync(string path = null);
-    public void SetViewportSize(int width, int height);
-    public void SetUserAgent(string userAgent);
-    public void SetGeolocation(double latitude, double longitude);
-    public void SetPermissions(string[] permissions);
-}
-```
-
-### Network Interception
-
-```csharp
-[TestMethod]
-public void Can_Intercept_Network_Requests()
-{
-    // Arrange
-    var playwrightDriver = TestAssemblyHooks.App.Framework<PlaywrightDriver>();
-
-    // Act
-    playwrightDriver.InterceptNetworkRequests("/api/*", response =>
-    {
-        // Modify response
-        response.SetBody("{\"status\": \"success\"}");
-    });
-
-    var page = TestAssemblyHooks.App.NavigateTo<ApiTestPage>();
-    page.TriggerApiCall();
-
-    // Assert
-    page.Verify.TextContains(p => p.ResultMessage, "success");
-}
-```
-
-### Screenshots and PDFs
-
-```csharp
-[TestMethod]
-public async Task Can_Take_Screenshots_And_Generate_PDFs()
-{
-    // Arrange
-    var playwrightDriver = TestAssemblyHooks.App.Framework<PlaywrightDriver>();
-    var page = TestAssemblyHooks.App.NavigateTo<HomePage>();
-
-    // Act
-    // Take screenshot
-    var screenshotBytes = await playwrightDriver.TakeScreenshotAsync("home-page.png");
-
-    // Generate PDF
-    var pdfBytes = await playwrightDriver.GeneratePdfAsync("home-page.pdf");
-
-    // Assert
-    Assert.IsNotNull(screenshotBytes);
-    Assert.IsNotNull(pdfBytes);
-}
-```
-
-### Browser Configuration
-
-```csharp
-[TestMethod]
-public void Can_Configure_Browser_Settings()
-{
-    // Arrange - Configuration done at builder level
-    var app = new FluentUIScaffoldBuilder()
-        .UsePlugin(new PlaywrightPlugin())
-        .Web<WebApp>(opts =>
-        {
-            opts.BaseUrl = new Uri("https://your-app.com");
-            opts.HeadlessMode = false;
-            opts.SlowMo = 500;
-        })
-        .Build<WebApp>();
-
-    // Act
-    var page = app.NavigateTo<GeolocationPage>();
-
-    // Assert
-    page.Verify.Visible(p => p.LocationInfo);
-}
-```
-
-## Wait Strategies
-
-### PlaywrightWaitStrategy
-
-Playwright-specific wait strategy implementation:
-
-```csharp
-public class PlaywrightWaitStrategy
-{
-    public void WaitForElement(string selector, WaitStrategy strategy, TimeSpan timeout);
-    public void WaitForElementToBeVisible(string selector, TimeSpan timeout);
-    public void WaitForElementToBeHidden(string selector, TimeSpan timeout);
-    public void WaitForElementToBeClickable(string selector, TimeSpan timeout);
-    public void WaitForTextToBePresent(string selector, string text, TimeSpan timeout);
-}
-```
-
-### Using Wait Strategies
-
-```csharp
-[TestMethod]
-public void Can_Use_Playwright_Wait_Strategies()
-{
-    // Arrange
-    var page = TestAssemblyHooks.App.NavigateTo<DynamicPage>();
-
-    // Act - Using fluent page methods with wait strategies
-    page.WaitForVisible(p => p.DynamicContent)
-        .WaitForVisible(p => p.ActionButton)
-        .Click(p => p.ActionButton);
-
-    // Assert
-    page.Verify.Visible(p => p.DynamicContent);
-}
-```
-
-## Browser Management
-
-### Browser Types
-
-```csharp
-[TestMethod]
-public void Can_Use_Different_Browsers()
-{
-    // Arrange - Browser type configured at plugin/driver level
-    var page = TestAssemblyHooks.App.NavigateTo<HomePage>();
-
-    // Act & Assert
-    page.Verify.Visible(p => p.Content);
-}
-```
-
-### Browser Context
-
-```csharp
-[TestMethod]
-public void Can_Manage_Browser_Context()
-{
-    // Arrange
-    var page = TestAssemblyHooks.App.NavigateTo<LocalizedPage>();
-
-    // Assert
-    page.Verify.TextContains(p => p.LocaleDisplay, "en-US");
-}
-```
-
-## Mobile Emulation
-
-### Mobile Device Emulation
-
-```csharp
-[TestMethod]
-public void Can_Emulate_Mobile_Devices()
-{
-    // Arrange - Mobile emulation configured at driver level
-    var page = TestAssemblyHooks.App.NavigateTo<MobilePage>();
-
-    // Assert
-    page.Verify.Visible(p => p.MobileMenu);
-}
-```
-
-## Network and Performance
-
-### Network Conditions
-
-```csharp
-[TestMethod]
-public void Can_Simulate_Network_Conditions()
-{
-    // Arrange
-    var page = TestAssemblyHooks.App.NavigateTo<PerformancePage>();
-
-    // Assert
-    page.Verify.Visible(p => p.Content);
-}
-```
-
-### Performance Monitoring
-
-```csharp
-[TestMethod]
-public async Task Can_Monitor_Performance()
-{
-    // Arrange
-    var playwrightDriver = TestAssemblyHooks.App.Framework<PlaywrightDriver>();
-
-    // Act
-    var page = TestAssemblyHooks.App.NavigateTo<PerformancePage>();
-
-    // Get performance metrics
-    var metrics = await playwrightDriver.GetPerformanceMetricsAsync();
-
-    // Assert
-    Assert.IsTrue(metrics.LoadTime < 3000); // Less than 3 seconds
-    Assert.IsTrue(metrics.DOMContentLoaded < 1000); // Less than 1 second
-}
-```
-
-## Error Handling
-
-### Playwright-Specific Exceptions
-
-```csharp
-public class PlaywrightException : FluentUIScaffoldException
-{
-    public PlaywrightException(string message, string selector, Exception innerException)
-        : base(message, innerException)
-    {
-        Selector = selector;
-    }
-
-    public string Selector { get; }
-}
-
-public class PlaywrightTimeoutException : PlaywrightException
-{
-    public PlaywrightTimeoutException(string message, string selector, TimeSpan timeout)
-        : base(message, selector, null)
-    {
-        Timeout = timeout;
-    }
-
-    public TimeSpan Timeout { get; }
-}
-```
-
-### Error Handling Examples
-
-```csharp
-[TestMethod]
-public async Task Can_Handle_Playwright_Errors()
-{
-    // Arrange
-    var page = TestAssemblyHooks.App.NavigateTo<ErrorPage>();
-
-    try
-    {
-        // Act
-        page.ClickNonExistentElement();
-    }
-    catch (PlaywrightTimeoutException ex)
-    {
-        // Handle timeout
-        Assert.AreEqual("#non-existent", ex.Selector);
-        Assert.IsTrue(ex.Timeout.TotalSeconds > 0);
-    }
-    catch (PlaywrightException ex)
-    {
-        // Handle other Playwright errors
-        Assert.IsNotNull(ex.Selector);
-    }
-}
-```
-
-## Debugging Features
-
-### Headless and SlowMo Defaults
-
-The framework provides convenient debug mode that automatically configures Playwright for easier debugging:
-
-```csharp
-[TestMethod]
-public void Can_Use_Debug_Mode()
-{
-    // Arrange - When a debugger is attached, PlaywrightDriver defaults to non-headless and slight SlowMo
-    var app = new FluentUIScaffoldBuilder()
-        .UsePlugin(new PlaywrightPlugin())
-        .Web<WebApp>(opts =>
-        {
-            opts.BaseUrl = new Uri("https://your-app.com");
-            // HeadlessMode and SlowMo auto-detect when debugger is attached
-        })
-        .Build<WebApp>();
-
-    // Act
-    var page = app.NavigateTo<DebugPage>();
-
-    // Assert
-    page.Verify.Visible(p => p.DebugInfo);
-}
-```
-
-Defaults while debugging: headless disabled and slight SlowMo (e.g., 250ms). In CI/non-debug, headless with 0ms SlowMo unless overridden via options.
-- **Visible Browser**: Automatically disables headless mode to show the browser window
-- **SlowMo**: Sets SlowMo to slow down interactions for better visibility
-- **Enhanced Logging**: Provides detailed logging of browser actions
-- **Automatic Detection**: Automatically enables when a debugger is attached (no configuration needed!)
-- **CI/CD Safe**: Remains disabled in CI/CD environments where no debugger is attached
-- **Development Friendly**: Perfect for debugging test failures and understanding test flow
-
-**Manual Configuration Alternative:**
-```csharp
-var app = new FluentUIScaffoldBuilder()
-    .UsePlugin(new PlaywrightPlugin())
-    .Web<WebApp>(opts =>
-    {
-        opts.BaseUrl = new Uri("https://your-app.com");
-        opts.HeadlessMode = false;
-        opts.SlowMo = 1000;
-    })
-    .Build<WebApp>();
-```
-
-### Tracing
-
-```csharp
-[TestMethod]
-public async Task Can_Use_Tracing()
-{
-    // Arrange
-    var playwrightDriver = TestAssemblyHooks.App.Framework<PlaywrightDriver>();
-
-    // Start tracing
-    await playwrightDriver.StartTracingAsync("trace.zip");
-
-    // Act
-    var page = TestAssemblyHooks.App.NavigateTo<TracePage>();
-    page.PerformComplexAction();
-
-    // Stop tracing
-    await playwrightDriver.StopTracingAsync();
-
-    // Assert
-    Assert.IsTrue(File.Exists("trace.zip"));
-}
-```
-
-## Best Practices
-
-### 1. Browser Configuration
-
-```csharp
-// Good - explicit configuration via builder
-var app = new FluentUIScaffoldBuilder()
-    .UsePlugin(new PlaywrightPlugin())
-    .Web<WebApp>(opts =>
-    {
-        opts.BaseUrl = new Uri("https://your-app.com");
-        opts.HeadlessMode = false;
-        opts.SlowMo = 1000;
-        opts.DefaultWaitTimeout = TimeSpan.FromSeconds(30);
-    })
-    .Build<WebApp>();
-
-// Bad - relying on defaults without explicit configuration
-var app = new FluentUIScaffoldBuilder()
-    .UsePlugin(new PlaywrightPlugin())
-    .Build<WebApp>();
-```
-
-### 2. Error Handling
-
-```csharp
-[TestMethod]
-public async Task Robust_Error_Handling()
-{
-    try
-    {
-        var page = TestAssemblyHooks.App.NavigateTo<TestPage>();
-        page.PerformAction();
-    }
-    catch (PlaywrightTimeoutException ex)
-    {
-        // Log timeout details
-        Logger.LogWarning($"Element {ex.Selector} timed out after {ex.Timeout}");
-
-        // Take screenshot for debugging
-        var playwrightDriver = TestAssemblyHooks.App.Framework<PlaywrightDriver>();
-        await playwrightDriver.TakeScreenshotAsync("timeout-screenshot.png");
-
-        throw;
-    }
-}
-```
-
-### 3. Performance Optimization
-
-```csharp
-[TestMethod]
-public void Optimized_Performance()
-{
-    // Arrange
-    var app = new FluentUIScaffoldBuilder()
-        .UsePlugin(new PlaywrightPlugin())
-        .Web<WebApp>(opts =>
-        {
-            opts.BaseUrl = new Uri("https://your-app.com");
-            opts.DefaultWaitTimeout = TimeSpan.FromSeconds(10);
-            opts.HeadlessMode = true; // Faster in CI
-        })
-        .Build<WebApp>();
-
-    // Act
-    var page = app.NavigateTo<PerformancePage>();
-
-    // Assert
-    page.Verify.Visible(p => p.Content);
-}
-```
-
-### 4. Network Interception
-
-```csharp
-[TestMethod]
-public void Effective_Network_Interception()
-{
-    // Arrange
-    var playwrightDriver = TestAssemblyHooks.App.Framework<PlaywrightDriver>();
-
-    // Intercept API calls
-    playwrightDriver.InterceptNetworkRequests("/api/*", response =>
-    {
-        // Mock API responses
-        if (response.Url.Contains("/users"))
-        {
-            response.SetBody("[{\"id\": 1, \"name\": \"John Doe\"}]");
-        }
-    });
-
-    // Act
-    var page = TestAssemblyHooks.App.NavigateTo<ApiPage>();
-    page.LoadUsers();
-
-    // Assert
-    page.Verify.TextContains(p => p.UserList, "John Doe");
-}
-```
-
-## Testing Playwright Integration
-
-### Unit Testing
-
-```csharp
-[TestClass]
-public class PlaywrightIntegrationTests
-{
-    private Mock<IPlaywright> _mockPlaywright;
-    private Mock<IBrowser> _mockBrowser;
-    private Mock<IBrowserContext> _mockContext;
-    private Mock<IPage> _mockPage;
-    private PlaywrightDriver _driver;
-
-    [TestInitialize]
-    public void Setup()
-    {
-        _mockPlaywright = new Mock<IPlaywright>();
-        _mockBrowser = new Mock<IBrowser>();
-        _mockContext = new Mock<IBrowserContext>();
-        _mockPage = new Mock<IPage>();
-
-        // Setup mocks
-        _mockBrowser.Setup(b => b.NewContextAsync(It.IsAny<BrowserNewContextOptions>()))
-                   .ReturnsAsync(_mockContext.Object);
-        _mockContext.Setup(c => c.NewPageAsync())
-                   .ReturnsAsync(_mockPage.Object);
-
-        var options = new FluentUIScaffoldOptions();
-        _driver = new PlaywrightDriver(options);
-    }
-
-    [TestMethod]
-    public void Click_Should_Use_Playwright_Click()
-    {
-        // Arrange
-        _mockPage.Setup(p => p.ClickAsync(It.IsAny<string>(), It.IsAny<PageClickOptions>()))
-                .Returns(Task.CompletedTask);
-
-        // Act
-        _driver.Click("#button");
-
-        // Assert
-        _mockPage.Verify(p => p.ClickAsync("#button", It.IsAny<PageClickOptions>()), Times.Once);
-    }
-}
-```
-
-### Integration Testing
-
-```csharp
-[TestClass]
-public class PlaywrightIntegrationTests
-{
-    private static AppScaffold<WebApp>? _app;
-
-    [ClassInitialize]
-    public static async Task ClassInitialize(TestContext context)
-    {
-        _app = new FluentUIScaffoldBuilder()
-            .UsePlugin(new PlaywrightPlugin())
-            .Web<WebApp>(opts =>
-            {
-                opts.BaseUrl = new Uri("https://your-app.com");
-                opts.HeadlessMode = true;
-            })
-            .Build<WebApp>();
-
-        await _app.StartAsync();
-    }
-
-    [TestMethod]
-    public async Task Can_Use_Playwright_Features()
-    {
-        // Arrange
-        var playwrightDriver = _app!.Framework<PlaywrightDriver>();
-        var page = _app.NavigateTo<TestPage>();
-
-        // Act
-        // Take screenshot
-        var screenshot = await playwrightDriver.TakeScreenshotAsync("test.png");
-
-        // Intercept network
-        playwrightDriver.InterceptNetworkRequests("/api/*", response =>
-        {
-            response.SetBody("{\"status\": \"success\"}");
-        });
-
-        // Assert
-        Assert.IsNotNull(screenshot);
-        page.Verify.Visible(p => p.Content);
-    }
-
-    [ClassCleanup]
-    public static async Task ClassCleanup()
-    {
-        if (_app != null)
-            await _app.DisposeAsync();
-    }
-}
-```
-
-## Hosting Strategies with Playwright
-
-FluentUIScaffold supports multiple hosting strategies that work seamlessly with Playwright:
-
-### Aspire Hosting
-
-```csharp
-var app = new FluentUIScaffoldBuilder()
-    .UseAspireHosting<Projects.SampleApp_AppHost>(
-        appHost => { /* configure */ },
-        "sampleapp")
-    .Web<WebApp>(opts => { opts.UsePlaywright(); })
-    .Build<WebApp>();
-
-await app.StartAsync();
-```
-
-### External Server
-
-For CI environments or staging servers:
-
-```csharp
-var app = new FluentUIScaffoldBuilder()
-    .UsePlugin(new PlaywrightPlugin())
-    .Web<WebApp>(opts =>
-    {
-        opts.BaseUrl = new Uri("https://staging.your-app.com");
+        opts.BaseUrl = new Uri("http://localhost:5000");
         opts.HeadlessMode = true;
     })
     .Build<WebApp>();
@@ -731,16 +35,570 @@ var app = new FluentUIScaffoldBuilder()
 await app.StartAsync();
 ```
 
-## Conclusion
+Explicit plugin registration is equivalent:
 
-The Playwright integration in FluentUIScaffold provides comprehensive access to Playwright's powerful features while maintaining the framework's fluent API. Key benefits include:
+```csharp
+var app = new FluentUIScaffoldBuilder()
+    .UsePlugin(new PlaywrightPlugin())
+    .Web<WebApp>(opts =>
+    {
+        opts.BaseUrl = new Uri("http://localhost:5000");
+    })
+    .Build<WebApp>();
+```
 
-- **Full Playwright Support**: Access to all Playwright features
-- **Fluent API**: Consistent interface across different frameworks
-- **Advanced Features**: Network interception, screenshots, PDF generation
-- **Mobile Emulation**: Test responsive designs effectively
-- **Performance Monitoring**: Built-in performance metrics
-- **Debugging Tools**: Comprehensive debugging capabilities
-- **Hosting Strategies**: Pluggable hosting for .NET, Node, External, and Aspire apps
+### Core Components
 
-For more information, see the [API Reference](api-reference.md) and [Getting Started](getting-started.md) guides.
+**`PlaywrightPlugin`** implements `IUITestingPlugin`:
+
+```csharp
+public class PlaywrightPlugin : IUITestingPlugin
+{
+    public void ConfigureServices(IServiceCollection services);
+    public Task InitializeAsync(FluentUIScaffoldOptions options, CancellationToken ct = default);
+    public Task<IBrowserSession> CreateSessionAsync(IServiceProvider rootProvider);
+    public ValueTask DisposeAsync();
+}
+```
+
+- `ConfigureServices` is called once during builder configuration.
+- `InitializeAsync` launches Chromium with the configured headless mode and SlowMo settings. The browser instance is shared across all test sessions.
+- `CreateSessionAsync` creates a new `IBrowserContext` and `IPage` for each test.
+- `DisposeAsync` closes the browser and disposes the Playwright instance.
+
+**`PlaywrightBrowserSession`** implements `IBrowserSession`:
+
+```csharp
+public class PlaywrightBrowserSession : IBrowserSession
+{
+    public IServiceProvider ServiceProvider { get; }
+    public Task NavigateToUrlAsync(Uri url);
+    public ValueTask DisposeAsync();
+}
+```
+
+The session's `ServiceProvider` is a `SessionServiceProvider` that resolves session-scoped Playwright services, falling back to the root provider for everything else:
+
+| Service Type | Scope | Description |
+|---|---|---|
+| `IPage` | Per-session | The Playwright page for this test |
+| `IBrowserContext` | Per-session | The browser context for this test |
+| `IBrowser` | Shared | The browser instance owned by the plugin |
+
+## 2. Session Lifecycle
+
+Each test gets an isolated browser context and page. Create a session in `[TestInitialize]` and dispose it in `[TestCleanup]`:
+
+```csharp
+[TestClass]
+public class HomeTests
+{
+    private static AppScaffold<WebApp> _app;
+
+    [AssemblyInitialize]
+    public static async Task AssemblyInit(TestContext context)
+    {
+        _app = new FluentUIScaffoldBuilder()
+            .UsePlaywright()
+            .Web<WebApp>(opts =>
+            {
+                opts.BaseUrl = new Uri("http://localhost:5000");
+            })
+            .Build<WebApp>();
+
+        await _app.StartAsync();
+    }
+
+    [AssemblyCleanup]
+    public static async Task AssemblyCleanup()
+    {
+        if (_app != null)
+            await _app.DisposeAsync();
+    }
+
+    [TestInitialize]
+    public async Task TestSetup()
+    {
+        await _app.CreateSessionAsync();
+    }
+
+    [TestCleanup]
+    public async Task TestCleanup()
+    {
+        await _app.DisposeSessionAsync();
+    }
+
+    [TestMethod]
+    public async Task Home_ShowsWelcome()
+    {
+        await _app.NavigateTo<HomePage>()
+            .VerifyTitle("Welcome");
+    }
+}
+```
+
+**Lifecycle summary:**
+
+1. `app.StartAsync()` calls `PlaywrightPlugin.InitializeAsync()`, which launches Chromium once.
+2. `app.CreateSessionAsync()` calls `PlaywrightPlugin.CreateSessionAsync()`, which creates a fresh `IBrowserContext` and `IPage`.
+3. `app.NavigateTo<TPage>()` resolves the page object, injecting the session's `IServiceProvider`.
+4. `app.DisposeSessionAsync()` closes the browser context, releasing all session resources.
+5. `app.DisposeAsync()` calls `PlaywrightPlugin.DisposeAsync()`, closing the browser.
+
+## 3. Using Playwright API in Page Objects via Enqueue\<IPage>
+
+All browser interactions in page objects use `Enqueue<IPage>`. The `IPage` is resolved from the session's service provider at execution time (not at enqueue time). Actions are deferred and execute sequentially when the chain is awaited.
+
+### Basic Page Object
+
+```csharp
+[Route("/")]
+public class HomePage : Page<HomePage>
+{
+    protected HomePage(IServiceProvider serviceProvider) : base(serviceProvider) { }
+
+    public HomePage ClickCounter() => Enqueue<IPage>(async page =>
+    {
+        await page.ClickAsync("button:has-text('count is')").ConfigureAwait(false);
+    });
+
+    public HomePage VerifyTitle(string expected) => Enqueue<IPage>(async page =>
+    {
+        await Assertions.Expect(page).ToHaveTitleAsync(expected).ConfigureAwait(false);
+    });
+}
+```
+
+### Locators
+
+Inside `Enqueue<IPage>` you have access to all of Playwright's locator strategies:
+
+```csharp
+public MyPage UseLocators() => Enqueue<IPage>(async page =>
+{
+    // Role-based
+    await page.GetByRole(AriaRole.Button, new() { Name = "Submit" }).ClickAsync();
+
+    // Label-based
+    await page.GetByLabel("Email").FillAsync("test@example.com");
+
+    // Test ID
+    await page.GetByTestId("user-card").ClickAsync();
+
+    // Text-based
+    await page.GetByText("Welcome back").IsVisibleAsync();
+
+    // Placeholder-based
+    await page.GetByPlaceholder("Search...").FillAsync("query");
+});
+```
+
+### Assertions
+
+Use Playwright's built-in auto-retrying assertions:
+
+```csharp
+public MyPage VerifyDashboard() => Enqueue<IPage>(async page =>
+{
+    await Assertions.Expect(page).ToHaveTitleAsync("Dashboard");
+    await Assertions.Expect(page.GetByTestId("welcome")).ToBeVisibleAsync();
+    await Assertions.Expect(page.GetByTestId("user-name")).ToHaveTextAsync("John");
+});
+```
+
+### Fluent Chaining and Navigation
+
+Page methods return `TSelf`, enabling fluent chains. Use `NavigateTo<TTarget>()` to transition between pages:
+
+```csharp
+[Route("/login")]
+public class LoginPage : Page<LoginPage>
+{
+    public LoginPage(IServiceProvider serviceProvider) : base(serviceProvider) { }
+
+    public LoginPage EnterUsername(string username) => Enqueue<IPage>(async page =>
+    {
+        await page.FillAsync("[data-testid='username']", username);
+    });
+
+    public LoginPage EnterPassword(string password) => Enqueue<IPage>(async page =>
+    {
+        await page.FillAsync("[data-testid='password']", password);
+    });
+
+    public LoginPage SubmitForm() => Enqueue<IPage>(async page =>
+    {
+        await page.ClickAsync("[data-testid='submit']");
+    });
+
+    public DashboardPage LoginAs(string user, string pass) =>
+        EnterUsername(user)
+            .EnterPassword(pass)
+            .SubmitForm()
+            .NavigateTo<DashboardPage>();
+}
+```
+
+### Browser Context Access
+
+Use `Enqueue<IBrowserContext>` for context-level operations:
+
+```csharp
+public MyPage ClearCookies() => Enqueue<IBrowserContext>(async context =>
+{
+    await context.ClearCookiesAsync();
+});
+
+public MyPage SetCookie() => Enqueue<IBrowserContext>(async context =>
+{
+    await context.AddCookiesAsync(new[]
+    {
+        new Cookie
+        {
+            Name = "session",
+            Value = "abc123",
+            Domain = "localhost",
+            Path = "/",
+        }
+    });
+});
+```
+
+## 4. Screenshots and Script Execution
+
+### Screenshots
+
+Capture full-page or element-level screenshots via `IPage`:
+
+```csharp
+public MyPage TakeScreenshot(string path) => Enqueue<IPage>(async page =>
+{
+    await page.ScreenshotAsync(new PageScreenshotOptions { Path = path });
+});
+
+public MyPage ScreenshotElement(string selector, string path) => Enqueue<IPage>(async page =>
+{
+    await page.Locator(selector).ScreenshotAsync(new() { Path = path });
+});
+```
+
+### Script Execution
+
+Execute arbitrary JavaScript via `IPage.EvaluateAsync`:
+
+```csharp
+public MyPage ClearStorage() => Enqueue<IPage>(async page =>
+{
+    await page.EvaluateAsync("localStorage.clear(); sessionStorage.clear()");
+});
+
+public MyPage CheckLocation() => Enqueue<IPage>(async page =>
+{
+    var href = await page.EvaluateAsync<string>("window.location.href");
+    var count = await page.EvaluateAsync<int>("document.querySelectorAll('h1').length");
+});
+```
+
+## 5. Network Interception
+
+Use `IPage.RouteAsync` to intercept and mock network requests:
+
+```csharp
+public MyPage MockApiResponse() => Enqueue<IPage>(async page =>
+{
+    await page.RouteAsync("**/api/users", async route =>
+    {
+        await route.FulfillAsync(new RouteFulfillOptions
+        {
+            Body = "[{\"id\": 1, \"name\": \"John Doe\"}]",
+            ContentType = "application/json",
+        });
+    });
+});
+
+public MyPage BlockImages() => Enqueue<IPage>(async page =>
+{
+    await page.RouteAsync("**/*.{png,jpg,jpeg,gif}", async route =>
+    {
+        await route.AbortAsync();
+    });
+});
+
+public MyPage InterceptAndModify() => Enqueue<IPage>(async page =>
+{
+    await page.RouteAsync("**/api/config", async route =>
+    {
+        var response = await route.FetchAsync();
+        var body = await response.TextAsync();
+        var modified = body.Replace("\"feature\": false", "\"feature\": true");
+
+        await route.FulfillAsync(new RouteFulfillOptions
+        {
+            Response = response,
+            Body = modified,
+        });
+    });
+});
+```
+
+## 6. Headless Mode and SlowMo Auto-Detection
+
+`PlaywrightPlugin.InitializeAsync` automatically configures headless mode and SlowMo based on whether a debugger is attached:
+
+| Condition | HeadlessMode | SlowMo |
+|---|---|---|
+| Debugger attached (default) | `false` | `50ms` |
+| No debugger / CI (default) | `true` | `0ms` |
+| Explicit value set | Uses provided value | Uses provided value |
+
+Auto-detection applies when `HeadlessMode` or `SlowMo` are left as `null` in options.
+
+```csharp
+// Auto-detect: headless in CI, headed when debugging
+var app = new FluentUIScaffoldBuilder()
+    .UsePlaywright()
+    .Web<WebApp>(opts =>
+    {
+        opts.BaseUrl = new Uri("http://localhost:5000");
+        // HeadlessMode and SlowMo auto-detect when not set
+    })
+    .Build<WebApp>();
+```
+
+```csharp
+// Explicit: always show browser with slow interactions
+var app = new FluentUIScaffoldBuilder()
+    .UsePlaywright()
+    .Web<WebApp>(opts =>
+    {
+        opts.BaseUrl = new Uri("http://localhost:5000");
+        opts.HeadlessMode = false;
+        opts.SlowMo = 1000;
+    })
+    .Build<WebApp>();
+```
+
+## 7. Aspire Hosting Integration
+
+Combine Playwright with Aspire for distributed application testing. The `UseAspireHosting` method auto-discovers the base URL from a named Aspire resource:
+
+```csharp
+var app = new FluentUIScaffoldBuilder()
+    .UseAspireHosting<Projects.SampleApp_AppHost>(
+        appHost => { /* configure distributed app */ },
+        "sampleapp")
+    .UsePlaywright()
+    .Build<WebApp>();
+
+await app.StartAsync();
+```
+
+Full test class with Aspire:
+
+```csharp
+[TestClass]
+public class AspireTests
+{
+    private static AppScaffold<WebApp> _app;
+
+    [AssemblyInitialize]
+    public static async Task AssemblyInit(TestContext context)
+    {
+        _app = new FluentUIScaffoldBuilder()
+            .UseAspireHosting<Projects.SampleApp_AppHost>(
+                appHost => { },
+                "sampleapp")
+            .UsePlaywright()
+            .Build<WebApp>();
+
+        await _app.StartAsync();
+    }
+
+    [AssemblyCleanup]
+    public static async Task AssemblyCleanup()
+    {
+        if (_app != null)
+            await _app.DisposeAsync();
+    }
+
+    [TestInitialize]
+    public async Task TestSetup() => await _app.CreateSessionAsync();
+
+    [TestCleanup]
+    public async Task TestCleanup() => await _app.DisposeSessionAsync();
+
+    [TestMethod]
+    public async Task App_Loads()
+    {
+        await _app.NavigateTo<HomePage>()
+            .VerifyTitle("Sample App");
+    }
+}
+```
+
+## 8. Advanced Features
+
+### Tracing
+
+Capture Playwright traces for debugging failed tests. Traces include screenshots, DOM snapshots, and source code:
+
+```csharp
+public MyPage StartTrace() => Enqueue<IBrowserContext>(async context =>
+{
+    await context.Tracing.StartAsync(new TracingStartOptions
+    {
+        Screenshots = true,
+        Snapshots = true,
+        Sources = true,
+    });
+});
+
+public MyPage StopTrace(string path) => Enqueue<IBrowserContext>(async context =>
+{
+    await context.Tracing.StopAsync(new TracingStopOptions
+    {
+        Path = path,
+    });
+});
+```
+
+View traces with:
+
+```bash
+pwsh bin/Debug/net8.0/playwright.ps1 show-trace trace.zip
+```
+
+### Mobile Emulation
+
+Configure device emulation when creating the browser context. Since `PlaywrightPlugin` creates the context internally, use `Enqueue<IPage>` to set viewport and user agent after session creation:
+
+```csharp
+public MyPage EmulatePhone() => Enqueue<IPage>(async page =>
+{
+    await page.SetViewportSizeAsync(375, 812);
+});
+```
+
+For full device emulation (user agent, touch, etc.), create a custom plugin that overrides context creation, or access the context directly:
+
+```csharp
+public MyPage SetMobileUserAgent() => Enqueue<IBrowserContext>(async context =>
+{
+    // Note: user agent is set at context creation time.
+    // For full device emulation, consider extending PlaywrightPlugin
+    // to accept BrowserNewContextOptions.
+});
+```
+
+### Direct Playwright Access (Escape Hatch)
+
+For scenarios where the page object pattern is not suitable, resolve `IPage` directly from the app's current session:
+
+```csharp
+[TestMethod]
+public async Task DirectPlaywrightAccess()
+{
+    await _app.CreateSessionAsync();
+
+    var page = _app.GetService<IPage>();
+    await page.GotoAsync("http://localhost:5000");
+    await page.ClickAsync("text=Login");
+
+    var title = await page.TitleAsync();
+    Assert.AreEqual("Login", title);
+
+    await _app.DisposeSessionAsync();
+}
+```
+
+### Error Handling with Screenshot Capture
+
+```csharp
+[TestMethod]
+public async Task WithScreenshotOnFailure()
+{
+    try
+    {
+        await _app.NavigateTo<TestPage>()
+            .PerformAction();
+    }
+    catch (PlaywrightException)
+    {
+        var page = _app.GetService<IPage>();
+        await page.ScreenshotAsync(new() { Path = "failure.png" });
+        throw;
+    }
+}
+```
+
+## Best Practices
+
+### 1. Use Session Lifecycle Correctly
+
+Always create a session in `[TestInitialize]` and dispose it in `[TestCleanup]`. This ensures each test gets a clean browser context.
+
+```csharp
+[TestInitialize]
+public async Task Setup() => await _app.CreateSessionAsync();
+
+[TestCleanup]
+public async Task Cleanup() => await _app.DisposeSessionAsync();
+```
+
+### 2. Always Await Page Chains
+
+Page chains use deferred execution. Forgetting `await` means actions never run:
+
+```csharp
+// Correct: actions execute
+await app.NavigateTo<HomePage>().ClickButton();
+
+// Wrong: actions are enqueued but never executed
+app.NavigateTo<HomePage>().ClickButton(); // Missing await!
+```
+
+### 3. Use Playwright's Auto-Retrying Assertions
+
+Prefer `Assertions.Expect` over manual polling. Playwright assertions automatically retry until the condition is met or the timeout expires:
+
+```csharp
+public MyPage VerifyText() => Enqueue<IPage>(async page =>
+{
+    await Assertions.Expect(page.GetByTestId("message"))
+        .ToHaveTextAsync("Success");
+});
+```
+
+### 4. Keep Page Methods Focused
+
+Write small, composable methods and combine them for workflows:
+
+```csharp
+// Small, composable methods
+public LoginPage EnterUsername(string user) => Enqueue<IPage>(async page =>
+    await page.FillAsync("#username", user));
+
+public LoginPage EnterPassword(string pass) => Enqueue<IPage>(async page =>
+    await page.FillAsync("#password", pass));
+
+public LoginPage Submit() => Enqueue<IPage>(async page =>
+    await page.ClickAsync("#submit"));
+
+// Compose for common workflows
+public DashboardPage LoginAs(string user, string pass) =>
+    EnterUsername(user).EnterPassword(pass).Submit().NavigateTo<DashboardPage>();
+```
+
+### 5. Prefer Test IDs Over CSS Selectors
+
+Test IDs are resilient to UI changes:
+
+```csharp
+// Preferred: stable across refactors
+await page.GetByTestId("submit-button").ClickAsync();
+
+// Fragile: breaks when CSS classes or DOM structure change
+await page.ClickAsync(".btn.btn-primary.submit");
+```
+
+For more information, see the [API Reference](api-reference.md).

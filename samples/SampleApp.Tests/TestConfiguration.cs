@@ -39,8 +39,9 @@ namespace SampleApp.Tests
                     return explicitHeadless;
                 }
 
-                // Auto-detect CI environments
-                return IsCIEnvironment;
+                // Auto-detect: headless in CI, visible when debugger attached, headless otherwise
+                if (IsCIEnvironment) return true;
+                return !System.Diagnostics.Debugger.IsAttached;
             }
         }
 

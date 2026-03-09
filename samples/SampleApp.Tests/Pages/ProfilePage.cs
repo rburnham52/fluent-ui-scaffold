@@ -1,89 +1,82 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
 
-using FluentUIScaffold.Core;
-using FluentUIScaffold.Core.Configuration;
-
-using FluentUIScaffold.Core.Interfaces;
 using FluentUIScaffold.Core.Pages;
 
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
+using Microsoft.Playwright;
 
 namespace SampleApp.Tests.Pages
 {
     /// <summary>
-    /// Page object for the Profile page of the FluentUIScaffold sample application.
-    /// Demonstrates form validation, complex form interactions, and state management.
+    /// Page object for the Profile tab of the sample app.
+    /// Demonstrates form editing and save/cancel workflows.
     /// </summary>
     public class ProfilePage : Page<ProfilePage>
     {
-        public ProfilePage(IServiceProvider serviceProvider, Uri urlPattern)
-            : base(serviceProvider, urlPattern)
-        {
-        }
+        protected ProfilePage(IServiceProvider serviceProvider)
+            : base(serviceProvider) { }
 
-        protected override void ConfigureElements()
+        public ProfilePage ClickProfileTab()
         {
-            // Configure elements for the profile page
-        }
-
-        private void EnsureOnProfileAndEditing()
-        {
-            if (!Driver.IsVisible(".profile-section"))
+            return Enqueue<IPage>(async page =>
             {
-                if (!Driver.IsVisible("nav"))
-                {
-                    Driver.NavigateToUrl(TestConfiguration.BaseUri);
-                    Driver.WaitForElementToBeVisible("nav");
-                }
-                Driver.Click("nav button[data-testid='nav-profile']");
-                Driver.WaitForElementToBeVisible(".profile-section");
-            }
-            // Enter edit mode if not already
-            if (!Driver.IsVisible("[data-testid='save-profile-btn']"))
-            {
-                Driver.Click("[data-testid='edit-profile-btn']");
-                Driver.WaitForElementToBeVisible("[data-testid='save-profile-btn']");
-            }
+                await page.ClickAsync("[data-testid='nav-profile']").ConfigureAwait(false);
+            });
         }
 
-        public ProfilePage EnterName(string name)
+        public ProfilePage ClickEdit()
         {
-            EnsureOnProfileAndEditing();
-            var parts = (name ?? string.Empty).Trim().Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
-            var first = parts.Length > 0 ? parts[0] : string.Empty;
-            var last = parts.Length > 1 ? parts[1] : string.Empty;
-            Driver.Type("[data-testid='first-name-input']", first);
-            Driver.Type("[data-testid='last-name-input']", last);
-            return this;
+            return Enqueue<IPage>(async page =>
+            {
+                await page.ClickAsync("[data-testid='edit-profile-btn']").ConfigureAwait(false);
+            });
+        }
+
+        public ProfilePage EnterFirstName(string name)
+        {
+            return Enqueue<IPage>(async page =>
+            {
+                await page.FillAsync("[data-testid='first-name-input']", name).ConfigureAwait(false);
+            });
+        }
+
+        public ProfilePage EnterLastName(string name)
+        {
+            return Enqueue<IPage>(async page =>
+            {
+                await page.FillAsync("[data-testid='last-name-input']", name).ConfigureAwait(false);
+            });
         }
 
         public ProfilePage EnterEmail(string email)
         {
-            EnsureOnProfileAndEditing();
-            Driver.Type("[data-testid='email-input']", email);
-            return this;
+            return Enqueue<IPage>(async page =>
+            {
+                await page.FillAsync("[data-testid='email-input']", email).ConfigureAwait(false);
+            });
         }
 
-        public ProfilePage ClickSave()
+        public ProfilePage Save()
         {
-            Driver.Click("[data-testid='save-profile-btn']");
-            return this;
+            return Enqueue<IPage>(async page =>
+            {
+                await page.ClickAsync("[data-testid='save-profile-btn']").ConfigureAwait(false);
+            });
         }
 
-        public string GetName()
+        public ProfilePage Cancel()
         {
-            // Compose name from input values for deterministic verification
-            var first = Driver.GetValue("[data-testid='first-name-input']");
-            var last = Driver.GetValue("[data-testid='last-name-input']");
-            return string.Join(" ", new[] { first, last }.Where(s => !string.IsNullOrWhiteSpace(s)));
+            return Enqueue<IPage>(async page =>
+            {
+                await page.ClickAsync("[data-testid='cancel-edit-btn']").ConfigureAwait(false);
+            });
         }
 
-        public string GetEmail()
+        public ProfilePage Reset()
         {
-            return Driver.GetValue("[data-testid='email-input']");
+            return Enqueue<IPage>(async page =>
+            {
+                await page.ClickAsync("[data-testid='reset-profile-btn']").ConfigureAwait(false);
+            });
         }
     }
 }

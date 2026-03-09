@@ -1,331 +1,213 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
 
-using FluentUIScaffold.Core.Configuration;
 using FluentUIScaffold.Core.Exceptions;
-using FluentUIScaffold.Core.Interfaces;
 
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 
 namespace FluentUIScaffold.Core.Pages
 {
     /// <summary>
-    /// Simplified base class for all page components in the FluentUIScaffold framework.
-    /// Uses a single generic type parameter for fluent API context.
-    /// The driver is obtained from dependency injection.
+    /// Base class for all page objects. Acts as a deferred execution chain builder.
+    /// Page methods queue actions via <see cref="Enqueue"/> that execute sequentially when awaited.
     /// </summary>
-    /// <typeparam name="TSelf">The type of the page component itself for fluent API context</typeparam>
+    /// <typeparam name="TSelf">The concrete page type (CRTP pattern for fluent returns)</typeparam>
     public abstract class Page<TSelf> where TSelf : Page<TSelf>
     {
-        protected IUIDriver Driver { get; }
-        protected IServiceProvider ServiceProvider { get; }
-        protected ILogger Logger { get; }
-        protected FluentUIScaffoldOptions Options { get; }
-        protected ElementFactory ElementFactory { get; }
+        private readonly List<Func<IServiceProvider, Task>> _actions;
+        private readonly IServiceProvider _serviceProvider;
+        private bool _isFrozen;
+        private bool _isConsumed;
 
         /// <summary>
-        /// Gets the route template for this page (may contain placeholders like {id}).
+        /// Creates a new page with a fresh action list.
+        /// Used by AppScaffold.NavigateTo for initial page creation.
         /// </summary>
-        public string RouteTemplate { get; }
-
-        /// <summary>
-        /// Gets the full URL for this page (BaseUrl combined with Route).
-        /// If the route contains placeholders, they will not be substituted until Navigate is called with parameters.
-        /// </summary>
-        public Uri PageUrl { get; private set; }
-
-        /// <summary>
-        /// Creates a new page instance.
-        /// </summary>
-        /// <param name="serviceProvider">The service provider for dependency injection.</param>
-        /// <param name="pageUrl">The full URL for this page (with route template applied).</param>
-        /// <param name="routeTemplate">The route template (may contain placeholders like {id}).</param>
-        protected Page(IServiceProvider serviceProvider, Uri pageUrl, string routeTemplate = "")
+        protected Page(IServiceProvider serviceProvider)
         {
-            ServiceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
-            Driver = serviceProvider.GetRequiredService<IUIDriver>();
-            Logger = serviceProvider.GetRequiredService<ILogger<Page<TSelf>>>();
-            Options = serviceProvider.GetRequiredService<FluentUIScaffoldOptions>();
-            ElementFactory = new ElementFactory(Driver, Options);
-
-            PageUrl = pageUrl ?? throw new ArgumentNullException(nameof(pageUrl));
-            RouteTemplate = routeTemplate ?? "";
-            ConfigureElements();
+            _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+            _actions = new List<Func<IServiceProvider, Task>>(capacity: 8);
         }
 
         /// <summary>
-        /// Override this method to configure elements for this page.
+        /// Creates a new page sharing an existing action list.
+        /// Used by NavigateTo to chain across page boundaries.
         /// </summary>
-        protected abstract void ConfigureElements();
-
-        #region Fluent Element Actions
-
-        /// <summary>
-        /// Clicks an element on the page.
-        /// </summary>
-        public virtual TSelf Click(Func<TSelf, IElement> elementSelector)
+        internal Page(IServiceProvider serviceProvider, List<Func<IServiceProvider, Task>> sharedActions)
         {
-            var element = GetElementFromSelector(elementSelector);
-            element.Click();
-            return Self;
+            _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+            _actions = sharedActions ?? throw new ArgumentNullException(nameof(sharedActions));
         }
 
+#if DEBUG
         /// <summary>
-        /// Types text into an element on the page.
+        /// Warns if a chain with queued actions is never awaited.
+        /// Only active in DEBUG builds as a safety net.
         /// </summary>
-        public virtual TSelf Type(Func<TSelf, IElement> elementSelector, string text)
+        ~Page()
         {
-            var element = GetElementFromSelector(elementSelector);
-            element.Type(text);
-            return Self;
-        }
-
-        /// <summary>
-        /// Selects an option in a dropdown element.
-        /// </summary>
-        public virtual TSelf Select(Func<TSelf, IElement> elementSelector, string value)
-        {
-            var element = GetElementFromSelector(elementSelector);
-            element.SelectOption(value);
-            return Self;
-        }
-
-        /// <summary>
-        /// Focuses an element on the page.
-        /// </summary>
-        public virtual TSelf Focus(Func<TSelf, IElement> elementSelector)
-        {
-            var element = GetElementFromSelector(elementSelector);
-            Driver.Focus(element.Selector);
-            return Self;
-        }
-
-        /// <summary>
-        /// Hovers over an element on the page.
-        /// </summary>
-        public virtual TSelf Hover(Func<TSelf, IElement> elementSelector)
-        {
-            var element = GetElementFromSelector(elementSelector);
-            Driver.Hover(element.Selector);
-            return Self;
-        }
-
-        /// <summary>
-        /// Clears an element on the page.
-        /// </summary>
-        public virtual TSelf Clear(Func<TSelf, IElement> elementSelector)
-        {
-            var element = GetElementFromSelector(elementSelector);
-            Driver.Clear(element.Selector);
-            return Self;
-        }
-
-        #endregion
-
-        #region Wait Methods
-
-        /// <summary>
-        /// Waits for an element to exist on the page.
-        /// </summary>
-        public virtual TSelf WaitForElement(Func<TSelf, IElement> elementSelector)
-        {
-            var element = GetElementFromSelector(elementSelector);
-            element.WaitFor();
-            return Self;
-        }
-
-        /// <summary>
-        /// Waits for an element to be hidden on the page.
-        /// </summary>
-        public virtual TSelf WaitForHidden(Func<TSelf, IElement> elementSelector)
-        {
-            var element = GetElementFromSelector(elementSelector);
-            element.WaitForHidden();
-            return Self;
-        }
-
-        #endregion
-
-        #region Verification Methods
-
-        /// <summary>
-        /// Gets the verification context for this page.
-        /// </summary>
-        public IVerificationContext<TSelf> Verify => new VerificationContext<TSelf>(Driver, Options, Logger, Self);
-
-        #endregion
-
-        #region Navigation Methods
-
-        /// <summary>
-        /// Navigates to this page's URL.
-        /// </summary>
-        public virtual TSelf Navigate()
-        {
-            Driver.NavigateToUrl(PageUrl);
-            return Self;
-        }
-
-        /// <summary>
-        /// Navigates to this page's URL with route parameter substitution.
-        /// </summary>
-        /// <param name="routeParams">Anonymous object or dictionary with route parameters (e.g., new { id = "123" }).</param>
-        /// <returns>The page instance for fluent chaining.</returns>
-        public virtual TSelf Navigate(object routeParams)
-        {
-            var resolvedUrl = ResolveRouteParameters(routeParams);
-            PageUrl = resolvedUrl;
-            Driver.NavigateToUrl(resolvedUrl);
-            return Self;
-        }
-
-        /// <summary>
-        /// Resolves route parameters in the PageUrl.
-        /// </summary>
-        /// <param name="routeParams">Anonymous object or dictionary with route parameters.</param>
-        /// <returns>The resolved URL with placeholders replaced.</returns>
-        protected Uri ResolveRouteParameters(object routeParams)
-        {
-            if (routeParams == null)
-                return PageUrl;
-
-            var urlString = PageUrl.ToString();
-
-            // Handle dictionary
-            if (routeParams is IDictionary<string, object> dict)
+            if (_actions.Count > 0 && !_isConsumed)
             {
-                foreach (var kvp in dict)
-                {
-                    urlString = urlString.Replace($"{{{kvp.Key}}}", Uri.EscapeDataString(kvp.Value?.ToString() ?? ""));
-                }
+                Trace.TraceWarning(
+                    $"Page<{typeof(TSelf).Name}> chain with {_actions.Count} " +
+                    $"actions was never awaited. Add 'await' before the chain.");
             }
-            // Handle anonymous object via reflection
-            else
+        }
+#endif
+
+        /// <summary>
+        /// Gets the service provider for this page (session provider with root fallback).
+        /// </summary>
+        protected IServiceProvider ServiceProvider => _serviceProvider;
+
+        /// <summary>
+        /// Makes this page awaitable. Executes all queued actions sequentially.
+        /// </summary>
+        public TaskAwaiter GetAwaiter()
+        {
+            // Do NOT ConfigureAwait the returned Task — let caller's
+            // SynchronizationContext control the final continuation.
+            return ExecuteAllAsync().GetAwaiter();
+        }
+
+        /// <summary>
+        /// Enqueues a deferred action with no DI injection.
+        /// The action executes when the chain is awaited.
+        /// </summary>
+        protected TSelf Enqueue(Func<Task> action)
+        {
+            if (action == null) throw new ArgumentNullException(nameof(action));
+            ThrowIfFrozen();
+
+            _actions.Add(_ => action());
+            return (TSelf)this;
+        }
+
+        /// <summary>
+        /// Enqueues a deferred action that receives a service resolved from DI.
+        /// The service is resolved at execution time, not enqueue time.
+        /// </summary>
+        protected TSelf Enqueue<T>(Func<T, Task> action) where T : notnull
+        {
+            if (action == null) throw new ArgumentNullException(nameof(action));
+            ThrowIfFrozen();
+
+            _actions.Add(sp =>
             {
-                var properties = routeParams.GetType().GetProperties();
-                foreach (var prop in properties)
-                {
-                    var value = prop.GetValue(routeParams);
-                    urlString = urlString.Replace($"{{{prop.Name}}}", Uri.EscapeDataString(value?.ToString() ?? ""));
-                }
+                var service = sp.GetService(typeof(T))
+                    ?? throw new InvalidOperationException(
+                        $"Service of type '{typeof(T).Name}' could not be resolved from the session provider " +
+                        $"while executing an action on Page<{typeof(TSelf).Name}>. " +
+                        $"Ensure the service is registered or available in the browser session.");
+                return action((T)service);
+            });
+            return (TSelf)this;
+        }
+
+        /// <summary>
+        /// Switches to a different page, freezing this page and sharing the action list.
+        /// The target page receives the same action list, so subsequent enqueues on the
+        /// target append to the shared chain.
+        /// </summary>
+        public TTarget NavigateTo<TTarget>() where TTarget : Page<TTarget>
+        {
+            ThrowIfFrozen();
+            _isFrozen = true;
+
+            // Create the target page and share our action list.
+            // Try the internal two-param constructor first (same assembly), then fall back
+            // to the single-param constructor and inject the shared action list via reflection.
+            TTarget targetPage;
+            try
+            {
+                targetPage = (TTarget)(Activator.CreateInstance(
+                    typeof(TTarget),
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic,
+                    binder: null,
+                    args: new object[] { _serviceProvider, _actions },
+                    culture: null)
+                    ?? throw new InvalidOperationException($"Failed to create instance of {typeof(TTarget).Name}."));
+            }
+            catch (MissingMethodException)
+            {
+                // External assembly pages won't have the two-param constructor.
+                // Create with single-param, then replace the action list via reflection.
+                targetPage = (TTarget)(Activator.CreateInstance(
+                    typeof(TTarget),
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic,
+                    binder: null,
+                    args: new object[] { _serviceProvider },
+                    culture: null)
+                    ?? throw new InvalidOperationException($"Failed to create instance of {typeof(TTarget).Name}."));
+
+                // Inject the shared action list so chains span across pages
+                var actionsField = typeof(Page<TTarget>).GetField("_actions",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                actionsField!.SetValue(targetPage, _actions);
             }
 
-            return new Uri(urlString);
+            // Enqueue navigation to the target page's route
+            var routeAttribute = typeof(TTarget).GetCustomAttributes(typeof(RouteAttribute), inherit: true);
+            if (routeAttribute.Length > 0)
+            {
+                var route = ((RouteAttribute)routeAttribute[0]).Path;
+                _actions.Add(async sp =>
+                {
+                    var options = sp.GetService(typeof(Configuration.FluentUIScaffoldOptions))
+                        as Configuration.FluentUIScaffoldOptions;
+                    if (options?.BaseUrl != null)
+                    {
+                        var baseUrlString = options.BaseUrl.ToString().TrimEnd('/');
+                        var routePath = route.StartsWith("/") ? route : "/" + route;
+                        var url = new Uri(baseUrlString + routePath);
+
+                        // Resolve IBrowserSession-like navigation via the session provider
+                        // This will be available once Phase 2/3 are implemented
+                        var session = sp.GetService(typeof(Interfaces.IBrowserSession))
+                            as Interfaces.IBrowserSession;
+                        if (session != null)
+                        {
+                            await session.NavigateToUrlAsync(url).ConfigureAwait(false);
+                        }
+                    }
+                });
+            }
+
+            return targetPage;
         }
 
         /// <summary>
-        /// Navigates to a specific URL.
-        /// </summary>
-        protected virtual TSelf NavigateToUrl(Uri url)
-        {
-            Driver.NavigateToUrl(url);
-            return Self;
-        }
-
-        /// <summary>
-        /// Navigates to another page.
-        /// </summary>
-        public virtual TTarget NavigateTo<TTarget>() where TTarget : class
-        {
-            return ServiceProvider.GetRequiredService<TTarget>();
-        }
-
-        /// <summary>
-        /// Alias for NavigateTo to improve readability in fluent chains.
-        /// </summary>
-        public virtual TTarget Then<TTarget>() where TTarget : class
-        {
-            return NavigateTo<TTarget>();
-        }
-
-        #endregion
-
-        #region Page State
-
-        /// <summary>
-        /// Gets whether this page should validate on navigation.
-        /// </summary>
-        public virtual bool ShouldValidateOnNavigation => false;
-
-        /// <summary>
-        /// Returns true if this is the current page.
-        /// Override to provide custom page detection logic.
-        /// </summary>
-        public virtual bool IsCurrentPage() => true;
-
-        /// <summary>
-        /// Validates that the current page state is correct.
-        /// Override to provide custom validation logic.
-        /// </summary>
-        public virtual void ValidateCurrentPage()
-        {
-            // Default implementation - can be overridden by derived classes
-        }
-
-        #endregion
-
-        #region Element Building
-
-        /// <summary>
-        /// Creates an element builder for the specified selector.
-        /// </summary>
-        protected ElementBuilder Element(string selector)
-        {
-            return new ElementBuilder(selector, Driver, Options);
-        }
-
-        #endregion
-
-        #region Helper Methods
-
-        /// <summary>
-        /// Gets the current page instance as TSelf.
+        /// Returns this page typed as TSelf for fluent chaining.
         /// </summary>
         protected TSelf Self => (TSelf)this;
 
-        /// <summary>
-        /// Gets the element from a selector function.
-        /// </summary>
-        protected virtual IElement GetElementFromSelector(Func<TSelf, IElement> elementSelector)
+        private async Task ExecuteAllAsync()
         {
-            return elementSelector(Self);
+#if DEBUG
+            GC.SuppressFinalize(this);
+#endif
+            if (_isConsumed) return;
+            _isConsumed = true;
+
+            // Take a snapshot and clear to release closure references for GC
+            var snapshot = _actions.ToArray();
+            _actions.Clear();
+
+            for (int i = 0; i < snapshot.Length; i++)
+            {
+                await snapshot[i](_serviceProvider).ConfigureAwait(false);
+            }
         }
 
-        #endregion
-
-        #region Direct Element Actions (for selector strings)
-
-        /// <summary>
-        /// Clicks an element by selector.
-        /// </summary>
-        protected virtual void ClickElement(string selector) => Driver.Click(selector);
-
-        /// <summary>
-        /// Types text into an element by selector.
-        /// </summary>
-        protected virtual void TypeText(string selector, string text) => Driver.Type(selector, text);
-
-        /// <summary>
-        /// Selects an option by selector.
-        /// </summary>
-        protected virtual void SelectOption(string selector, string value) => Driver.SelectOption(selector, value);
-
-        /// <summary>
-        /// Gets text from an element by selector.
-        /// </summary>
-        protected virtual string GetElementText(string selector) => Driver.GetText(selector);
-
-        /// <summary>
-        /// Checks if an element is visible by selector.
-        /// </summary>
-        protected virtual bool IsElementVisible(string selector) => Driver.IsVisible(selector);
-
-        /// <summary>
-        /// Waits for an element by selector.
-        /// </summary>
-        protected virtual void WaitForElement(string selector) => Driver.WaitForElement(selector);
-
-        #endregion
+        private void ThrowIfFrozen()
+        {
+            if (_isFrozen)
+            {
+                throw new FrozenPageException(typeof(TSelf));
+            }
+        }
     }
 }

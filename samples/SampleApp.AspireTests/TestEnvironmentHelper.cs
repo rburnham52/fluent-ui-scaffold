@@ -10,7 +10,6 @@ namespace SampleApp.AspireTests
     public static class TestEnvironmentHelper
     {
         private static readonly Lazy<bool> _isDockerAvailable = new Lazy<bool>(CheckDockerAvailability);
-        private static readonly Lazy<bool> _isAspireWorkloadInstalled = new Lazy<bool>(CheckAspireWorkloadInstalled);
 
         /// <summary>
         /// Gets a value indicating whether Docker is available in the current environment.
@@ -18,14 +17,10 @@ namespace SampleApp.AspireTests
         public static bool IsDockerAvailable => _isDockerAvailable.Value;
 
         /// <summary>
-        /// Gets a value indicating whether the Aspire workload is installed.
+        /// Gets a value indicating whether Aspire tests can run.
+        /// Only requires Docker — Aspire is consumed via NuGet packages (the workload is deprecated).
         /// </summary>
-        public static bool IsAspireWorkloadInstalled => _isAspireWorkloadInstalled.Value;
-
-        /// <summary>
-        /// Gets a value indicating whether Aspire tests can run (Docker + Aspire workload).
-        /// </summary>
-        public static bool CanRunAspireTests => IsDockerAvailable && IsAspireWorkloadInstalled;
+        public static bool CanRunAspireTests => IsDockerAvailable;
 
         /// <summary>
         /// Gets a descriptive message about the current test environment capabilities.
@@ -35,7 +30,6 @@ namespace SampleApp.AspireTests
             var status = new System.Text.StringBuilder();
             status.AppendLine("=== Test Environment Status ===");
             status.AppendLine($"Docker Available: {IsDockerAvailable}");
-            status.AppendLine($"Aspire Workload Installed: {IsAspireWorkloadInstalled}");
             status.AppendLine($"Can Run Aspire Tests: {CanRunAspireTests}");
             status.AppendLine($"OS: {RuntimeInformation.OSDescription}");
             status.AppendLine($"Architecture: {RuntimeInformation.OSArchitecture}");
@@ -44,18 +38,11 @@ namespace SampleApp.AspireTests
             if (!IsDockerAvailable)
             {
                 status.AppendLine();
-                status.AppendLine("⚠️  Docker is not available. Aspire tests will be skipped.");
+                status.AppendLine("Docker is not available. Aspire tests will be skipped.");
                 status.AppendLine("   To enable Aspire tests:");
-                status.AppendLine("   - Install Docker Desktop or Docker Engine");
+                status.AppendLine("   - Install Docker Desktop, Rancher Desktop, or Docker Engine");
                 status.AppendLine("   - Ensure Docker daemon is running");
                 status.AppendLine("   - Verify 'docker info' command works");
-            }
-
-            if (!IsAspireWorkloadInstalled)
-            {
-                status.AppendLine();
-                status.AppendLine("⚠️  Aspire workload is not installed.");
-                status.AppendLine("   To install: dotnet workload install aspire");
             }
 
             return status.ToString();
@@ -91,36 +78,5 @@ namespace SampleApp.AspireTests
             }
         }
 
-        private static bool CheckAspireWorkloadInstalled()
-        {
-            try
-            {
-                // Try to run 'dotnet workload list' and check for aspire
-                var startInfo = new ProcessStartInfo
-                {
-                    FileName = "dotnet",
-                    Arguments = "workload list",
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                };
-
-                using var process = Process.Start(startInfo);
-                if (process == null) return false;
-
-                process.WaitForExit(10000); // 10 second timeout
-
-                if (process.ExitCode != 0) return false;
-
-                var output = process.StandardOutput.ReadToEnd();
-                return output.Contains("aspire", StringComparison.OrdinalIgnoreCase);
-            }
-            catch
-            {
-                // If we can't check workloads, assume it's not installed
-                return false;
-            }
-        }
     }
 }

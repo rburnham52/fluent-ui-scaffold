@@ -8,15 +8,13 @@ A framework-agnostic E2E testing library that provides a fluent API for building
 
 ## Features
 
-- **Framework Agnostic**: Abstract underlying testing frameworks (Playwright) while providing consistent developer experience
-- **Fluent API**: Intuitive, chainable API similar to [fluent-test-scaffold](https://github.com/rburnham52/fluent-test-scaffold)
+- **Fluent API**: Intuitive, chainable API with deferred execution and custom awaitables
 - **Multi-Target Support**: Support .NET 6, 7, 8, 9
-- **Page Object Pattern**: Comprehensive `Page<TSelf>` implementation with navigation and verification
-- **Element Configuration**: Flexible element definition with wait strategies and timeouts
-- **Plugin System**: Extensible plugin architecture for different testing frameworks
+- **Page Object Pattern**: `Page<TSelf>` with deferred action chains and `GetAwaiter()` support
+- **Plugin System**: Extensible plugin architecture via `IUITestingPlugin`
 - **Hosting Strategies**: Pluggable hosting for .NET, Node, External, and Aspire apps
-- **Async-First Design**: Modern async lifecycle with `AppScaffold<TApp>`
-- **Comprehensive Testing**: TDD approach with comprehensive unit tests for all public APIs
+- **Async-First Design**: Modern async lifecycle with `AppScaffold<TApp>` and per-test browser sessions
+- **DI-Powered Actions**: Queue DI-injected lambdas with `Enqueue<T>()` for direct framework access
 
 ## Quick Start
 
@@ -49,7 +47,7 @@ using FluentUIScaffold.Playwright;
 
 // Set up assembly-level initialization
 [TestClass]
-public class TestAssemblyHooks
+public static class TestAssemblyHooks
 {
     private static AppScaffold<WebApp>? _app;
 
@@ -57,13 +55,8 @@ public class TestAssemblyHooks
     public static async Task AssemblyInitialize(TestContext context)
     {
         _app = new FluentUIScaffoldBuilder()
-            .UsePlugin(new PlaywrightPlugin())
-            .Web<WebApp>(opts =>
-            {
-                opts.BaseUrl = new Uri("https://your-app.com");
-                opts.DefaultWaitTimeout = TimeSpan.FromSeconds(30);
-            })
-            .WithAutoPageDiscovery()
+            .UsePlaywright()
+            .Web<WebApp>(opts => opts.BaseUrl = new Uri("https://your-app.com"))
             .Build<WebApp>();
 
         await _app.StartAsync();
@@ -72,47 +65,40 @@ public class TestAssemblyHooks
     [AssemblyCleanup]
     public static async Task AssemblyCleanup()
     {
-        if (_app != null)
-            await _app.DisposeAsync();
+        if (_app != null) await _app.DisposeAsync();
     }
 
     public static AppScaffold<WebApp> App => _app!;
 }
 
 // Write your tests
-[TestMethod]
-public void Can_Navigate_And_Interact()
+[TestClass]
+public class HomePageTests
 {
-    var homePage = TestAssemblyHooks.App.NavigateTo<HomePage>();
+    [TestInitialize]
+    public async Task Setup() => await TestAssemblyHooks.App.CreateSessionAsync();
 
-    homePage
-        .Click(p => p.CounterButton)
-        .Verify
-            .Visible(p => p.CounterValue)        // Waits automatically
-            .TextContains(p => p.CounterValue, "1")
-            .And
-        .Click(p => p.CounterButton);
+    [TestCleanup]
+    public async Task Cleanup() => await TestAssemblyHooks.App.DisposeSessionAsync();
+
+    [TestMethod]
+    public async Task Can_Navigate_And_Interact()
+    {
+        await TestAssemblyHooks.App.NavigateTo<HomePage>()
+            .VerifyWelcomeVisible()
+            .ClickCounter();
+    }
 }
 ```
-
-## Documentation
-
-- **[API Reference](docs/api-reference.md)**: Complete API documentation
-- **[Getting Started](docs/getting-started.md)**: Step-by-step setup guide
-- **[Page Object Pattern](docs/page-object-pattern.md)**: How to create page objects
-- **[Element Configuration](docs/element-configuration.md)**: Element setup and wait strategies
-- **[Playwright Integration](docs/playwright-integration.md)**: Playwright-specific features
-- **[Sample Application](samples/README.md)**: Complete example with tests
-- **[Testing Strategy](docs/testing-strategy.md)**: Guidelines and best practices for writing tests
 
 ## Sample Application
 
 The `samples/` directory contains a comprehensive example application that demonstrates:
 
 - **Modern Web Application**: ASP.NET Core backend with Svelte frontend
-- **Complex UI Components**: Todo list, user profile forms, interactive elements
-- **Comprehensive Testing**: Page objects, fluent API usage, various testing scenarios
-- **Framework Features**: Element configuration, wait strategies, navigation, verification
+- **Page Objects**: Deferred action chain pattern with `Enqueue<T>()`
+- **Session Lifecycle**: Per-test browser session management
+- **Aspire Integration**: Distributed application testing with Aspire
 
 ### Running the Sample
 
@@ -135,11 +121,11 @@ dotnet test
 
 ### Core Components
 
-- **AppScaffold<TApp>**: Unified async-first application orchestrator
+- **AppScaffold\<TApp\>**: Unified async-first application orchestrator with session management
 - **FluentUIScaffoldBuilder**: Fluent configuration builder
-- **Page<TSelf>**: Base class for all page objects
-- **IElement**: Interface for element interactions
-- **ElementBuilder**: Fluent API for element configuration
+- **Page\<TSelf\>**: Base class for page objects; builds deferred execution chains with `GetAwaiter()`
+- **IUITestingPlugin**: Plugin interface with `CreateSessionAsync(IServiceProvider)`
+- **IBrowserSession**: Per-test browser session created via `CreateSessionAsync()`/`DisposeSessionAsync()`
 - **IHostingStrategy**: Pluggable hosting abstraction
 
 ### Hosting Strategies
@@ -153,9 +139,7 @@ dotnet test
 
 ### Framework Support
 
-- **Playwright**: Full support with advanced features
-- **Selenium**: Planned for future releases
-- **Mobile**: Planned for future releases
+- **Playwright**: Full support via `.UsePlaywright()` convenience method
 
 ## Configuration
 
@@ -163,14 +147,12 @@ dotnet test
 
 ```csharp
 var app = new FluentUIScaffoldBuilder()
-    .UsePlugin(new PlaywrightPlugin())
+    .UsePlaywright()
     .Web<WebApp>(opts =>
     {
         opts.BaseUrl = new Uri("https://your-app.com");
-        opts.DefaultWaitTimeout = TimeSpan.FromSeconds(30);
         opts.HeadlessMode = true;
     })
-    .WithAutoPageDiscovery()
     .Build<WebApp>();
 
 await app.StartAsync();
@@ -191,131 +173,123 @@ await app.StartAsync();
 
 ### Page Object Pattern
 
+Pages are deferred execution chain builders. Actions are queued with `Enqueue<T>()` and executed when the chain is awaited.
+
 ```csharp
+[Route("/")]
 public class HomePage : Page<HomePage>
 {
-    public IElement Button { get; private set; } = null!;
+    protected HomePage(IServiceProvider serviceProvider) : base(serviceProvider) { }
 
-    public HomePage(IServiceProvider sp, Uri url) : base(sp, url) { }
-
-    protected override void ConfigureElements()
+    public HomePage ClickCounter()
     {
-        Button = Element("[data-testid='my-button']")
-            .WithDescription("My Button")
-            .WithWaitStrategy(WaitStrategy.Clickable)
-            .Build();
+        return Enqueue<IPage>(async page =>
+        {
+            await page.ClickAsync("button:has-text('count is')").ConfigureAwait(false);
+        });
     }
 
-    public HomePage ClickButton()
+    public HomePage VerifyWelcomeVisible()
     {
-        return Click(p => p.Button);
+        return Enqueue<IPage>(async page =>
+        {
+            await page.Locator("h2:has-text('Welcome')").WaitForAsync().ConfigureAwait(false);
+        });
     }
 }
+```
+
+### Parameterized Routes
+
+```csharp
+[Route("/users/{userId}")]
+public class UserPage : Page<UserPage>
+{
+    protected UserPage(IServiceProvider serviceProvider) : base(serviceProvider) { }
+
+    // ...
+}
+
+// Navigate with parameters:
+await app.NavigateTo<UserPage>(new { userId = "123" });
 ```
 
 ## Testing
 
-### Writing Tests
+### Session Lifecycle
+
+Each test gets its own browser session. Use `CreateSessionAsync()` in `TestInitialize` and `DisposeSessionAsync()` in `TestCleanup`:
 
 ```csharp
-[TestMethod]
-public void Can_Interact_With_Button()
+[TestClass]
+public class MyTests
 {
-    // Arrange
-    var homePage = TestAssemblyHooks.App.NavigateTo<HomePage>();
+    [TestInitialize]
+    public async Task Setup() => await TestAssemblyHooks.App.CreateSessionAsync();
 
-    // Act & Assert - Fluent API with automatic waiting
-    homePage
-        .Click(p => p.Button)
-        .Verify
-            .Visible(p => p.SuccessMessage)           // Waits for element to be visible
-            .TextIs(p => p.SuccessMessage, "Success!") // Waits, then polls for exact text
-            .And
-        .Click(p => p.NextButton);
+    [TestCleanup]
+    public async Task Cleanup() => await TestAssemblyHooks.App.DisposeSessionAsync();
+
+    [TestMethod]
+    public async Task MyTest()
+    {
+        await TestAssemblyHooks.App.NavigateTo<HomePage>()
+            .VerifyWelcomeVisible()
+            .ClickCounter();
+    }
 }
 ```
 
-### Verification API
-
-All `Verify.*` methods **automatically wait** before asserting, eliminating flaky tests:
+### Page Navigation
 
 ```csharp
-// Element verification (waits for visibility, then asserts)
-page.Verify
-    .Visible(p => p.Element)                    // Wait for visible, then assert
-    .NotVisible(p => p.LoadingSpinner)          // Wait for hidden, then assert
-    .TextIs(p => p.Title, "Dashboard")          // Wait for visible, poll for exact text
-    .TextContains(p => p.Body, "Welcome")       // Wait for visible, poll for substring
-    .HasAttribute(p => p.Button, "class", "active") // Wait for visible, check attribute
-    .And;                                       // Return to page for continued actions
+// Navigate to a page (uses [Route] attribute for URL)
+await app.NavigateTo<HomePage>()
+    .ClickCounter();
 
-// Page-level verification (polls until match or timeout)
-page.Verify
-    .TitleIs("Dashboard")                       // Poll page title for exact match
-    .TitleContains("Dash")                      // Poll page title for substring
-    .UrlIs("http://localhost/dashboard")        // Poll URL for exact match
-    .UrlContains("/dashboard")                  // Poll URL for substring
-    .And;
+// Get a page reference without navigating
+await app.On<HomePage>()
+    .VerifyWelcomeVisible();
+
+// Navigate from one page to another (freezes current page, shares action list)
+await app.NavigateTo<HomePage>()
+    .ClickLoginLink()
+    .NavigateTo<LoginPage>()
+    .EnterUsername("testuser");
 ```
-
-**Key behaviors:**
-- **Default timeout**: Uses `DefaultWaitTimeout` (30s by default)
-- **Polling interval**: 100ms for all polling operations
-- **Exception type**: All failures throw `VerificationException`
-- **Automatic waiting**: No need for separate `WaitForVisible()` calls
-
-### Migration from Previous Versions
-
-If you're upgrading from an earlier version, note these **breaking changes**:
-
-| Old API | New API | Notes |
-|---------|---------|-------|
-| `page.WaitForVisible(p => p.Element)` | `page.Verify.Visible(p => p.Element)` | `Verify.Visible()` now waits automatically |
-| `page.VerifyText(p => p.Element, "text")` | `page.Verify.TextIs(p => p.Element, "text")` | Moved to `Verify` context, now waits + polls |
-| `page.VerifyValue(p => p.Input, "value")` | `page.Verify.TextIs(p => p.Input, "value")` | Use `TextIs()` for exact match |
-| `page.VerifyProperty(p => p.El, "val", "attr")` | `page.Verify.HasAttribute(p => p.El, "attr", "val")` | Clearer parameter order |
-
-**Exception changes:**
-- All verification failures now throw `VerificationException` (not `ElementValidationException`)
-- Update any `catch (ElementValidationException)` blocks to `catch (VerificationException)`
-
-### Wait Strategies
-
-- `None`: No waiting
-- `Visible`: Wait for element to be visible
-- `Hidden`: Wait for element to be hidden
-- `Clickable`: Wait for element to be clickable
-- `Enabled`: Wait for element to be enabled
-- `Disabled`: Wait for element to be disabled
-- `TextPresent`: Wait for specific text to be present
-- `Smart`: Framework-specific intelligent waiting
 
 ## Development Status
 
-### Phase 1: Foundation & Core Architecture (MVP) - 100% Complete
+### Phase 1: Foundation & Core Architecture (MVP) - Complete
 
 - Project Structure Setup
 - Core Interfaces & Abstractions
 - Fluent Entry Point
-- Element Configuration System
 - Playwright Plugin Implementation
 - Base Page Component Implementation
-- Page Navigation and Validation
+- Page Navigation
 - Sample App Integration
 
-### Phase 2: Advanced Features & Verification - 100% Complete
+### Phase 2: Advanced Features - Complete
 
-- Verification System
-- Advanced Wait Strategies
+- Hosting Strategies
 - Error Handling and Debugging
 - Logging Integration
 
-### Phase 3: API Unification - 100% Complete
+### Phase 3: API Unification - Complete
 
 - IHostingStrategy abstraction
-- Unified AppScaffold<TApp>
-- Simplified Page<TSelf> base class
+- Unified AppScaffold\<TApp\>
+- Simplified Page\<TSelf\> base class
 - Async-first design
+
+### Phase 4: Foundation Redesign - In Progress
+
+- Deferred execution chain builder pattern for Page\<TSelf\>
+- `Enqueue<T>()` with DI-injected lambdas
+- Per-test browser sessions via `IBrowserSession`
+- `IUITestingPlugin` with `CreateSessionAsync()`
+- Custom awaitable (`GetAwaiter()`) on page chains
 
 See [Roadmap](docs/roadmap/README.md) for current development plans and story tracking.
 

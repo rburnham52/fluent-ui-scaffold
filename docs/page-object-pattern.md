@@ -2,649 +2,284 @@
 
 ## Overview
 
-The Page Object Pattern is a design pattern that creates an abstraction layer between your test code and the web page elements. FluentUIScaffold provides a robust implementation of this pattern through the `Page<TSelf>` class.
+The Page Object Pattern in FluentUIScaffold creates an abstraction layer between your test code and the browser. Each page object represents a page (or section) of your application, encapsulating all interactions as a deferred execution chain. Actions are not executed immediately -- they are queued and run only when the chain is awaited.
+
+`Page<TSelf>` is both a fluent chain builder and an awaitable object. Every method call enqueues an action and returns the page for further chaining. When you `await` the chain, all queued actions execute in order.
 
 ## Benefits
 
-- **Maintainability**: Centralizes element selectors and page logic
-- **Reusability**: Page objects can be reused across multiple tests
-- **Readability**: Tests become more readable and self-documenting
-- **Reliability**: Reduces test flakiness through proper element handling
-- **Separation of Concerns**: Separates test logic from page interaction logic
+- **Deferred execution**: Actions queue up and run only on `await`, giving you full control over when side effects happen
+- **Cross-page chaining**: Navigate between pages in a single fluent chain without breaking the flow
+- **Framework-agnostic**: Page methods use `Enqueue<T>` to resolve driver-specific services (e.g., Playwright's `IPage`) from DI
+- **Maintainability**: Centralizes selectors and page logic in one place
+- **Readability**: Tests read like a script describing user behavior
 
 ## Core Components
 
-### Page<TSelf>
+### Page&lt;TSelf&gt;
 
-The base class for all page objects in FluentUIScaffold with a single self-referencing generic for fluent API context.
+The base class for all page objects. It implements `GetAwaiter()` so that the entire action chain executes when awaited.
 
 ```csharp
-public abstract class Page<TSelf> : IAsyncDisposable
+public abstract class Page<TSelf>
     where TSelf : Page<TSelf>
 {
-    // Properties
-    public IServiceProvider ServiceProvider { get; }
-    public IUIDriver Driver { get; }
-    public Uri PageUrl { get; }           // Full URL (BaseUrl + Route)
-    public string RouteTemplate { get; }  // The route pattern from [Route] attribute
-    protected ILogger Logger { get; }
-    protected FluentUIScaffoldOptions Options { get; }
-
     // Constructor
-    protected Page(IServiceProvider serviceProvider, Uri pageUrl, string routeTemplate = "");
+    protected Page(IServiceProvider serviceProvider);
 
-    // Element Building
-    protected ElementBuilder Element(string selector);
+    // Queue an action (no DI)
+    protected TSelf Enqueue(Func<Task> action);
 
-    // Abstract Configuration
-    protected abstract void ConfigureElements();
+    // Queue an action with a DI-resolved service
+    protected TSelf Enqueue<T>(Func<T, Task> action);
 
-    // Navigation
-    public virtual TSelf Navigate();                    // Navigate to PageUrl
-    public virtual TSelf Navigate(object routeParams); // Navigate with parameter substitution
+    // Navigate to another page, freezing the current one
     public TTarget NavigateTo<TTarget>() where TTarget : Page<TTarget>;
 
-    // Fluent Interactions (all return TSelf)
-    public virtual TSelf Click(Func<TSelf, IElement> elementSelector);
-    public virtual TSelf Type(Func<TSelf, IElement> elementSelector, string text);
-    public virtual TSelf Select(Func<TSelf, IElement> elementSelector, string value);
-    public virtual TSelf Clear(Func<TSelf, IElement> elementSelector);
-    public virtual TSelf Focus(Func<TSelf, IElement> elementSelector);
-    public virtual TSelf Hover(Func<TSelf, IElement> elementSelector);
-    public virtual TSelf WaitForVisible(Func<TSelf, IElement> elementSelector);
-    public virtual TSelf WaitForHidden(Func<TSelf, IElement> elementSelector);
-
-    // Verification
-    public IVerificationContext<TSelf> Verify { get; }
-
-    // Page Validation
-    public virtual bool IsCurrentPage();
-    public virtual void ValidateCurrentPage();
+    // Awaiter support -- executes all queued actions
+    public TaskAwaiter GetAwaiter();
 }
+```
+
+Key points:
+
+- **`Enqueue(Func<Task>)`** -- queues an action that takes no DI service.
+- **`Enqueue<T>(Func<T, Task>)`** -- queues an action that receives a DI-resolved `T`. For Playwright, this is typically `IPage`.
+- **`NavigateTo<TTarget>()`** -- freezes the current page (no more actions can be enqueued on it) and returns a new page that shares the same action queue. The chain continues seamlessly on the target page.
+- **`GetAwaiter()`** -- makes the page awaitable. When you `await` any page in the chain, every queued action from every page in the chain runs in order.
+- All methods return `TSelf` (or `TTarget` for navigation), enabling fluent chaining.
+
+### Frozen Pages
+
+When you call `NavigateTo<TTarget>()`, the current page becomes frozen. Any attempt to enqueue further actions on a frozen page throws `FrozenPageException`. This enforces a linear chain where actions always flow forward.
+
+```csharp
+var homePage = app.NavigateTo<HomePage>();
+var loginPage = homePage.NavigateTo<LoginPage>();
+
+// This throws FrozenPageException -- homePage is frozen
+homePage.DoSomething();
 ```
 
 ## Creating Page Objects
 
 ### Basic Page Object
 
-```csharp
-public class LoginPage : Page<LoginPage>
-{
-    public IElement EmailInput { get; private set; } = null!;
-    public IElement PasswordInput { get; private set; } = null!;
-    public IElement LoginButton { get; private set; } = null!;
-    public IElement ErrorMessage { get; private set; } = null!;
-
-    public LoginPage(IServiceProvider serviceProvider, Uri urlPattern)
-        : base(serviceProvider, urlPattern)
-    {
-    }
-
-    protected override void ConfigureElements()
-    {
-        EmailInput = Element("#email")
-            .WithDescription("Email Input")
-            .WithWaitStrategy(WaitStrategy.Visible)
-            .Build();
-
-        PasswordInput = Element("#password")
-            .WithDescription("Password Input")
-            .WithWaitStrategy(WaitStrategy.Visible)
-            .Build();
-
-        LoginButton = Element("#login-btn")
-            .WithDescription("Login Button")
-            .WithWaitStrategy(WaitStrategy.Clickable)
-            .Build();
-
-        ErrorMessage = Element(".error-message")
-            .WithDescription("Error Message")
-            .WithWaitStrategy(WaitStrategy.Visible)
-            .Build();
-    }
-
-    public LoginPage EnterEmail(string email)
-    {
-        Logger.LogInformation($"Entering email: {email}");
-        return Type(p => p.EmailInput, email);
-    }
-
-    public LoginPage EnterPassword(string password)
-    {
-        Logger.LogInformation("Entering password");
-        return Type(p => p.PasswordInput, password);
-    }
-
-    public HomePage ClickLogin()
-    {
-        Logger.LogInformation("Clicking login button");
-        Click(p => p.LoginButton);
-        return NavigateTo<HomePage>();
-    }
-
-    public LoginPage VerifyErrorMessage(string expectedMessage)
-    {
-        Verify.TextContains(p => p.ErrorMessage, expectedMessage);
-        return this;
-    }
-}
-```
-
-### Fluent API Methods
-
-The `Page<TSelf>` provides fluent API methods for element interactions:
-
-```csharp
-// Element interaction methods
-page.Click(p => p.ElementName)
-page.Type(p => p.ElementName, "text")
-page.Select(p => p.ElementName, "value")
-page.Focus(p => p.ElementName)
-page.Hover(p => p.ElementName)
-page.Clear(p => p.ElementName)
-
-// Wait methods
-page.WaitForVisible(p => p.ElementName)
-page.WaitForHidden(p => p.ElementName)
-
-// Verification methods via Verify property
-page.Verify.Visible(p => p.ElementName)
-page.Verify.TextContains(p => p.ElementName, "expected text")
-page.Verify.And  // Returns to page for continued interaction
-```
-
-### Advanced Page Object with Complex Logic
-
-```csharp
-public class UserManagementPage : Page<UserManagementPage>
-{
-    public IElement CreateUserButton { get; private set; } = null!;
-    public IElement UserTable { get; private set; } = null!;
-    public IElement SearchInput { get; private set; } = null!;
-    public IElement FilterDropdown { get; private set; } = null!;
-
-    public UserManagementPage(IServiceProvider serviceProvider, Uri urlPattern)
-        : base(serviceProvider, urlPattern)
-    {
-    }
-
-    protected override void ConfigureElements()
-    {
-        CreateUserButton = Element("[data-testid='create-user-btn']")
-            .WithDescription("Create User Button")
-            .WithWaitStrategy(WaitStrategy.Clickable)
-            .Build();
-
-        UserTable = Element("#users-table")
-            .WithDescription("Users Table")
-            .WithWaitStrategy(WaitStrategy.Visible)
-            .Build();
-
-        SearchInput = Element("#search-users")
-            .WithDescription("Search Users Input")
-            .WithWaitStrategy(WaitStrategy.Visible)
-            .Build();
-
-        FilterDropdown = Element("#filter-users")
-            .WithDescription("Filter Users Dropdown")
-            .WithWaitStrategy(WaitStrategy.Visible)
-            .Build();
-    }
-
-    public CreateUserPage ClickCreateUser()
-    {
-        Logger.LogInformation("Navigating to create user page");
-        Click(p => p.CreateUserButton);
-        return NavigateTo<CreateUserPage>();
-    }
-
-    public UserManagementPage SearchUser(string searchTerm)
-    {
-        Logger.LogInformation($"Searching for user: {searchTerm}");
-        return Type(p => p.SearchInput, searchTerm);
-    }
-
-    public UserManagementPage FilterByRole(string role)
-    {
-        Logger.LogInformation($"Filtering by role: {role}");
-        return Select(p => p.FilterDropdown, role);
-    }
-
-    public UserManagementPage VerifyUserExists(string userName)
-    {
-        Verify.TextContains(p => p.UserTable, userName);
-        return this;
-    }
-}
-```
-
-## Element Configuration
-
-### Element Definition
-
-Elements are defined using the `Element()` method in the `ConfigureElements()` method:
-
-```csharp
-protected override void ConfigureElements()
-{
-    // Basic element
-    var button = Element("#submit-button").Build();
-
-    // Element with description
-    var input = Element("#email")
-        .WithDescription("Email Input Field")
-        .Build();
-
-    // Element with timeout
-    var dropdown = Element("#country-select")
-        .WithTimeout(TimeSpan.FromSeconds(10))
-        .Build();
-
-    // Element with wait strategy
-    var loadingSpinner = Element(".loading-spinner")
-        .WithWaitStrategy(WaitStrategy.Hidden)
-        .Build();
-
-    // Complex element configuration
-    var complexElement = Element("[data-testid='user-card']")
-        .WithDescription("User Card Component")
-        .WithTimeout(TimeSpan.FromSeconds(15))
-        .WithWaitStrategy(WaitStrategy.Visible)
-        .WithRetryInterval(TimeSpan.FromMilliseconds(200))
-        .Build();
-}
-```
-
-### Element Properties
-
-```csharp
-public interface IElement
-{
-    string Selector { get; }
-    string Description { get; }
-    TimeSpan Timeout { get; }
-    WaitStrategy WaitStrategy { get; }
-
-    void Click();
-    void Type(string text);
-    void SelectOption(string value);
-    string GetText();
-    string GetValue();
-    string GetAttribute(string attributeName);
-    bool IsVisible();
-    bool IsEnabled();
-    void WaitForVisible();
-    void Clear();
-    void Focus();
-    void Hover();
-}
-```
-
-## Page Navigation
-
-### Navigation Methods
-
-```csharp
-// Navigate to another page
-public HomePage ClickLogin()
-{
-    Click(p => p.LoginButton);
-    return NavigateTo<HomePage>();
-}
-
-// Navigate with parameters
-public UserProfilePage OpenUserProfile(int userId)
-{
-    var profileLink = Element($"[data-user-id='{userId}']").Build();
-    profileLink.Click();
-    return NavigateTo<UserProfilePage>();
-}
-
-// Conditional navigation
-public T NavigateToPage<T>() where T : Page<T>
-{
-    return NavigateTo<T>();
-}
-```
-
-### Page Validation
-
-```csharp
-// Check if currently on this page
-if (loginPage.IsCurrentPage())
-{
-    // Current page logic
-}
-
-// Validate current page (throws exception if not on correct page)
-loginPage.ValidateCurrentPage();
-
-// Custom validation
-public override bool IsCurrentPage()
-{
-    return Driver.CurrentUrl.ToString().Contains("/login") &&
-           Driver.IsVisible("#login-form");
-}
-```
-
-## Verification Context
-
-### Using Verification
-
-```csharp
-public LoginPage VerifyLoginForm()
-{
-    Verify
-        .Visible(p => p.EmailInput)
-        .Visible(p => p.PasswordInput)
-        .Visible(p => p.LoginButton)
-        .NotVisible(p => p.ErrorMessage);
-
-    return this;
-}
-
-public LoginPage VerifyErrorMessage(string expectedMessage)
-{
-    Verify.TextContains(p => p.ErrorMessage, expectedMessage);
-    return this;
-}
-
-public LoginPage VerifyPageLoaded()
-{
-    Verify
-        .UrlContains("/login")
-        .TitleContains("Login");
-
-    return this;
-}
-```
-
-### Fluent Verification with And
-
-```csharp
-// Verify and continue interacting
-page.Verify
-    .TitleContains("Dashboard")
-    .UrlContains("/dashboard")
-    .Visible(p => p.WelcomeMessage)
-    .And  // Returns to page
-    .Click(p => p.LogoutButton);
-```
-
-### Custom Verification
-
-```csharp
-public UserManagementPage VerifyUserTableNotEmpty()
-{
-    Verify.That(
-        () => GetUserCount(),
-        count => count > 0,
-        "User table should not be empty"
-    );
-    return this;
-}
-
-private int GetUserCount()
-{
-    // Your logic to count users
-    return 5;
-}
-```
-
-## Best Practices
-
-### 1. Element Organization
-
-```csharp
-public class WellOrganizedPage : Page<WellOrganizedPage>
-{
-    // Login elements
-    public IElement EmailInput { get; private set; } = null!;
-    public IElement PasswordInput { get; private set; } = null!;
-    public IElement LoginButton { get; private set; } = null!;
-
-    // Form elements
-    public IElement FirstNameInput { get; private set; } = null!;
-    public IElement LastNameInput { get; private set; } = null!;
-    public IElement SubmitButton { get; private set; } = null!;
-
-    // Navigation elements
-    public IElement HomeLink { get; private set; } = null!;
-    public IElement ProfileLink { get; private set; } = null!;
-    public IElement LogoutLink { get; private set; } = null!;
-
-    public WellOrganizedPage(IServiceProvider sp, Uri url) : base(sp, url) { }
-
-    protected override void ConfigureElements()
-    {
-        ConfigureLoginElements();
-        ConfigureFormElements();
-        ConfigureNavigationElements();
-    }
-
-    private void ConfigureLoginElements()
-    {
-        EmailInput = Element("#email").WithDescription("Email Input").Build();
-        PasswordInput = Element("#password").WithDescription("Password Input").Build();
-        LoginButton = Element("#login-btn").WithDescription("Login Button").Build();
-    }
-
-    private void ConfigureFormElements()
-    {
-        FirstNameInput = Element("#first-name").WithDescription("First Name Input").Build();
-        LastNameInput = Element("#last-name").WithDescription("Last Name Input").Build();
-        SubmitButton = Element("#submit").WithDescription("Submit Button").Build();
-    }
-
-    private void ConfigureNavigationElements()
-    {
-        HomeLink = Element("#home-link").WithDescription("Home Link").Build();
-        ProfileLink = Element("#profile-link").WithDescription("Profile Link").Build();
-        LogoutLink = Element("#logout-link").WithDescription("Logout Link").Build();
-    }
-}
-```
-
-### 2. Method Chaining
-
-```csharp
-public class ChainedPage : Page<ChainedPage>
-{
-    public IElement EmailInput { get; private set; } = null!;
-    public IElement PasswordInput { get; private set; } = null!;
-    public IElement LoginButton { get; private set; } = null!;
-
-    public ChainedPage(IServiceProvider sp, Uri url) : base(sp, url) { }
-
-    protected override void ConfigureElements()
-    {
-        EmailInput = Element("#email").Build();
-        PasswordInput = Element("#password").Build();
-        LoginButton = Element("#login-btn").Build();
-    }
-
-    public ChainedPage EnterEmail(string email)
-    {
-        return Type(p => p.EmailInput, email);
-    }
-
-    public ChainedPage EnterPassword(string password)
-    {
-        return Type(p => p.PasswordInput, password);
-    }
-
-    public ChainedPage ClickLoginButton()
-    {
-        return Click(p => p.LoginButton);
-    }
-
-    // Combined method using fluent API
-    public ChainedPage Login(string email, string password)
-    {
-        return Type(p => p.EmailInput, email)
-               .Type(p => p.PasswordInput, password)
-               .Click(p => p.LoginButton);
-    }
-}
-
-// Usage: page.EnterEmail("test@example.com").EnterPassword("password").ClickLoginButton();
-// Or: page.Login("test@example.com", "password");
-```
-
-### 3. Error Handling
-
-```csharp
-public class RobustPage : Page<RobustPage>
-{
-    public IElement Button { get; private set; } = null!;
-
-    public RobustPage(IServiceProvider sp, Uri url) : base(sp, url) { }
-
-    protected override void ConfigureElements()
-    {
-        Button = Element("#button")
-            .WithWaitStrategy(WaitStrategy.Clickable)
-            .WithTimeout(TimeSpan.FromSeconds(10))
-            .Build();
-    }
-
-    public RobustPage ClickButtonSafely()
-    {
-        try
-        {
-            return Click(p => p.Button);
-        }
-        catch (ElementTimeoutException ex)
-        {
-            Logger.LogWarning($"Button not found: {ex.Selector}");
-            // Fallback logic or rethrow
-            throw;
-        }
-    }
-}
-```
-
-### 4. Page State Management
-
-```csharp
-public class StatefulPage : Page<StatefulPage>
-{
-    private bool _isLoggedIn = false;
-    private string? _currentUser = null;
-
-    public IElement EmailInput { get; private set; } = null!;
-    public IElement PasswordInput { get; private set; } = null!;
-    public IElement LoginButton { get; private set; } = null!;
-    public IElement LogoutLink { get; private set; } = null!;
-
-    public StatefulPage(IServiceProvider sp, Uri url) : base(sp, url) { }
-
-    protected override void ConfigureElements()
-    {
-        EmailInput = Element("#email").Build();
-        PasswordInput = Element("#password").Build();
-        LoginButton = Element("#login-btn").Build();
-        LogoutLink = Element("#logout").Build();
-    }
-
-    public StatefulPage Login(string email, string password)
-    {
-        Type(p => p.EmailInput, email)
-            .Type(p => p.PasswordInput, password)
-            .Click(p => p.LoginButton);
-
-        _isLoggedIn = true;
-        _currentUser = email;
-
-        return this;
-    }
-
-    public StatefulPage Logout()
-    {
-        if (!_isLoggedIn)
-        {
-            throw new InvalidOperationException("Not logged in");
-        }
-
-        Click(p => p.LogoutLink);
-        _isLoggedIn = false;
-        _currentUser = null;
-
-        return this;
-    }
-
-    public bool IsLoggedIn => _isLoggedIn;
-    public string? CurrentUser => _currentUser;
-}
-```
-
-## Navigation Patterns
-
-### 1. Route Attribute Navigation
-
-The recommended way to define page URLs is using the `[Route]` attribute:
+Define a page by extending `Page<TSelf>`, decorating with `[Route]`, and writing methods that use `Enqueue<IPage>` to interact with the browser.
 
 ```csharp
 [Route("/login")]
 public class LoginPage : Page<LoginPage>
 {
-    public LoginPage(IServiceProvider sp, Uri pageUrl) : base(sp, pageUrl) { }
-    protected override void ConfigureElements() { /* ... */ }
-}
+    protected LoginPage(IServiceProvider serviceProvider) : base(serviceProvider) { }
 
-// Usage - navigates to http://your-app.com/login
-var loginPage = app.NavigateTo<LoginPage>();
+    public LoginPage EnterEmail(string email)
+    {
+        return Enqueue<IPage>(async page =>
+        {
+            await page.FillAsync("#email-input", email).ConfigureAwait(false);
+        });
+    }
+
+    public LoginPage EnterPassword(string password)
+    {
+        return Enqueue<IPage>(async page =>
+        {
+            await page.FillAsync("#password-input", password).ConfigureAwait(false);
+        });
+    }
+
+    public LoginPage Submit()
+    {
+        return Enqueue<IPage>(async page =>
+        {
+            await page.ClickAsync("#login-button").ConfigureAwait(false);
+        });
+    }
+}
 ```
 
-### 2. Parameterized Routes
+### Page with Verification Methods
 
-For pages with dynamic paths, use placeholders in the `[Route]` attribute:
+Verification methods are just regular page methods that enqueue assertions.
+
+```csharp
+[Route("/dashboard")]
+public class DashboardPage : Page<DashboardPage>
+{
+    protected DashboardPage(IServiceProvider serviceProvider) : base(serviceProvider) { }
+
+    public DashboardPage VerifyWelcomeVisible()
+    {
+        return Enqueue<IPage>(async page =>
+        {
+            await page.Locator("[data-testid='welcome-message']")
+                .WaitForAsync()
+                .ConfigureAwait(false);
+        });
+    }
+
+    public DashboardPage VerifyTitleContains(string expectedText)
+    {
+        return Enqueue<IPage>(async page =>
+        {
+            var title = await page.TitleAsync().ConfigureAwait(false);
+            if (!title.Contains(expectedText))
+                throw new AssertionException($"Expected title to contain '{expectedText}', but was '{title}'");
+        });
+    }
+
+    public DashboardPage ClickLogout()
+    {
+        return Enqueue<IPage>(async page =>
+        {
+            await page.ClickAsync("[data-testid='logout-button']").ConfigureAwait(false);
+        });
+    }
+}
+```
+
+### Advanced Page Object
+
+For pages with more complex interactions, compose multiple enqueued actions within a single method or chain calls together.
+
+```csharp
+[Route("/users")]
+public class UserManagementPage : Page<UserManagementPage>
+{
+    protected UserManagementPage(IServiceProvider serviceProvider) : base(serviceProvider) { }
+
+    public UserManagementPage SearchUser(string searchTerm)
+    {
+        return Enqueue<IPage>(async page =>
+        {
+            await page.FillAsync("[data-testid='search-input']", searchTerm).ConfigureAwait(false);
+            await page.PressAsync("[data-testid='search-input']", "Enter").ConfigureAwait(false);
+        });
+    }
+
+    public UserManagementPage FilterByRole(string role)
+    {
+        return Enqueue<IPage>(async page =>
+        {
+            await page.SelectOptionAsync("[data-testid='role-filter']", role).ConfigureAwait(false);
+        });
+    }
+
+    public UserManagementPage VerifyUserVisible(string userName)
+    {
+        return Enqueue<IPage>(async page =>
+        {
+            await page.Locator($"[data-testid='user-row']:has-text('{userName}')")
+                .WaitForAsync()
+                .ConfigureAwait(false);
+        });
+    }
+
+    public UserManagementPage ClickCreateUser()
+    {
+        return Enqueue<IPage>(async page =>
+        {
+            await page.ClickAsync("[data-testid='create-user-button']").ConfigureAwait(false);
+        });
+    }
+}
+```
+
+## Cross-Page Navigation
+
+### Chaining Across Pages with NavigateTo
+
+`NavigateTo<TTarget>()` freezes the current page and returns a new page instance that shares the same action queue. The entire chain executes in order when awaited.
+
+```csharp
+await app.NavigateTo<HomePage>()
+    .VerifyWelcomeVisible()
+    .NavigateTo<LoginPage>()
+    .EnterEmail("test@example.com")
+    .EnterPassword("s3cret")
+    .Submit();
+```
+
+This chain:
+1. Navigates to `HomePage`
+2. Verifies the welcome message is visible
+3. Navigates to `LoginPage` (freezing `HomePage`)
+4. Fills in the email and password
+5. Clicks the submit button
+
+All five steps execute sequentially when `await` is reached.
+
+### Multi-Page Workflows
+
+You can chain across as many pages as needed.
+
+```csharp
+await app.NavigateTo<LoginPage>()
+    .EnterEmail("admin@example.com")
+    .EnterPassword("admin-pass")
+    .Submit()
+    .NavigateTo<DashboardPage>()
+    .VerifyWelcomeVisible()
+    .NavigateTo<UserManagementPage>()
+    .SearchUser("john")
+    .VerifyUserVisible("John Doe");
+```
+
+## Route Attribute and Parameterized Routes
+
+### Basic Routes
+
+Use the `[Route]` attribute to define the URL path for a page. The path is combined with the configured `BaseUrl`.
+
+```csharp
+[Route("/login")]
+public class LoginPage : Page<LoginPage>
+{
+    protected LoginPage(IServiceProvider serviceProvider) : base(serviceProvider) { }
+    // ...
+}
+
+// Navigates to: http://localhost:5000/login
+await app.NavigateTo<LoginPage>().EnterEmail("user@example.com").Submit();
+```
+
+### Parameterized Routes
+
+For pages with dynamic URL segments, use `{placeholder}` syntax in the route.
 
 ```csharp
 [Route("/users/{userId}")]
 public class UserProfilePage : Page<UserProfilePage>
 {
-    public UserProfilePage(IServiceProvider sp, Uri pageUrl) : base(sp, pageUrl) { }
-    protected override void ConfigureElements() { /* ... */ }
+    protected UserProfilePage(IServiceProvider serviceProvider) : base(serviceProvider) { }
+    // ...
 }
 
-// Usage - pass parameters as an anonymous object
-var userPage = app.NavigateTo<UserProfilePage>(new { userId = "123" });
-// Navigates to: http://your-app.com/users/123
+// Pass parameters as an anonymous object
+await app.NavigateTo<UserProfilePage>(new { userId = "123" })
+    .VerifyProfileLoaded();
+// Navigates to: http://localhost:5000/users/123
+```
 
-// Multiple parameters
+### Multiple Parameters
+
+```csharp
 [Route("/users/{userId}/posts/{postId}")]
-public class UserPostPage : Page<UserPostPage> { /* ... */ }
-
-var postPage = app.NavigateTo<UserPostPage>(new { userId = "123", postId = "456" });
-// Navigates to: http://your-app.com/users/123/posts/456
-```
-
-### 3. Using Dictionary for Route Parameters
-
-```csharp
-// Useful when parameters are determined at runtime
-var routeParams = new Dictionary<string, object>
+public class UserPostPage : Page<UserPostPage>
 {
-    { "userId", GetCurrentUserId() },
-    { "postId", GetSelectedPostId() }
-};
+    protected UserPostPage(IServiceProvider serviceProvider) : base(serviceProvider) { }
+    // ...
+}
 
-var postPage = app.NavigateTo<UserPostPage>(routeParams);
+await app.NavigateTo<UserPostPage>(new { userId = "456", postId = "789" })
+    .VerifyPostContent();
+// Navigates to: http://localhost:5000/users/456/posts/789
 ```
 
-### 4. Navigation from Page Instance
+### SPA and Hash-Based Routing
 
-You can also navigate using the page's `Navigate` method directly:
-
-```csharp
-var userPage = app.On<UserProfilePage>();
-userPage.Navigate(new { userId = "different-user" });
-```
-
-### 5. SPA and Hash-Based Routing
-
-For SPAs with hash-based routing, set the BaseUrl to include the hash:
+For SPAs with hash-based routing, include the hash in the BaseUrl configuration:
 
 ```csharp
 // Configuration
@@ -657,122 +292,174 @@ public class LoginPage : Page<LoginPage> { /* ... */ }
 // Results in: http://localhost:5000/#/login
 ```
 
-### 6. Navigation with Query Parameters
+## Using Enqueue
+
+### Enqueue without DI
+
+Use the no-argument `Enqueue` when you do not need a DI-resolved service.
 
 ```csharp
-public class SearchPage : Page<SearchPage>
+public LoginPage LogAction(string message)
 {
-    public SearchPage(IServiceProvider sp, Uri pageUrl) : base(sp, pageUrl) { }
-
-    protected override void ConfigureElements() { /* ... */ }
-
-    public SearchPage NavigateWithQuery(string query, string category = "all")
+    return Enqueue(async () =>
     {
-        var baseUrl = Options.BaseUrl ?? throw new InvalidOperationException("BaseUrl not configured");
-        var queryString = $"q={Uri.EscapeDataString(query)}&category={Uri.EscapeDataString(category)}";
-        Driver.NavigateToUrl(new Uri(baseUrl, $"/search?{queryString}"));
-        return this;
-    }
+        Console.WriteLine($"[{DateTime.UtcNow}] {message}");
+        await Task.CompletedTask.ConfigureAwait(false);
+    });
 }
 ```
 
-## Common Patterns
+### Enqueue with DI-Resolved Services
 
-### 1. Modal Dialogs
+Use `Enqueue<T>` to resolve a service from the DI container. For browser interactions, `T` is typically Playwright's `IPage`.
 
 ```csharp
-public class ModalPage : Page<ModalPage>
+public LoginPage EnterEmail(string email)
 {
-    public IElement ModalOverlay { get; private set; } = null!;
-    public IElement ModalContent { get; private set; } = null!;
-    public IElement CloseButton { get; private set; } = null!;
-    public IElement ConfirmButton { get; private set; } = null!;
-
-    public ModalPage(IServiceProvider sp, Uri url) : base(sp, url) { }
-
-    protected override void ConfigureElements()
+    return Enqueue<IPage>(async page =>
     {
-        ModalOverlay = Element(".modal-overlay").Build();
-        ModalContent = Element(".modal-content").Build();
-        CloseButton = Element(".modal-close").Build();
-        ConfirmButton = Element(".modal-confirm").Build();
-    }
-
-    public ModalPage WaitForModal()
-    {
-        return WaitForVisible(p => p.ModalOverlay);
-    }
-
-    public ModalPage CloseModal()
-    {
-        return Click(p => p.CloseButton);
-    }
-
-    public ModalPage ConfirmModal()
-    {
-        return Click(p => p.ConfirmButton);
-    }
+        await page.FillAsync("[data-testid='email-input']", email).ConfigureAwait(false);
+    });
 }
 ```
 
-### 2. Form Handling
+You can resolve any registered service, not just `IPage`:
 
 ```csharp
-public class FormPage : Page<FormPage>
+public LoginPage DoSomethingCustom()
 {
-    public FormPage(IServiceProvider sp, Uri url) : base(sp, url) { }
-
-    protected override void ConfigureElements() { /* ... */ }
-
-    public FormPage FillForm(Dictionary<string, string> formData)
+    return Enqueue<IMyCustomService>(async service =>
     {
-        foreach (var field in formData)
-        {
-            var element = Element($"#{field.Key}").Build();
-            element.Type(field.Value);
-        }
-
-        return this;
-    }
+        await service.PerformActionAsync().ConfigureAwait(false);
+    });
 }
 ```
 
-## Testing Page Objects
+## Testing with Page Objects
 
-### Integration Testing
+### Basic Test
 
 ```csharp
 [TestClass]
-public class LoginPageIntegrationTests
+public class LoginTests
 {
     [TestMethod]
-    public void Can_Login_Successfully()
+    public async Task Can_Login_Successfully()
     {
-        // Arrange
-        var loginPage = TestAssemblyHooks.App.NavigateTo<LoginPage>();
-
-        // Act
-        var homePage = loginPage
+        await TestAssemblyHooks.App.NavigateTo<LoginPage>()
             .EnterEmail("test@example.com")
-            .EnterPassword("password")
-            .ClickLogin();
-
-        // Assert
-        homePage.Verify
-            .UrlContains("/home")
-            .Visible(p => p.WelcomeMessage);
+            .EnterPassword("password123")
+            .Submit()
+            .NavigateTo<DashboardPage>()
+            .VerifyWelcomeVisible();
     }
 }
+```
+
+### Test with Parameterized Route
+
+```csharp
+[TestMethod]
+public async Task Can_View_User_Profile()
+{
+    await TestAssemblyHooks.App.NavigateTo<UserProfilePage>(new { userId = "42" })
+        .VerifyProfileLoaded()
+        .VerifyDisplayName("Jane Doe");
+}
+```
+
+## Best Practices
+
+### 1. Keep Methods Focused
+
+Each page method should represent a single user action. Avoid bundling multiple unrelated interactions into one method.
+
+```csharp
+// Good -- one action per method
+public LoginPage EnterEmail(string email)
+{
+    return Enqueue<IPage>(async page =>
+    {
+        await page.FillAsync("[data-testid='email-input']", email).ConfigureAwait(false);
+    });
+}
+
+public LoginPage Submit()
+{
+    return Enqueue<IPage>(async page =>
+    {
+        await page.ClickAsync("[data-testid='submit-button']").ConfigureAwait(false);
+    });
+}
+
+// Acceptable -- a convenience method that composes focused methods
+public LoginPage Login(string email, string password)
+{
+    return EnterEmail(email).EnterPassword(password).Submit();
+}
+```
+
+### 2. Use data-testid Selectors
+
+Prefer `[data-testid='...']` selectors over CSS classes or element IDs. They are stable, decoupled from styling, and signal explicit test contracts.
+
+```csharp
+// Good
+await page.ClickAsync("[data-testid='submit-button']").ConfigureAwait(false);
+
+// Fragile -- tied to styling
+await page.ClickAsync(".btn-primary.submit").ConfigureAwait(false);
+
+// Fragile -- IDs may be auto-generated or change
+await page.ClickAsync("#submit-btn").ConfigureAwait(false);
+```
+
+### 3. Always Use ConfigureAwait(false)
+
+All `await` calls inside `Enqueue` lambdas should use `ConfigureAwait(false)` to avoid deadlocks and unnecessary synchronization context captures.
+
+```csharp
+return Enqueue<IPage>(async page =>
+{
+    await page.FillAsync("#input", "value").ConfigureAwait(false);
+    await page.ClickAsync("#button").ConfigureAwait(false);
+});
+```
+
+### 4. Avoid Storing Mutable State in Pages
+
+Pages are chain builders, not stateful objects. Do not store mutable state (flags, counters) on the page instance. The deferred execution model means state would be set at enqueue time, not execution time.
+
+### 5. Group Related Pages Together
+
+Organize page objects in a `Pages/` folder that mirrors your application structure.
+
+```
+Tests/
+  Pages/
+    LoginPage.cs
+    DashboardPage.cs
+    Users/
+      UserManagementPage.cs
+      UserProfilePage.cs
+```
+
+### 6. Name Methods After User Intent
+
+Method names should describe what the user is doing, not how the automation works.
+
+```csharp
+// Good -- describes user intent
+public LoginPage EnterEmail(string email) { /* ... */ }
+public LoginPage Submit() { /* ... */ }
+
+// Bad -- describes implementation details
+public LoginPage FillEmailInputField(string email) { /* ... */ }
+public LoginPage ClickSubmitButton() { /* ... */ }
 ```
 
 ## Conclusion
 
-The Page Object Pattern in FluentUIScaffold provides a robust foundation for building maintainable and reliable UI tests. By following the best practices outlined in this guide, you can create page objects that are:
-
-- **Maintainable**: Easy to update when the UI changes
-- **Reusable**: Can be used across multiple test scenarios
-- **Readable**: Self-documenting and easy to understand
-- **Reliable**: Handle element interactions consistently
-- **Testable**: Can be unit tested independently
+The Page Object Pattern in FluentUIScaffold provides a deferred-execution, fluent API for writing maintainable UI tests. By building chains of actions that execute on `await`, cross-page workflows become simple linear sequences. The `Enqueue<T>` mechanism keeps pages framework-agnostic while still giving you full access to the underlying driver through DI.
 
 For more information, see the [API Reference](api-reference.md) and [Getting Started](getting-started.md) guides.

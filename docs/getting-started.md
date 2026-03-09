@@ -1,51 +1,33 @@
 # Getting Started with FluentUIScaffold
 
-## Overview
-
-This guide will help you get started with FluentUIScaffold, a framework-agnostic E2E testing library that provides a fluent API for building maintainable and reusable UI test automation.
-
 ## Prerequisites
 
-Before you begin, ensure you have the following installed:
-
 - **.NET 6.0 or later** - [Download .NET](https://dotnet.microsoft.com/download)
-- **Visual Studio 2022** or **VS Code** - [Download Visual Studio](https://visualstudio.microsoft.com/) or [Download VS Code](https://code.visualstudio.com/)
-- **Git** - [Download Git](https://git-scm.com/)
+- **A test framework** - MSTest, xUnit, or NUnit
+- **Playwright browsers** installed (handled automatically on first run)
 
 ## Installation
 
-### Option 1: Clone the Repository
-
 ```bash
-# Clone the repository
-git clone https://github.com/your-org/fluent-ui-scaffold.git
-cd fluent-ui-scaffold
-
-# Restore dependencies
-dotnet restore
-
-# Build the solution
-dotnet build
-```
-
-### Option 2: Add to Existing Project
-
-```bash
-# Add the NuGet packages (when published)
 dotnet add package FluentUIScaffold.Core
 dotnet add package FluentUIScaffold.Playwright
 ```
 
+For Aspire-hosted applications, also add:
+
+```bash
+dotnet add package FluentUIScaffold.AspireHosting
+```
+
 ## Quick Start
 
-### 1. Create Your First Test
+### 1. Set Up Assembly Hooks with Session Lifecycle
 
-Create a new test project and set up assembly-level initialization:
+FluentUIScaffold uses an assembly-level `AppScaffold` for the application lifecycle and per-test session management for browser isolation.
 
 ```csharp
 using FluentUIScaffold.Core;
 using FluentUIScaffold.Core.Configuration;
-using FluentUIScaffold.Playwright;
 
 [TestClass]
 public class TestAssemblyHooks
@@ -56,13 +38,11 @@ public class TestAssemblyHooks
     public static async Task AssemblyInitialize(TestContext context)
     {
         _app = new FluentUIScaffoldBuilder()
-            .UsePlugin(new PlaywrightPlugin())
+            .UsePlaywright()
             .Web<WebApp>(opts =>
             {
-                opts.BaseUrl = new Uri("https://your-app.com");
-                opts.DefaultWaitTimeout = TimeSpan.FromSeconds(60);
+                opts.BaseUrl = new Uri("http://localhost:5000");
             })
-            .WithAutoPageDiscovery()
             .Build<WebApp>();
 
         await _app.StartAsync();
@@ -79,519 +59,318 @@ public class TestAssemblyHooks
 }
 ```
 
-### 2. Write Your First Test
+### 2. Create a Base Test Class with Session Lifecycle
+
+Each test gets its own browser session via `CreateSessionAsync()` and `DisposeSessionAsync()`:
 
 ```csharp
 [TestClass]
-public class HomePageTests
+public class UITestBase
 {
-    [TestMethod]
-    public void Can_Navigate_To_Home_Page()
+    [TestInitialize]
+    public async Task TestSetup()
     {
-        // Arrange & Act
-        var homePage = TestAssemblyHooks.App.NavigateTo<HomePage>();
+        await TestAssemblyHooks.App.CreateSessionAsync();
+    }
 
-        // Assert
-        homePage.Verify
-            .Visible(p => p.WelcomeMessage)
-            .TitleContains("Welcome");
+    [TestCleanup]
+    public async Task TestTeardown()
+    {
+        await TestAssemblyHooks.App.DisposeSessionAsync();
     }
 }
 ```
 
-### 3. Create Your First Page Object
+### 3. Write Your First Test
 
-Pages can use the `[Route]` attribute to define their URL path, which is combined with the BaseUrl:
+Tests `await` the page chain, which triggers deferred execution of all enqueued actions:
 
 ```csharp
-using FluentUIScaffold.Core.Pages;
-using FluentUIScaffold.Core.Interfaces;
-
-[Route("/")]  // This page is at the root URL
-public class HomePage : Page<HomePage>
+[TestClass]
+public class HomePageTests : UITestBase
 {
-    public IElement WelcomeMessage { get; private set; } = null!;
-    public IElement LoginButton { get; private set; } = null!;
-
-    public HomePage(IServiceProvider serviceProvider, Uri pageUrl)
-        : base(serviceProvider, pageUrl)
+    [TestMethod]
+    public async Task Can_Navigate_To_Home_Page()
     {
+        await TestAssemblyHooks.App.NavigateTo<HomePage>();
     }
-
-    protected override void ConfigureElements()
-    {
-        WelcomeMessage = Element("#welcome-message")
-            .WithDescription("Welcome Message")
-            .WithWaitStrategy(WaitStrategy.Visible)
-            .Build();
-
-        LoginButton = Element("#login-button")
-            .WithDescription("Login Button")
-            .WithWaitStrategy(WaitStrategy.Clickable)
-            .Build();
-    }
-
-    public HomePage VerifyWelcomeMessage()
-    {
-        return WaitForVisible(p => p.WelcomeMessage);
-    }
-
-    public LoginPage ClickLogin()
-    {
-        Click(p => p.LoginButton);
-        return NavigateTo<LoginPage>();
-    }
-}
-
-[Route("/login")]  // This page is at /login
-public class LoginPage : Page<LoginPage>
-{
-    // ... page implementation
 }
 ```
 
 ### 4. Run Your Tests
 
 ```bash
-# Run all tests
 dotnet test
 
-# Run specific test
+# Run a specific test
 dotnet test --filter "Can_Navigate_To_Home_Page"
 ```
 
-## Hosting Strategies
+## Creating Page Objects
 
-FluentUIScaffold supports multiple hosting strategies for different scenarios:
-
-### Using Aspire Hosting (Recommended for Distributed Apps)
+Pages inherit from `Page<TSelf>` and use the `Enqueue<IPage>()` method to schedule Playwright interactions. The page acts as a deferred execution chain builder -- actions are collected and only run when the chain is awaited.
 
 ```csharp
-[AssemblyInitialize]
-public static async Task AssemblyInitialize(TestContext context)
+using FluentUIScaffold.Core.Pages;
+using Microsoft.Playwright;
+
+[Route("/")]
+public class HomePage : Page<HomePage>
 {
-    _app = new FluentUIScaffoldBuilder()
-        .UseAspireHosting<Projects.SampleApp_AppHost>(
-            appHost => { /* configure distributed app */ },
-            "sampleapp")
-        .Web<WebApp>(options => { options.UsePlaywright(); })
-        .Build<WebApp>();
-
-    await _app.StartAsync();
-}
-```
-
-#### Base URL Prefix with Aspire
-
-You can append a prefix to the auto-discovered BaseUrl for SPAs with hash-based routing or applications with a common base path:
-
-```csharp
-// For hash-based SPA routing (e.g., http://localhost:5000/#/login)
-_app = new FluentUIScaffoldBuilder()
-    .UseAspireHosting<Projects.SampleApp_AppHost>(
-        appHost => { /* configure */ },
-        baseUrlResourceName: "sampleapp",
-        baseUrlPrefix: "#")  // Results in: http://localhost:port/#
-    .Web<WebApp>(options => { options.UsePlaywright(); })
-    .Build<WebApp>();
-
-// For apps with a common base path (e.g., http://localhost:5000/app/dashboard)
-_app = new FluentUIScaffoldBuilder()
-    .UseAspireHosting<Projects.SampleApp_AppHost>(
-        appHost => { /* configure */ },
-        baseUrlResourceName: "sampleapp",
-        baseUrlPrefix: "/app")  // Results in: http://localhost:port/app
-    .Web<WebApp>(options => { options.UsePlaywright(); })
-    .Build<WebApp>();
-```
-
-### Using External Server (Pre-started)
-
-For CI environments or staging servers that are already running:
-
-```csharp
-_app = new FluentUIScaffoldBuilder()
-    .UsePlugin(new PlaywrightPlugin())
-    .Web<WebApp>(opts => opts.BaseUrl = new Uri("https://staging.your-app.com"))
-    .Build<WebApp>();
-
-await _app.StartAsync();
-```
-
-## Headless and SlowMo Defaults
-
-For easier debugging during development, debug mode automatically:
-- Disables headless mode to show the browser window
-- Sets SlowMo to slow down interactions for better visibility
-- **Automatically enables when a debugger is attached** (no configuration needed!)
-
-You can override these defaults via the builder:
-
-```csharp
-var app = new FluentUIScaffoldBuilder()
-    .UsePlugin(new PlaywrightPlugin())
-    .Web<WebApp>(opts =>
-    {
-        opts.BaseUrl = new Uri("https://your-app.com");
-        opts.DefaultWaitTimeout = TimeSpan.FromSeconds(30);
-        opts.HeadlessMode = false; // Force visible browser
-        opts.SlowMo = 250;         // Custom SlowMo delay
-    })
-    .Build<WebApp>();
-```
-
-## Element Configuration
-
-### Basic Element Setup
-
-```csharp
-// Simple element
-var button = Element("#submit-button").Build();
-
-// Element with description
-var input = Element("#email-input")
-    .WithDescription("Email Input Field")
-    .Build();
-
-// Element with timeout
-var dropdown = Element("#country-select")
-    .WithTimeout(TimeSpan.FromSeconds(10))
-    .Build();
-
-// Element with wait strategy
-var loadingSpinner = Element(".loading-spinner")
-    .WithWaitStrategy(WaitStrategy.Hidden)
-    .Build();
-```
-
-### Advanced Element Configuration
-
-```csharp
-var complexElement = Element("[data-testid='user-card']")
-    .WithDescription("User Card Component")
-    .WithTimeout(TimeSpan.FromSeconds(15))
-    .WithWaitStrategy(WaitStrategy.Visible)
-    .WithRetryInterval(TimeSpan.FromMilliseconds(200))
-    .Build();
-```
-
-## Wait Strategies
-
-### Available Wait Strategies
-
-```csharp
-// No waiting
-var element = Element("#button").WithWaitStrategy(WaitStrategy.None).Build();
-
-// Wait for visibility
-var visibleElement = Element("#modal").WithWaitStrategy(WaitStrategy.Visible).Build();
-
-// Wait for clickability
-var clickableElement = Element("#submit").WithWaitStrategy(WaitStrategy.Clickable).Build();
-
-// Wait for text
-var textElement = Element("#message").WithWaitStrategy(WaitStrategy.TextPresent).Build();
-
-// Smart waiting (framework-specific)
-var smartElement = Element("#dynamic-content").WithWaitStrategy(WaitStrategy.Smart).Build();
-```
-
-## Page Object Pattern
-
-### Creating Page Objects
-
-```csharp
-public class LoginPage : Page<LoginPage>
-{
-    public IElement EmailInput { get; private set; } = null!;
-    public IElement PasswordInput { get; private set; } = null!;
-    public IElement LoginButton { get; private set; } = null!;
-    public IElement ErrorMessage { get; private set; } = null!;
-
-    public LoginPage(IServiceProvider serviceProvider, Uri urlPattern)
-        : base(serviceProvider, urlPattern)
+    protected HomePage(IServiceProvider serviceProvider)
+        : base(serviceProvider)
     {
     }
 
-    protected override void ConfigureElements()
+    public HomePage ClickLoginButton()
     {
-        EmailInput = Element("#email")
-            .WithDescription("Email Input")
-            .WithWaitStrategy(WaitStrategy.Visible)
-            .Build();
-
-        PasswordInput = Element("#password")
-            .WithDescription("Password Input")
-            .WithWaitStrategy(WaitStrategy.Visible)
-            .Build();
-
-        LoginButton = Element("#login-btn")
-            .WithDescription("Login Button")
-            .WithWaitStrategy(WaitStrategy.Clickable)
-            .Build();
-
-        ErrorMessage = Element(".error-message")
-            .WithDescription("Error Message")
-            .WithWaitStrategy(WaitStrategy.Visible)
-            .Build();
+        Enqueue<IPage>(async page =>
+        {
+            await page.ClickAsync("#login-button");
+        });
+        return this;
     }
 
-    public LoginPage EnterEmail(string email)
+    public HomePage EnterSearchTerm(string term)
     {
-        return Type(p => p.EmailInput, email);
+        Enqueue<IPage>(async page =>
+        {
+            await page.FillAsync("#search-input", term);
+        });
+        return this;
     }
 
-    public LoginPage EnterPassword(string password)
+    public HomePage VerifyWelcomeMessageVisible()
     {
-        return Type(p => p.PasswordInput, password);
-    }
-
-    public HomePage ClickLogin()
-    {
-        Click(p => p.LoginButton);
-        return NavigateTo<HomePage>();
-    }
-
-    public LoginPage VerifyErrorMessage(string expectedMessage)
-    {
-        Verify.TextContains(p => p.ErrorMessage, expectedMessage);
+        Enqueue<IPage>(async page =>
+        {
+            await Expect(page.Locator("#welcome-message")).ToBeVisibleAsync();
+        });
         return this;
     }
 }
 ```
 
-### Page Navigation
+Key points:
+- The `[Route("/")]` attribute defines the page URL (combined with `BaseUrl`).
+- The constructor takes only `IServiceProvider`.
+- `Enqueue<IPage>()` schedules an async action against the Playwright `IPage` instance.
+- Methods return `this` (typed as `TSelf`) for fluent chaining.
+- Nothing executes until the chain is awaited via `GetAwaiter()`.
+
+### Fluent Chaining in Tests
 
 ```csharp
-// Navigate to specific page (uses the [Route] attribute)
-var homePage = app.NavigateTo<HomePage>();
+[TestMethod]
+public async Task Can_Search_And_See_Results()
+{
+    await TestAssemblyHooks.App.NavigateTo<HomePage>()
+        .EnterSearchTerm("fluent ui")
+        .ClickSearchButton()
+        .VerifyResultsVisible();
+}
+```
 
-// Get current page without navigating
-var currentPage = app.On<HomePage>();
+## Cross-Page Navigation
 
-// Wait for page to be ready
-app.WaitFor<HomePage>();
+Use `NavigateTo<TTarget>()` within a page to navigate to another page. This freezes the current page's chain and starts building the target page's chain:
 
-// Navigate with route parameters
-// For a page with [Route("/users/{userId}")]
-var userPage = app.NavigateTo<UserPage>(new { userId = "123" });
+```csharp
+[Route("/")]
+public class HomePage : Page<HomePage>
+{
+    protected HomePage(IServiceProvider serviceProvider)
+        : base(serviceProvider)
+    {
+    }
+
+    public LoginPage GoToLogin()
+    {
+        Enqueue<IPage>(async page =>
+        {
+            await page.ClickAsync("#login-link");
+        });
+        return NavigateTo<LoginPage>();
+    }
+}
+
+[Route("/login")]
+public class LoginPage : Page<LoginPage>
+{
+    protected LoginPage(IServiceProvider serviceProvider)
+        : base(serviceProvider)
+    {
+    }
+
+    public LoginPage EnterEmail(string email)
+    {
+        Enqueue<IPage>(async page =>
+        {
+            await page.FillAsync("#email", email);
+        });
+        return this;
+    }
+
+    public LoginPage EnterPassword(string password)
+    {
+        Enqueue<IPage>(async page =>
+        {
+            await page.FillAsync("#password", password);
+        });
+        return this;
+    }
+
+    public LoginPage SubmitForm()
+    {
+        Enqueue<IPage>(async page =>
+        {
+            await page.ClickAsync("#login-btn");
+        });
+        return this;
+    }
+}
+```
+
+Chain across pages in a single awaited expression:
+
+```csharp
+[TestMethod]
+public async Task Can_Login_From_Home_Page()
+{
+    await TestAssemblyHooks.App.NavigateTo<HomePage>()
+        .GoToLogin()
+        .EnterEmail("user@example.com")
+        .EnterPassword("password123")
+        .SubmitForm();
+}
+```
+
+Use `On<TPage>()` to resolve the current page without triggering navigation:
+
+```csharp
+[TestMethod]
+public async Task Can_Verify_Dashboard_After_Login()
+{
+    await TestAssemblyHooks.App.NavigateTo<LoginPage>()
+        .EnterEmail("user@example.com")
+        .EnterPassword("password123")
+        .SubmitForm();
+
+    await TestAssemblyHooks.App.On<DashboardPage>()
+        .VerifyWelcomeMessage();
+}
+```
+
+## Parameterized Routes
+
+Pages with dynamic URL segments use placeholders in the `[Route]` attribute. Pass parameters as an anonymous object to `NavigateTo`:
+
+```csharp
+[Route("/users/{userId}")]
+public class UserPage : Page<UserPage>
+{
+    protected UserPage(IServiceProvider serviceProvider)
+        : base(serviceProvider)
+    {
+    }
+
+    // ... page methods
+}
+
+// Navigate with a parameter:
+await app.NavigateTo<UserPage>(new { userId = "123" });
 // Navigates to: http://localhost:5000/users/123
+```
 
-// Navigate with multiple parameters
-// For a page with [Route("/users/{userId}/posts/{postId}")]
-var postPage = app.NavigateTo<UserPostPage>(new { userId = "456", postId = "789" });
+Multiple parameters work the same way:
+
+```csharp
+[Route("/users/{userId}/posts/{postId}")]
+public class UserPostPage : Page<UserPostPage>
+{
+    protected UserPostPage(IServiceProvider serviceProvider)
+        : base(serviceProvider)
+    {
+    }
+}
+
+await app.NavigateTo<UserPostPage>(new { userId = "456", postId = "789" });
 // Navigates to: http://localhost:5000/users/456/posts/789
 ```
 
-## Verification
+## Hosting Strategies
 
-### Using the Verify Property
+### DotNet Hosting
 
-```csharp
-// Chain verifications
-page.Verify
-    .TitleContains("Dashboard")
-    .UrlContains("/dashboard")
-    .Visible(p => p.WelcomeMessage)
-    .TextContains(p => p.UserGreeting, "Hello")
-    .And  // Returns to page for continued interaction
-    .Click(p => p.LogoutButton);
-```
-
-### Custom Verification
+For .NET web applications managed by the framework:
 
 ```csharp
-// Custom condition
-page.Verify.That(() => page.GetElementCount() > 0, "Should have elements");
-```
-
-## Browser Interaction
-
-### Script Execution
-
-Use `ExecuteScriptAsync` to run JavaScript in the browser for tasks like clearing storage or querying DOM state:
-
-```csharp
-var driver = TestAssemblyHooks.App.GetService<IUIDriver>();
-
-// Clear storage between tests
-await driver.ExecuteScriptAsync("localStorage.clear(); sessionStorage.clear()");
-
-// Get a value from the browser
-var url = await driver.ExecuteScriptAsync<string>("window.location.href");
-
-// Check DOM state
-var headingCount = await driver.ExecuteScriptAsync<int>("document.querySelectorAll('h1').length");
-```
-
-### Screenshots
-
-Capture screenshots for debugging failed tests:
-
-```csharp
-var driver = TestAssemblyHooks.App.GetService<IUIDriver>();
-await driver.TakeScreenshotAsync("debug-screenshot.png");
-```
-
-## Sample Application
-
-The project includes a comprehensive sample application that demonstrates the framework's capabilities:
-
-### Running the Sample
-
-```bash
-# Navigate to sample app
-cd samples/SampleApp
-
-# Install frontend dependencies
-cd ClientApp && npm install && cd ..
-
-# Run the application
-dotnet run
-
-# Run tests (in another terminal)
-cd ../SampleApp.Tests
-dotnet test
-```
-
-### Sample Features
-
-The sample application includes:
-
-- **Modern Web Application**: ASP.NET Core backend with Svelte frontend
-- **User Registration and Login**: Complete form interactions and validation
-- **Comprehensive Testing**: Full test coverage demonstrating framework features
-- **Framework Features**: Navigation, form interactions, verification, error handling
-
-### Example Test
-
-```csharp
-[TestMethod]
-public void Can_Register_New_User_With_Valid_Data()
-{
-    // Arrange
-    var homePage = TestAssemblyHooks.App.NavigateTo<HomePage>();
-    homePage.NavigateToRegisterSection();
-
-    // Act
-    homePage
-        .Type(p => p.EmailInput, "test@example.com")
-        .Type(p => p.PasswordInput, "SecurePass123!")
-        .Type(p => p.FirstNameInput, "Test")
-        .Type(p => p.LastNameInput, "User")
-        .Click(p => p.RegisterButton);
-
-    // Assert
-    homePage.Verify.TextContains(p => p.SuccessMessage, "Registration successful!");
-}
-```
-
-## Playwright Integration
-
-### Using Playwright-Specific Features
-
-```csharp
-// Get Playwright driver
-var playwrightDriver = app.Framework<PlaywrightDriver>();
-
-// Take screenshot
-await playwrightDriver.TakeScreenshotAsync("screenshot.png");
-
-// Set viewport size
-playwrightDriver.SetViewportSize(1920, 1080);
-```
-
-## Testing Best Practices
-
-### Test Structure
-
-```csharp
-[TestClass]
-public class UserManagementTests
-{
-    [TestMethod]
-    public void Can_Create_New_User()
+var app = new FluentUIScaffoldBuilder()
+    .UsePlaywright()
+    .Web<WebApp>(opts =>
     {
-        // Arrange
-        var user = new User { Name = "John Doe", Email = "john@example.com" };
-        var userPage = TestAssemblyHooks.App.NavigateTo<UserManagementPage>();
-
-        // Act
-        var resultPage = userPage
-            .ClickCreateUser()
-            .EnterUserName(user.Name)
-            .EnterUserEmail(user.Email)
-            .ClickSave();
-
-        // Assert
-        resultPage.Verify
-            .TextContains(p => p.SuccessMessage, "User created successfully");
-    }
-}
+        opts.BaseUrl = new Uri("http://localhost:5000");
+    })
+    .Build<WebApp>();
 ```
 
-### Error Handling
+### Aspire Hosting
+
+For distributed applications using .NET Aspire:
 
 ```csharp
-[TestMethod]
-public void Handles_Network_Errors()
-{
-    try
-    {
-        var page = TestAssemblyHooks.App.NavigateTo<HomePage>();
-        page.Verify.Visible(p => p.Content);
-    }
-    catch (ElementTimeoutException ex)
-    {
-        // Handle timeout
-        Assert.Fail($"Element not found: {ex.Selector}");
-    }
-    catch (FluentUIScaffoldException ex)
-    {
-        // Handle other framework errors
-        Assert.Fail($"Framework error: {ex.Message}");
-    }
-}
+var app = new FluentUIScaffoldBuilder()
+    .UseAspireHosting<Projects.SampleApp_AppHost>(
+        appHost => { /* configure distributed app */ },
+        "sampleapp")
+    .Web<WebApp>(options => { options.UsePlaywright(); })
+    .Build<WebApp>();
 ```
 
-## Troubleshooting
-
-### Common Issues
-
-#### Element Not Found
+You can append a prefix to the auto-discovered base URL for hash-based SPA routing or a common base path:
 
 ```csharp
-// Check if selector is correct
-var element = Element("#correct-selector").Build();
-
-// Use more specific selectors
-var element = Element("[data-testid='unique-id']").Build();
-
-// Wait for element to be present
-element.WithWaitStrategy(WaitStrategy.Visible);
+.UseAspireHosting<Projects.SampleApp_AppHost>(
+    appHost => { /* configure */ },
+    baseUrlResourceName: "sampleapp",
+    baseUrlPrefix: "#")  // Results in: http://localhost:port/#
 ```
 
-#### Test Flakiness
+### External Server
+
+For pre-started servers in CI or staging environments:
 
 ```csharp
-// Increase timeout for slow elements
-element.WithTimeout(TimeSpan.FromSeconds(30));
+var app = new FluentUIScaffoldBuilder()
+    .UsePlaywright()
+    .Web<WebApp>(opts =>
+    {
+        opts.BaseUrl = new Uri("https://staging.your-app.com");
+    })
+    .Build<WebApp>();
+```
 
-// Use smart wait strategy
-element.WithWaitStrategy(WaitStrategy.Smart);
+## Headless Mode Configuration
 
-// Add retry logic
-element.WithRetryInterval(TimeSpan.FromMilliseconds(500));
+By default, FluentUIScaffold auto-detects headless mode based on whether a debugger is attached:
+- **Debugger attached**: Browser window is visible, SlowMo is enabled for easier observation.
+- **No debugger (CI)**: Headless mode, no SlowMo.
+
+Override explicitly when needed:
+
+```csharp
+var app = new FluentUIScaffoldBuilder()
+    .UsePlaywright()
+    .Web<WebApp>(opts =>
+    {
+        opts.BaseUrl = new Uri("http://localhost:5000");
+        opts.HeadlessMode = false; // Force visible browser
+        opts.SlowMo = 250;        // Milliseconds between actions
+    })
+    .Build<WebApp>();
 ```
 
 ## Next Steps
 
-- Read the [API Reference](api-reference.md) for complete documentation
-- Explore the [Sample Application](../samples/README.md) for real-world examples
-- Learn about [Page Object Pattern](page-object-pattern.md) best practices
-
-## Support
-
-- **Issues**: [GitHub Issues](https://github.com/your-org/fluent-ui-scaffold/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/your-org/fluent-ui-scaffold/discussions)
-- **Documentation**: [API Reference](api-reference.md)
+- Explore the [sample application](../samples/) for real-world usage
+- See the [API Reference](api-reference.md) for the full API surface

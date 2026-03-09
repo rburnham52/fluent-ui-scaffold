@@ -1,8 +1,8 @@
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 
 using FluentUIScaffold.Core.Configuration;
-using FluentUIScaffold.Core.Exceptions;
 using FluentUIScaffold.Core.Hosting;
 using FluentUIScaffold.Core.Interfaces;
 using FluentUIScaffold.Core.Pages;
@@ -12,42 +12,151 @@ using Microsoft.Extensions.DependencyInjection;
 namespace FluentUIScaffold.Core
 {
     /// <summary>
-    /// Represents the built scaffold application with its services.
-    /// Acts as the central hub for accessing test infrastructure and state.
+    /// The central hub for test infrastructure. Manages hosting, plugin lifecycle,
+    /// and per-test browser session creation.
     /// </summary>
-    /// <typeparam name="TWebApp">The type of the web application under test (e.g. WebApp)</typeparam>
     public class AppScaffold<TWebApp> : IAsyncDisposable
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly Func<IServiceProvider, Task> _startAction;
+        private readonly IUITestingPlugin _plugin;
         private bool _isStarted;
         private bool _isDisposed;
         private IHostingStrategy? _hostingStrategy;
 
-        public AppScaffold(IServiceProvider serviceProvider, Func<IServiceProvider, Task> startAction)
+        // Instance field for session tracking. The AppScaffold instance is shared
+        // across test lifecycle methods (TestInitialize/TestMethod/TestCleanup),
+        // so a simple instance field is reliable regardless of thread scheduling.
+        // For parallel test execution, consider a ConcurrentDictionary keyed by test ID.
+        private IBrowserSession? _currentSession;
+
+        public AppScaffold(
+            IServiceProvider serviceProvider,
+            Func<IServiceProvider, Task> startAction,
+            IUITestingPlugin plugin)
         {
             _serviceProvider = serviceProvider;
             _startAction = startAction;
+            _plugin = plugin ?? throw new ArgumentNullException(nameof(plugin));
         }
 
         /// <summary>
-        /// Gets the service provider for the test session.
+        /// Gets the root service provider.
         /// </summary>
         public IServiceProvider ServiceProvider => _serviceProvider;
 
         /// <summary>
-        /// Starts any configured background services or hosts (e.g. Aspire, WebServer).
+        /// Starts hosting strategies and initializes the plugin (launches browser).
+        /// Call once during assembly/class setup.
         /// </summary>
-        public async Task StartAsync()
+        public async Task StartAsync(CancellationToken cancellationToken = default)
         {
             if (_isStarted) return;
 
-            await _startAction(_serviceProvider);
+            await _startAction(_serviceProvider).ConfigureAwait(false);
 
             // Cache the hosting strategy for disposal later
             _hostingStrategy = _serviceProvider.GetService<IHostingStrategy>();
 
+            var options = _serviceProvider.GetRequiredService<FluentUIScaffoldOptions>();
+            await _plugin.InitializeAsync(options, cancellationToken).ConfigureAwait(false);
+
             _isStarted = true;
+        }
+
+        /// <summary>
+        /// Creates an isolated browser session for the current test.
+        /// Stores the session in AsyncLocal for per-test tracking.
+        /// Call in [TestInitialize] / [SetUp].
+        /// </summary>
+        public async Task<IBrowserSession> CreateSessionAsync()
+        {
+            var session = await _plugin.CreateSessionAsync(_serviceProvider).ConfigureAwait(false);
+            _currentSession = session;
+            return session;
+        }
+
+        /// <summary>
+        /// Disposes the current test's browser session.
+        /// Call in [TestCleanup] / [TearDown].
+        /// </summary>
+        public async Task DisposeSessionAsync()
+        {
+            var session = _currentSession;
+            if (session != null)
+            {
+                _currentSession = null;
+                await session.DisposeAsync().ConfigureAwait(false);
+            }
+        }
+
+        /// <summary>
+        /// Navigates to a page. Creates the page via the session provider,
+        /// enqueues navigation to the page's route, and returns the page
+        /// for fluent chaining.
+        /// </summary>
+        public TPage NavigateTo<TPage>() where TPage : Page<TPage>
+        {
+            var session = _currentSession
+                ?? throw new InvalidOperationException(
+                    "No browser session is active. Call CreateSessionAsync() in [TestInitialize] before navigating.");
+
+            var page = (TPage)(Activator.CreateInstance(
+                typeof(TPage),
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic,
+                binder: null,
+                args: new object[] { session.ServiceProvider },
+                culture: null)
+                ?? throw new InvalidOperationException($"Failed to create instance of {typeof(TPage).Name}."));
+
+            // Enqueue navigation to the page's route
+            EnqueueNavigation(page, session);
+
+            return page;
+        }
+
+        /// <summary>
+        /// Navigates to a page with route parameters.
+        /// </summary>
+        public TPage NavigateTo<TPage>(object routeParams) where TPage : Page<TPage>
+        {
+            if (routeParams == null) throw new ArgumentNullException(nameof(routeParams));
+
+            var session = _currentSession
+                ?? throw new InvalidOperationException(
+                    "No browser session is active. Call CreateSessionAsync() in [TestInitialize] before navigating.");
+
+            var page = (TPage)(Activator.CreateInstance(
+                typeof(TPage),
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic,
+                binder: null,
+                args: new object[] { session.ServiceProvider },
+                culture: null)
+                ?? throw new InvalidOperationException($"Failed to create instance of {typeof(TPage).Name}."));
+
+            // Enqueue navigation with route parameters
+            EnqueueNavigationWithParams(page, session, routeParams);
+
+            return page;
+        }
+
+        /// <summary>
+        /// Resolves a page without navigating.
+        /// Use when you're already on the page and just need the page object.
+        /// </summary>
+        public TPage On<TPage>() where TPage : Page<TPage>
+        {
+            var session = _currentSession
+                ?? throw new InvalidOperationException(
+                    "No browser session is active. Call CreateSessionAsync() in [TestInitialize] before navigating.");
+
+            return (TPage)(Activator.CreateInstance(
+                typeof(TPage),
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic,
+                binder: null,
+                args: new object[] { session.ServiceProvider },
+                culture: null)
+                ?? throw new InvalidOperationException($"Failed to create instance of {typeof(TPage).Name}."));
         }
 
         /// <summary>
@@ -58,195 +167,39 @@ namespace FluentUIScaffold.Core
             return _serviceProvider.GetRequiredService<T>();
         }
 
-        /// <summary>
-        /// Helper to access framework specific tools (e.g. IPage from Playwright).
-        /// </summary>
-        public TResult Framework<TResult>() where TResult : notnull
-        {
-            return _serviceProvider.GetRequiredService<TResult>();
-        }
-
-        #region Page Navigation
-
-        /// <summary>
-        /// Navigates to a page component of the specified type.
-        /// </summary>
-        /// <typeparam name="TPage">The type of the page component.</typeparam>
-        /// <returns>The page component instance after navigation.</returns>
-        public TPage NavigateTo<TPage>() where TPage : class
-        {
-            var page = _serviceProvider.GetRequiredService<TPage>()
-                ?? throw new InvalidOperationException($"Service of type {typeof(TPage).Name} is not registered.");
-
-            // Use reflection to call Navigate() if the page has that method (parameterless overload)
-            var navigateMethod = page.GetType().GetMethod("Navigate", Type.EmptyTypes);
-            if (navigateMethod != null)
-            {
-                navigateMethod.Invoke(page, null);
-            }
-
-            return page;
-        }
-
-        /// <summary>
-        /// Navigates to a page component of the specified type with route parameters.
-        /// Use this for pages with parameterized routes like [Route("/users/{userId}/profile")].
-        /// </summary>
-        /// <typeparam name="TPage">The type of the page component.</typeparam>
-        /// <param name="routeParams">Anonymous object or dictionary with route parameters (e.g., new { userId = "123" }).</param>
-        /// <returns>The page component instance after navigation.</returns>
-        /// <example>
-        /// <code>
-        /// // For a page with [Route("/users/{userId}/profile")]
-        /// var page = app.NavigateTo&lt;UserProfilePage&gt;(new { userId = "123" });
-        /// // Navigates to: http://localhost:5000/users/123/profile
-        /// </code>
-        /// </example>
-        public TPage NavigateTo<TPage>(object routeParams) where TPage : class
-        {
-            if (routeParams == null)
-                throw new ArgumentNullException(nameof(routeParams));
-
-            var page = _serviceProvider.GetRequiredService<TPage>()
-                ?? throw new InvalidOperationException($"Service of type {typeof(TPage).Name} is not registered.");
-
-            // Use reflection to call Navigate(object routeParams) if the page has that method
-            var navigateMethod = page.GetType().GetMethod("Navigate", new[] { typeof(object) });
-            if (navigateMethod != null)
-            {
-                navigateMethod.Invoke(page, new[] { routeParams });
-            }
-
-            return page;
-        }
-
-        /// <summary>
-        /// Attaches to a page component of the specified type without navigating.
-        /// Use this when you're already on the page and just need the page object.
-        /// </summary>
-        /// <typeparam name="TPage">The type of the page component.</typeparam>
-        /// <param name="validate">If true, validates that the current page matches the expected page.</param>
-        /// <returns>The page component instance.</returns>
-        public TPage On<TPage>(bool validate = false) where TPage : class
-        {
-            var page = _serviceProvider.GetRequiredService<TPage>()
-                ?? throw new InvalidOperationException($"Service of type {typeof(TPage).Name} is not registered.");
-
-            if (validate)
-            {
-                // Use reflection to call ValidateCurrentPage() if it exists
-                var validateMethod = page.GetType().GetMethod("ValidateCurrentPage");
-                if (validateMethod != null)
-                {
-                    validateMethod.Invoke(page, null);
-                }
-            }
-
-            return page;
-        }
-
-        /// <summary>
-        /// Waits for a page to be available and validates its state.
-        /// </summary>
-        /// <typeparam name="TPage">The type of the page component.</typeparam>
-        /// <returns>The current AppScaffold instance for fluent chaining.</returns>
-        public AppScaffold<TWebApp> WaitFor<TPage>() where TPage : class
-        {
-            var page = _serviceProvider.GetRequiredService<TPage>()
-                ?? throw new InvalidOperationException($"Service of type {typeof(TPage).Name} is not registered.");
-
-            // Use reflection to call ValidateCurrentPage() if it exists
-            var validateMethod = page.GetType().GetMethod("ValidateCurrentPage");
-            if (validateMethod != null)
-            {
-                validateMethod.Invoke(page, null);
-            }
-
-            return this;
-        }
-
-        /// <summary>
-        /// Waits for an element on the current page.
-        /// </summary>
-        /// <typeparam name="TPage">The type of the page component.</typeparam>
-        /// <param name="elementSelector">Function to select the element to wait for.</param>
-        /// <returns>The current AppScaffold instance for fluent chaining.</returns>
-        public AppScaffold<TWebApp> WaitFor<TPage>(Func<TPage, IElement> elementSelector) where TPage : class
-        {
-            var page = _serviceProvider.GetRequiredService<TPage>()
-                ?? throw new InvalidOperationException($"Service of type {typeof(TPage).Name} is not registered.");
-
-            var element = elementSelector(page);
-            element.WaitForVisible();
-
-            return this;
-        }
-
-        /// <summary>
-        /// Navigates to a specific URL.
-        /// </summary>
-        /// <param name="url">The URL to navigate to.</param>
-        /// <returns>The current AppScaffold instance for fluent chaining.</returns>
-        public AppScaffold<TWebApp> NavigateToUrl(Uri url)
-        {
-            if (url == null)
-                throw new FluentUIScaffoldValidationException("URL cannot be null", nameof(url));
-
-            var driver = _serviceProvider.GetRequiredService<IUIDriver>();
-            driver.NavigateToUrl(url);
-            return this;
-        }
-
-        /// <summary>
-        /// Configures the base URL for the application.
-        /// </summary>
-        /// <param name="baseUrl">The base URL.</param>
-        /// <returns>The current AppScaffold instance for fluent chaining.</returns>
-        public AppScaffold<TWebApp> WithBaseUrl(Uri baseUrl)
-        {
-            if (baseUrl == null)
-                throw new FluentUIScaffoldValidationException("Base URL cannot be null", nameof(baseUrl));
-
-            var options = _serviceProvider.GetService<FluentUIScaffoldOptions>();
-            if (options != null)
-            {
-                options.BaseUrl = baseUrl;
-            }
-
-            return this;
-        }
-
-        #endregion
-
         public async ValueTask DisposeAsync()
         {
             if (_isDisposed) return;
             _isDisposed = true;
 
-            // Stop any hosting strategies using the cached reference
-            // (don't try to resolve from service provider as it may already be disposed)
+            // Dispose any active session
+            var session = _currentSession;
+            if (session != null)
+            {
+                _currentSession = null;
+                await session.DisposeAsync().ConfigureAwait(false);
+            }
+
+            // Dispose plugin (closes browser)
+            await _plugin.DisposeAsync().ConfigureAwait(false);
+
+            // Stop any hosting strategies
             if (_hostingStrategy != null)
             {
                 try
                 {
-                    await _hostingStrategy.DisposeAsync();
+                    await _hostingStrategy.DisposeAsync().ConfigureAwait(false);
                 }
-                catch (ObjectDisposedException)
-                {
-                    // Already disposed, ignore
-                }
+                catch (ObjectDisposedException) { }
             }
 
             if (_serviceProvider is IAsyncDisposable asyncDisposable)
             {
                 try
                 {
-                    await asyncDisposable.DisposeAsync();
+                    await asyncDisposable.DisposeAsync().ConfigureAwait(false);
                 }
-                catch (ObjectDisposedException)
-                {
-                    // Already disposed, ignore
-                }
+                catch (ObjectDisposedException) { }
             }
             else if (_serviceProvider is IDisposable disposable)
             {
@@ -254,10 +207,90 @@ namespace FluentUIScaffold.Core
                 {
                     disposable.Dispose();
                 }
-                catch (ObjectDisposedException)
+                catch (ObjectDisposedException) { }
+            }
+        }
+
+        private static void EnqueueNavigation<TPage>(TPage page, IBrowserSession session) where TPage : Page<TPage>
+        {
+            var routeAttribute = typeof(TPage).GetCustomAttributes(typeof(RouteAttribute), inherit: true);
+            if (routeAttribute.Length == 0) return;
+
+            var route = ((RouteAttribute)routeAttribute[0]).Path;
+
+            // Use reflection to call the protected Enqueue method on the page
+            // We need to add the navigation action to the page's action queue
+            var enqueueMethod = typeof(Page<TPage>).GetMethod("Enqueue",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic,
+                null,
+                new[] { typeof(Func<Task>) },
+                null);
+
+            if (enqueueMethod != null)
+            {
+                Func<Task> navigationAction = async () =>
                 {
-                    // Already disposed, ignore
-                }
+                    var options = session.ServiceProvider.GetService(typeof(FluentUIScaffoldOptions))
+                        as FluentUIScaffoldOptions;
+                    if (options?.BaseUrl != null)
+                    {
+                        var baseUrlString = options.BaseUrl.ToString().TrimEnd('/');
+                        var routePath = route.StartsWith("/") ? route : "/" + route;
+                        var url = new Uri(baseUrlString + routePath);
+                        await session.NavigateToUrlAsync(url).ConfigureAwait(false);
+                    }
+                };
+
+                enqueueMethod.Invoke(page, new object[] { navigationAction });
+            }
+        }
+
+        private static void EnqueueNavigationWithParams<TPage>(TPage page, IBrowserSession session, object routeParams)
+            where TPage : Page<TPage>
+        {
+            var routeAttribute = typeof(TPage).GetCustomAttributes(typeof(RouteAttribute), inherit: true);
+            if (routeAttribute.Length == 0) return;
+
+            var route = ((RouteAttribute)routeAttribute[0]).Path;
+
+            var enqueueMethod = typeof(Page<TPage>).GetMethod("Enqueue",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic,
+                null,
+                new[] { typeof(Func<Task>) },
+                null);
+
+            if (enqueueMethod != null)
+            {
+                Func<Task> navigationAction = async () =>
+                {
+                    var options = session.ServiceProvider.GetService(typeof(FluentUIScaffoldOptions))
+                        as FluentUIScaffoldOptions;
+                    if (options?.BaseUrl != null)
+                    {
+                        var baseUrlString = options.BaseUrl.ToString().TrimEnd('/');
+                        var routePath = route.StartsWith("/") ? route : "/" + route;
+
+                        // Substitute route parameters
+                        var urlString = baseUrlString + routePath;
+                        if (routeParams is System.Collections.Generic.IDictionary<string, object> dict)
+                        {
+                            foreach (var kvp in dict)
+                                urlString = urlString.Replace($"{{{kvp.Key}}}", Uri.EscapeDataString(kvp.Value?.ToString() ?? ""));
+                        }
+                        else
+                        {
+                            foreach (var prop in routeParams.GetType().GetProperties())
+                            {
+                                var value = prop.GetValue(routeParams);
+                                urlString = urlString.Replace($"{{{prop.Name}}}", Uri.EscapeDataString(value?.ToString() ?? ""));
+                            }
+                        }
+
+                        await session.NavigateToUrlAsync(new Uri(urlString)).ConfigureAwait(false);
+                    }
+                };
+
+                enqueueMethod.Invoke(page, new object[] { navigationAction });
             }
         }
     }
