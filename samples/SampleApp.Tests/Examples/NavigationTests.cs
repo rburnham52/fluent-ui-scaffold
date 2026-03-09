@@ -5,5 +5,5 @@ using SampleApp.Tests.TestBases;
 namespace SampleApp.Tests.Examples
 {
     [TestClass]
-    public class HomePageTests : HomePageTestsBase { }
+    public class NavigationTests : NavigationTestsBase { }
 }

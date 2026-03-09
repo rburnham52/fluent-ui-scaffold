@@ -18,7 +18,6 @@ namespace FluentUIScaffold.Playwright
     {
         private IPlaywright _playwright;
         private IBrowser _browser;
-        private IServiceProvider _rootProvider;
         private bool _isDisposed;
 
         public void ConfigureServices(IServiceCollection services)
@@ -41,16 +40,7 @@ namespace FluentUIScaffold.Playwright
             }).ConfigureAwait(false);
         }
 
-        /// <summary>
-        /// Sets the root service provider for session creation.
-        /// Called by the builder after building the service provider.
-        /// </summary>
-        internal void SetRootProvider(IServiceProvider rootProvider)
-        {
-            _rootProvider = rootProvider;
-        }
-
-        public async Task<IBrowserSession> CreateSessionAsync()
+        public async Task<IBrowserSession> CreateSessionAsync(IServiceProvider rootProvider)
         {
             if (_browser == null)
                 throw new InvalidOperationException("Plugin not initialized. Call InitializeAsync first.");
@@ -58,7 +48,7 @@ namespace FluentUIScaffold.Playwright
             var context = await _browser.NewContextAsync().ConfigureAwait(false);
             var page = await context.NewPageAsync().ConfigureAwait(false);
 
-            return new PlaywrightBrowserSession(context, page, _browser, _rootProvider);
+            return new PlaywrightBrowserSession(context, page, _browser, rootProvider);
         }
 
         public async ValueTask DisposeAsync()

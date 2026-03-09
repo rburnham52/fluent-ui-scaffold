@@ -117,18 +117,37 @@ namespace FluentUIScaffold.Core.Pages
             ThrowIfFrozen();
             _isFrozen = true;
 
-            // Create target page sharing our action list via the internal constructor.
-            // We use Activator.CreateInstance with BindingFlags to reach the internal constructor
-            // (IServiceProvider, List<Func<IServiceProvider, Task>>).
-            var targetPage = (TTarget)(Activator.CreateInstance(
-                typeof(TTarget),
-                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic,
-                binder: null,
-                args: new object[] { _serviceProvider, _actions },
-                culture: null)
-                ?? throw new InvalidOperationException(
-                    $"Failed to create instance of {typeof(TTarget).Name}. " +
-                    $"Ensure it has a constructor accepting (IServiceProvider, List<Func<IServiceProvider, Task>>)."));
+            // Create the target page and share our action list.
+            // Try the internal two-param constructor first (same assembly), then fall back
+            // to the single-param constructor and inject the shared action list via reflection.
+            TTarget targetPage;
+            try
+            {
+                targetPage = (TTarget)(Activator.CreateInstance(
+                    typeof(TTarget),
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic,
+                    binder: null,
+                    args: new object[] { _serviceProvider, _actions },
+                    culture: null)
+                    ?? throw new InvalidOperationException($"Failed to create instance of {typeof(TTarget).Name}."));
+            }
+            catch (MissingMethodException)
+            {
+                // External assembly pages won't have the two-param constructor.
+                // Create with single-param, then replace the action list via reflection.
+                targetPage = (TTarget)(Activator.CreateInstance(
+                    typeof(TTarget),
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic,
+                    binder: null,
+                    args: new object[] { _serviceProvider },
+                    culture: null)
+                    ?? throw new InvalidOperationException($"Failed to create instance of {typeof(TTarget).Name}."));
+
+                // Inject the shared action list so chains span across pages
+                var actionsField = typeof(Page<TTarget>).GetField("_actions",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                actionsField!.SetValue(targetPage, _actions);
+            }
 
             // Enqueue navigation to the target page's route
             var routeAttribute = typeof(TTarget).GetCustomAttributes(typeof(RouteAttribute), inherit: true);

@@ -29,9 +29,9 @@ namespace FluentUIScaffold.Core.Tests.Mocks
             return Task.CompletedTask;
         }
 
-        public Task<IBrowserSession> CreateSessionAsync()
+        public Task<IBrowserSession> CreateSessionAsync(IServiceProvider rootProvider)
         {
-            return Task.FromResult<IBrowserSession>(new MockBrowserSession());
+            return Task.FromResult<IBrowserSession>(new MockBrowserSession(rootProvider));
         }
 
         public ValueTask DisposeAsync()

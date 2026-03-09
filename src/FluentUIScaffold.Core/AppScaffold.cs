@@ -24,7 +24,11 @@ namespace FluentUIScaffold.Core
         private bool _isDisposed;
         private IHostingStrategy? _hostingStrategy;
 
-        private static readonly AsyncLocal<IBrowserSession> _currentSession = new();
+        // Instance field for session tracking. The AppScaffold instance is shared
+        // across test lifecycle methods (TestInitialize/TestMethod/TestCleanup),
+        // so a simple instance field is reliable regardless of thread scheduling.
+        // For parallel test execution, consider a ConcurrentDictionary keyed by test ID.
+        private IBrowserSession? _currentSession;
 
         public AppScaffold(
             IServiceProvider serviceProvider,
@@ -67,8 +71,8 @@ namespace FluentUIScaffold.Core
         /// </summary>
         public async Task<IBrowserSession> CreateSessionAsync()
         {
-            var session = await _plugin.CreateSessionAsync().ConfigureAwait(false);
-            _currentSession.Value = session;
+            var session = await _plugin.CreateSessionAsync(_serviceProvider).ConfigureAwait(false);
+            _currentSession = session;
             return session;
         }
 
@@ -78,10 +82,10 @@ namespace FluentUIScaffold.Core
         /// </summary>
         public async Task DisposeSessionAsync()
         {
-            var session = _currentSession.Value;
+            var session = _currentSession;
             if (session != null)
             {
-                _currentSession.Value = null;
+                _currentSession = null;
                 await session.DisposeAsync().ConfigureAwait(false);
             }
         }
@@ -93,7 +97,7 @@ namespace FluentUIScaffold.Core
         /// </summary>
         public TPage NavigateTo<TPage>() where TPage : Page<TPage>
         {
-            var session = _currentSession.Value
+            var session = _currentSession
                 ?? throw new InvalidOperationException(
                     "No browser session is active. Call CreateSessionAsync() in [TestInitialize] before navigating.");
 
@@ -118,7 +122,7 @@ namespace FluentUIScaffold.Core
         {
             if (routeParams == null) throw new ArgumentNullException(nameof(routeParams));
 
-            var session = _currentSession.Value
+            var session = _currentSession
                 ?? throw new InvalidOperationException(
                     "No browser session is active. Call CreateSessionAsync() in [TestInitialize] before navigating.");
 
@@ -142,7 +146,7 @@ namespace FluentUIScaffold.Core
         /// </summary>
         public TPage On<TPage>() where TPage : Page<TPage>
         {
-            var session = _currentSession.Value
+            var session = _currentSession
                 ?? throw new InvalidOperationException(
                     "No browser session is active. Call CreateSessionAsync() in [TestInitialize] before navigating.");
 
@@ -169,10 +173,10 @@ namespace FluentUIScaffold.Core
             _isDisposed = true;
 
             // Dispose any active session
-            var session = _currentSession.Value;
+            var session = _currentSession;
             if (session != null)
             {
-                _currentSession.Value = null;
+                _currentSession = null;
                 await session.DisposeAsync().ConfigureAwait(false);
             }
 

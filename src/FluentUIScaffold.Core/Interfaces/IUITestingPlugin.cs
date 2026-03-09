@@ -29,7 +29,9 @@ namespace FluentUIScaffold.Core.Interfaces
         /// <summary>
         /// Creates an isolated browser session for a single test.
         /// Each session owns its own browser context and page.
+        /// The rootProvider is the application's root service provider,
+        /// used as fallback for services not scoped to the session.
         /// </summary>
-        Task<IBrowserSession> CreateSessionAsync();
+        Task<IBrowserSession> CreateSessionAsync(IServiceProvider rootProvider);
     }
 }

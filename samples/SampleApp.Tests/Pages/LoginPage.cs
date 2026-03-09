@@ -32,7 +32,7 @@ namespace SampleApp.Tests.Pages
         {
             return Enqueue<IPage>(async page =>
             {
-                await page.FillAsync("[data-testid='login-email']", email).ConfigureAwait(false);
+                await page.FillAsync("#email-input", email).ConfigureAwait(false);
             });
         }
 
@@ -43,7 +43,7 @@ namespace SampleApp.Tests.Pages
         {
             return Enqueue<IPage>(async page =>
             {
-                await page.FillAsync("[data-testid='login-password']", password).ConfigureAwait(false);
+                await page.FillAsync("#password-input", password).ConfigureAwait(false);
             });
         }
 
@@ -54,7 +54,7 @@ namespace SampleApp.Tests.Pages
         {
             return Enqueue<IPage>(async page =>
             {
-                await page.ClickAsync("[data-testid='login-submit']").ConfigureAwait(false);
+                await page.ClickAsync("#login-button").ConfigureAwait(false);
             });
         }
     }

@@ -6,8 +6,6 @@
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
-    <!-- Disable auto-generated program to avoid entry point conflicts with Microsoft Testing Platform -->
-    <!-- <GenerateProgramFile>false</GenerateProgramFile> -->
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Aspire.Hosting.Testing" Version="9.2.0" />
@@ -22,8 +20,16 @@
   <ItemGroup>
     <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
   </ItemGroup>
-  
-  <!-- Test settings configuration -->
+
+  <!-- Shared code from SampleApp.Tests (linked, not copied) -->
+  <ItemGroup>
+    <Compile Include="..\SampleApp.Tests\Pages\**\*.cs" LinkBase="Pages" />
+    <Compile Include="..\SampleApp.Tests\TestBases\**\*.cs" LinkBase="TestBases" />
+    <Compile Include="..\SampleApp.Tests\TestConfiguration.cs" Link="TestConfiguration.cs" />
+    <Compile Include="..\SampleApp.Tests\SharedTestApp.cs" Link="SharedTestApp.cs" />
+    <Compile Include="..\SampleApp.Tests\WebApp.cs" Link="WebApp.cs" />
+  </ItemGroup>
+
   <ItemGroup>
     <None Include="SampleApp.AspireTests.runsettings" />
   </ItemGroup>
