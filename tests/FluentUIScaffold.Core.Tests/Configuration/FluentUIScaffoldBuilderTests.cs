@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 
 using FluentUIScaffold.Core;
 using FluentUIScaffold.Core.Configuration;
+using FluentUIScaffold.Core.Tests.Mocks;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -15,34 +16,41 @@ namespace FluentUIScaffold.Core.Tests.Configuration
     public class FluentUIScaffoldBuilderTests
     {
         [Test]
-        public void Build_ByDefault_CreatesAppScaffold()
+        public void Build_WithPlugin_CreatesAppScaffold()
         {
-            // Arrange
-            var builder = new Core.Configuration.FluentUIScaffoldBuilder();
+            var builder = new FluentUIScaffoldBuilder()
+                .UsePlugin(new MockPlugin())
+                .Web<WebApp>(opts => opts.BaseUrl = new Uri("http://localhost"));
 
-            // Act
             var app = builder.Build<WebApp>();
 
-            // Assert
             Assert.That(app, Is.Not.Null);
             Assert.That(app.ServiceProvider, Is.Not.Null);
             Assert.That(app.ServiceProvider.GetService<ILoggerFactory>(), Is.Not.Null);
         }
 
         [Test]
+        public void Build_WithoutPlugin_ThrowsInvalidOperationException()
+        {
+            var builder = new FluentUIScaffoldBuilder();
+
+            Assert.Throws<InvalidOperationException>(() => builder.Build<WebApp>());
+        }
+
+        [Test]
         public void ConfigureServices_AddsServicesToProvider()
         {
-            // Arrange
-            var builder = new Core.Configuration.FluentUIScaffoldBuilder();
+            var builder = new FluentUIScaffoldBuilder();
 
-            // Act
             builder.ConfigureServices(services =>
             {
                 services.AddSingleton<string>("TestService");
             });
-            var app = builder.Build<WebApp>();
+            var app = builder
+                .UsePlugin(new MockPlugin())
+                .Web<WebApp>(opts => opts.BaseUrl = new Uri("http://localhost"))
+                .Build<WebApp>();
 
-            // Assert
             var service = app.ServiceProvider.GetService<string>();
             Assert.That(service, Is.EqualTo("TestService"));
         }
@@ -50,58 +58,30 @@ namespace FluentUIScaffold.Core.Tests.Configuration
         [Test]
         public void Web_ConfiguresOptions()
         {
-            // Arrange
-            var builder = new Core.Configuration.FluentUIScaffoldBuilder();
+            var builder = new FluentUIScaffoldBuilder();
 
-            // Act
             builder.Web<WebApp>(options =>
             {
                 options.BaseUrl = new Uri("http://localhost:1234");
             });
-            var app = builder.Build<WebApp>();
+            var app = builder
+                .UsePlugin(new MockPlugin())
+                .Build<WebApp>();
 
-            // Assert
             var options = app.ServiceProvider.GetService<FluentUIScaffoldOptions>();
             Assert.That(options, Is.Not.Null);
             Assert.That(options.BaseUrl?.ToString(), Is.EqualTo("http://localhost:1234/"));
         }
 
-        // [Test]
-        // public async Task StartAsync_ExecutesStartupActions()
-        // {
-        //     // Arrange
-        //     var builder = new Core.Configuration.FluentUIScaffoldBuilder();
-        //     bool actionExecuted = false;
-        //
-        //     builder.AddStartupAction(async (sp) =>
-        //     {
-        //         await Task.Delay(1);
-        //         actionExecuted = true;
-        //     });
-        //
-        //     var app = builder.Build<WebApp>();
-        //
-        //     // Act
-        //     await app.StartAsync();
-        //
-        //     // Assert
-        //     Assert.That(actionExecuted, Is.True);
-        // }
-
         [Test]
         public async Task DisposeAsync_DisposesServiceProvider()
         {
-            // Arrange
-            var builder = new Core.Configuration.FluentUIScaffoldBuilder();
+            var builder = new FluentUIScaffoldBuilder()
+                .UsePlugin(new MockPlugin())
+                .Web<WebApp>(opts => opts.BaseUrl = new Uri("http://localhost"));
             var app = builder.Build<WebApp>();
 
-            // Act
-            // AppScaffold implements IAsyncDisposable, but not IDisposable for the AppScaffold itself?
-            // Wait, AppScaffold : IAsyncDisposable.
             await app.DisposeAsync();
-
-            // Assert
-            // NUnit doesn't have an easy way to check disposal without a mock, but ensuring no throws is good.
         }
     }
 }

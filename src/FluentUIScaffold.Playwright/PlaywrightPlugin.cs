@@ -1,7 +1,6 @@
-// Copyright (c) FluentUIScaffold. All rights reserved.
 using System;
-using System.Collections.Generic;
-using System.Linq; // Added for .Any()
+using System.Threading;
+using System.Threading.Tasks;
 
 using FluentUIScaffold.Core.Configuration;
 using FluentUIScaffold.Core.Interfaces;
@@ -9,86 +8,70 @@ using FluentUIScaffold.Core.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Playwright;
 
-namespace FluentUIScaffold.Playwright;
-
-/// <summary>
-/// Playwright plugin implementation for FluentUIScaffold.
-/// </summary>
-public class PlaywrightPlugin : IUITestingFrameworkPlugin
+namespace FluentUIScaffold.Playwright
 {
     /// <summary>
-    /// Gets the name of the plugin.
+    /// Playwright plugin for FluentUIScaffold.
+    /// Owns the browser singleton and creates per-test sessions.
     /// </summary>
-    public string Name => "Playwright";
-
-    /// <summary>
-    /// Gets the version of the plugin.
-    /// </summary>
-    public string Version => "1.0.0";
-
-    /// <summary>
-    /// Gets the list of supported driver types that this plugin can handle.
-    /// </summary>
-    public IReadOnlyList<Type> SupportedDriverTypes => new[] { typeof(PlaywrightDriver) };
-
-    /// <summary>
-    /// Determines whether this plugin can handle the specified driver type.
-    /// </summary>
-    /// <param name="driverType">The type of driver to check.</param>
-    /// <returns>True if this plugin can handle the driver type; otherwise, false.</returns>
-    public bool CanHandle(Type driverType) => driverType == typeof(PlaywrightDriver);
-
-    /// <summary>
-    /// Creates a Playwright driver instance using the specified options.
-    /// </summary>
-    /// <param name="options">The configuration options for the driver.</param>
-    /// <returns>A new Playwright driver instance.</returns>
-    public IUIDriver CreateDriver(FluentUIScaffoldOptions options)
+    public class PlaywrightPlugin : IUITestingPlugin
     {
-        return new PlaywrightDriver(options);
-    }
+        private IPlaywright _playwright;
+        private IBrowser _browser;
+        private IServiceProvider _rootProvider;
+        private bool _isDisposed;
 
-    /// <summary>
-    /// Configures the dependency injection services for this plugin.
-    /// </summary>
-    /// <param name="services">The service collection to configure.</param>
-    public void ConfigureServices(IServiceCollection services)
-    {
-        services.AddSingleton<PlaywrightPlugin>();
-
-        // Register PlaywrightDriver as singleton to ensure browser context is reused
-        // across all page navigations within the same AppScaffold session.
-        // This prevents multiple browser instances from being launched.
-        services.AddSingleton<PlaywrightDriver>();
-
-        // Register IUIDriver with PlaywrightDriver implementation as singleton
-        services.AddSingleton<IUIDriver>(provider => provider.GetRequiredService<PlaywrightDriver>());
-
-        // Register Playwright services that tests might need - these delegate to the singleton driver
-        services.AddSingleton<Microsoft.Playwright.IBrowserContext>(provider =>
+        public void ConfigureServices(IServiceCollection services)
         {
-            var playwrightDriver = provider.GetRequiredService<PlaywrightDriver>();
-            return playwrightDriver.GetFrameworkDriver<Microsoft.Playwright.IBrowserContext>();
-        });
+            // Plugin registers itself; services from sessions are provided
+            // via SessionServiceProvider, not via the root container.
+        }
 
-        services.AddSingleton<Microsoft.Playwright.IPage>(provider =>
+        public async Task InitializeAsync(FluentUIScaffoldOptions options, CancellationToken cancellationToken = default)
         {
-            var playwrightDriver = provider.GetRequiredService<PlaywrightDriver>();
-            return playwrightDriver.GetFrameworkDriver<Microsoft.Playwright.IPage>();
-        });
+            _playwright = await Microsoft.Playwright.Playwright.CreateAsync().ConfigureAwait(false);
 
-        services.AddSingleton<Microsoft.Playwright.IBrowser>(provider =>
+            var headless = options.HeadlessMode ?? true;
+            var slowMo = options.SlowMo.HasValue ? (float)options.SlowMo.Value : (headless ? 0f : 50f);
+
+            _browser = await _playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions
+            {
+                Headless = headless,
+                SlowMo = slowMo,
+            }).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Sets the root service provider for session creation.
+        /// Called by the builder after building the service provider.
+        /// </summary>
+        internal void SetRootProvider(IServiceProvider rootProvider)
         {
-            var playwrightDriver = provider.GetRequiredService<PlaywrightDriver>();
-            return playwrightDriver.GetFrameworkDriver<Microsoft.Playwright.IBrowser>();
-        });
+            _rootProvider = rootProvider;
+        }
 
-        services.AddSingleton<Microsoft.Playwright.IPlaywright>(provider =>
+        public async Task<IBrowserSession> CreateSessionAsync()
         {
-            var playwrightDriver = provider.GetRequiredService<PlaywrightDriver>();
-            return playwrightDriver.GetFrameworkDriver<Microsoft.Playwright.IPlaywright>();
-        });
+            if (_browser == null)
+                throw new InvalidOperationException("Plugin not initialized. Call InitializeAsync first.");
 
-        // Options are provided by the core builder; do not inject defaults here.
+            var context = await _browser.NewContextAsync().ConfigureAwait(false);
+            var page = await context.NewPageAsync().ConfigureAwait(false);
+
+            return new PlaywrightBrowserSession(context, page, _browser, _rootProvider);
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            if (_isDisposed) return;
+            _isDisposed = true;
+
+            if (_browser != null)
+            {
+                await _browser.CloseAsync().ConfigureAwait(false);
+            }
+
+            _playwright?.Dispose();
+        }
     }
 }

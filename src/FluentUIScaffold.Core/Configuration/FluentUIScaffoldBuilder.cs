@@ -1,11 +1,9 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 
 using FluentUIScaffold.Core.Hosting;
 using FluentUIScaffold.Core.Interfaces;
-using FluentUIScaffold.Core.Pages;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -235,19 +233,22 @@ namespace FluentUIScaffold.Core.Configuration
 
         #endregion
 
+        private IUITestingPlugin _plugin;
+
         #region Plugin Methods
 
         /// <summary>
-        /// Registers a plugin instance for this builder. Only one plugin can be registered.
+        /// Registers a new-style plugin instance. Only one plugin can be registered.
         /// </summary>
-        /// <param name="plugin">The plugin to register.</param>
-        public FluentUIScaffoldBuilder UsePlugin(IUITestingFrameworkPlugin plugin)
+        public FluentUIScaffoldBuilder UsePlugin(IUITestingPlugin plugin)
         {
             if (plugin == null) throw new ArgumentNullException(nameof(plugin));
 
-            // Register the plugin by its concrete type and interface
+            _plugin = plugin;
+
+            // Register the plugin in DI
             _services.AddSingleton(plugin.GetType(), plugin);
-            _services.AddSingleton<IUITestingFrameworkPlugin>(plugin);
+            _services.AddSingleton<IUITestingPlugin>(plugin);
 
             // Let the plugin configure its services
             plugin.ConfigureServices(_services);
@@ -255,110 +256,6 @@ namespace FluentUIScaffold.Core.Configuration
             return this;
         }
 
-        /// <summary>
-        /// Registers a plugin by type for this builder. Only one plugin can be registered.
-        /// </summary>
-        /// <typeparam name="TPlugin">The plugin type with a parameterless constructor.</typeparam>
-        public FluentUIScaffoldBuilder UsePlugin<TPlugin>()
-            where TPlugin : IUITestingFrameworkPlugin, new()
-        {
-            return UsePlugin(new TPlugin());
-        }
-
-        #endregion
-
-        #region Page Discovery Methods
-
-        /// <summary>
-        /// Enables automatic discovery and registration of page components from loaded assemblies.
-        /// Discovers all classes that inherit from Page&lt;TSelf&gt;.
-        /// </summary>
-        public FluentUIScaffoldBuilder WithAutoPageDiscovery()
-        {
-            _options.AutoDiscoverPages = true;
-            return this;
-        }
-
-        /// <summary>
-        /// Explicitly registers a page type for dependency injection.
-        /// Use this when not using auto-discovery or to ensure specific pages are registered.
-        /// </summary>
-        /// <typeparam name="TPage">The page type to register.</typeparam>
-        public FluentUIScaffoldBuilder RegisterPage<TPage>() where TPage : class
-        {
-            RegisterPageType(typeof(TPage));
-            return this;
-        }
-
-        /// <summary>
-        /// Auto-discovers and registers pages from loaded assemblies.
-        /// Discovers all classes that inherit from Page&lt;TSelf&gt;.
-        /// </summary>
-        private void AutoDiscoverPages()
-        {
-            var assemblies = AppDomain.CurrentDomain.GetAssemblies();
-
-            foreach (var assembly in assemblies)
-            {
-                try
-                {
-                    var pageTypes = assembly.GetTypes()
-                        .Where(t =>
-                            t.IsClass &&
-                            !t.IsAbstract &&
-                            !t.IsInterface &&
-                            t.BaseType != null &&
-                            t.BaseType.IsGenericType &&
-                            t.BaseType.GetGenericTypeDefinition() == typeof(Page<>))
-                        .ToList();
-
-                    foreach (var pageType in pageTypes)
-                    {
-                        RegisterPageType(pageType);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    // Log warning but continue with other assemblies
-                    Console.WriteLine($"Warning: Failed to discover pages in assembly {assembly.GetName().Name}: {ex.Message}");
-                }
-            }
-        }
-
-        /// <summary>
-        /// Registers a page type with the service collection.
-        /// Pages can use the [Route] attribute to specify their path, which is combined with BaseUrl.
-        /// </summary>
-        private void RegisterPageType(Type pageType)
-        {
-            _services.AddTransient(pageType, provider =>
-            {
-                var options = provider.GetService<FluentUIScaffoldOptions>();
-                var baseUrl = options?.BaseUrl ?? new Uri("http://localhost");
-
-                // Check for [Route] attribute to get the page's route path
-                var routeAttribute = pageType.GetCustomAttributes(typeof(Pages.RouteAttribute), inherit: true)
-                    .OfType<Pages.RouteAttribute>()
-                    .FirstOrDefault();
-
-                // Combine base URL with route path
-                Uri pageUrl;
-                if (routeAttribute != null && !string.IsNullOrEmpty(routeAttribute.Path))
-                {
-                    var path = routeAttribute.Path;
-                    var baseUrlString = baseUrl.ToString().TrimEnd('/');
-                    var routePath = path.StartsWith("/") ? path : "/" + path;
-                    pageUrl = new Uri(baseUrlString + routePath);
-                }
-                else
-                {
-                    pageUrl = baseUrl;
-                }
-
-                return Activator.CreateInstance(pageType, provider, pageUrl)
-                    ?? throw new InvalidOperationException($"Failed to create instance of {pageType.Name}");
-            });
-        }
 
         #endregion
 
@@ -368,16 +265,14 @@ namespace FluentUIScaffold.Core.Configuration
         /// </summary>
         public AppScaffold<TWebApp> Build<TWebApp>()
         {
+            if (_plugin == null)
+                throw new InvalidOperationException(
+                    "No UI testing plugin configured. Call UsePlugin() before Build().");
+
             // Resolve HeadlessMode: explicit > debugger attached (visible) > default (headless)
             if (_options.HeadlessMode == null)
             {
                 _options.HeadlessMode = !System.Diagnostics.Debugger.IsAttached;
-            }
-
-            // Auto-discover pages if enabled
-            if (_options.AutoDiscoverPages)
-            {
-                AutoDiscoverPages();
             }
 
             var sp = _services.BuildServiceProvider();
@@ -387,11 +282,11 @@ namespace FluentUIScaffold.Core.Configuration
             {
                 foreach (var action in _startupActions)
                 {
-                    await action(provider);
+                    await action(provider).ConfigureAwait(false);
                 }
             };
 
-            return new AppScaffold<TWebApp>(sp, startupAction);
+            return new AppScaffold<TWebApp>(sp, startupAction, _plugin);
         }
     }
 }
