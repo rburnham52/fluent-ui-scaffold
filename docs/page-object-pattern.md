@@ -267,7 +267,7 @@ public HomePage VerifyTitle(string title)
 
 ### Always use ConfigureAwait(false) on internal awaits
 
-Inside `Enqueue` callbacks, always append `.ConfigureAwait(false)` to awaited calls. This avoids deadlocks and unnecessary synchronization context captures:
+Inside `Enqueue` callbacks, always append `.ConfigureAwait(false)` to awaited calls. Enqueue callbacks are library-internal code -- they don't need to resume on the caller's `SynchronizationContext`. Without `ConfigureAwait(false)`, if the library is ever used in a context with a sync context (e.g., a UI thread), the continuation could try to marshal back and deadlock. In typical test runners this is a no-op, but it's a defensive habit that keeps the internals safe regardless of the host environment:
 
 ```csharp
 // Correct

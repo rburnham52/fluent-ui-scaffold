@@ -119,7 +119,7 @@ public class HomePage : Page<HomePage>
 Key points:
 - The constructor must be `protected` and accept `IServiceProvider`.
 - `[Route("/")]` declares the URL path this page maps to.
-- `Enqueue<IPage>(...)` queues an action that receives Playwright's `IPage` from DI at execution time.
+- `Enqueue<T>(...)` queues an action that receives a DI-resolved service at execution time. `Enqueue<IPage>` is the most common usage, injecting Playwright's `IPage`.
 - Always use `.ConfigureAwait(false)` on awaits inside `Enqueue` callbacks.
 
 For a deeper dive into page objects, see [Page Object Pattern](page-object-pattern.md).
