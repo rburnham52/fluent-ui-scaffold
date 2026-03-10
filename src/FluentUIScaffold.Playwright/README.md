@@ -1,6 +1,6 @@
 # FluentUIScaffold.Playwright
 
-Playwright integration for FluentUIScaffold, providing a fluent API for writing Playwright-based UI tests.
+Playwright plugin for FluentUIScaffold. Provides browser automation powered by Microsoft Playwright with per-test session isolation.
 
 ## Installation
 
@@ -8,16 +8,21 @@ Playwright integration for FluentUIScaffold, providing a fluent API for writing 
 dotnet add package FluentUIScaffold.Playwright
 ```
 
-## Dependencies
+Requires [FluentUIScaffold.Core](https://www.nuget.org/packages/FluentUIScaffold.Core).
 
-This package requires:
-- FluentUIScaffold.Core
-- Microsoft.Playwright
+## Usage
+
+```csharp
+var app = new FluentUIScaffoldBuilder()
+    .UsePlaywright()
+    .Web<WebApp>(options => { })
+    .Build<WebApp>();
+```
 
 ## Documentation
 
-For comprehensive documentation, examples, and guides, visit the [GitHub repository documentation](https://github.com/rburnham52/fluent-ui-scaffold/tree/main/docs).
+For full documentation, examples, and guides, visit the [GitHub repository](https://github.com/rburnham52/fluent-ui-scaffold).
 
 ## License
 
-This project is licensed under the terms specified in the [LICENSE.md](https://github.com/rburnham52/fluent-ui-scaffold/blob/main/LICENSE.md) file. 
+This project is licensed under the MIT License. See the [LICENSE.md](https://github.com/rburnham52/fluent-ui-scaffold/blob/main/LICENSE.md) file for details.

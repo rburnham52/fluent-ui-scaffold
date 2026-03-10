@@ -267,7 +267,8 @@ var builder = new FluentUIScaffoldBuilder()
 ## Multi-Targeting
 
 - **Core projects** target: net6.0, net7.0, net8.0
-- **Playwright projects** target: net6.0, net7.0, net8.0, net9.0
+- **Playwright projects** target: net6.0, net7.0, net8.0
+- **Aspire projects** target: net8.0, net9.0
 - **Sample/Test projects** typically target: net8.0
 - When adding features, ensure compatibility across all target frameworks
 

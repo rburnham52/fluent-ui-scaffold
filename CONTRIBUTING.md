@@ -6,12 +6,12 @@ Thank you for your interest in contributing to FluentUIScaffold!
 
 1. **Clone the repository:**
    ```sh
-   git clone https://github.com/fluent-ui-scaffold/fluent-ui-scaffold.git
+   git clone https://github.com/rburnham52/fluent-ui-scaffold.git
    cd fluent-ui-scaffold
    ```
 
 2. **Install .NET SDK:**
-   - .NET 6.0, 7.0, 8.0, or 9.0 (multi-target supported)
+   - .NET 6.0, 7.0, or 8.0 (multi-target supported). .NET 8.0+ required for Aspire hosting.
    - [Download .NET SDK](https://dotnet.microsoft.com/download)
 
 3. **Restore dependencies:**
@@ -58,7 +58,6 @@ Thank you for your interest in contributing to FluentUIScaffold!
   - All PRs are validated by GitHub Actions (build, test, code quality, security).
 
 ## Need Help?
-- Check the [docs/roadmap/README.md](docs/roadmap/README.md) for project structure and roadmap.
 - Open an issue or discussion for questions or suggestions.
 
 Happy coding! 
