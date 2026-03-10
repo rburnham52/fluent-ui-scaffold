@@ -1,10 +1,6 @@
-﻿# FluentUIScaffold.AspireHosting
+# FluentUIScaffold.AspireHosting
 
-Adds Aspire hosting support for FluentUIScaffold.
-
-## Documentation
-
-For comprehensive documentation, examples, and guides, visit the [GitHub repository documentation](https://github.com/rburnham52/fluent-ui-scaffold/tree/main/docs).
+.NET Aspire hosting integration for FluentUIScaffold. Enables distributed application testing using Aspire's `DistributedApplicationTestingBuilder`.
 
 ## Installation
 
@@ -12,13 +8,24 @@ For comprehensive documentation, examples, and guides, visit the [GitHub reposit
 dotnet add package FluentUIScaffold.AspireHosting
 ```
 
-## Dependencies
+Requires [FluentUIScaffold.Core](https://www.nuget.org/packages/FluentUIScaffold.Core), Docker, the Aspire workload, and .NET 8+.
 
-This package requires:
-- FluentUIScaffold.Core
-- Aspire.Hosting.Testing
+## Usage
 
+```csharp
+var app = new FluentUIScaffoldBuilder()
+    .UsePlaywright()
+    .UseAspireHosting<Projects.MyApp_AppHost>(
+        appHost => { },
+        "resourcename")
+    .Web<WebApp>(options => { })
+    .Build<WebApp>();
+```
+
+## Documentation
+
+For full documentation, examples, and guides, visit the [GitHub repository](https://github.com/rburnham52/fluent-ui-scaffold).
 
 ## License
 
-This project is licensed under the terms specified in the [LICENSE.md](https://github.com/rburnham52/fluent-ui-scaffold/blob/main/LICENSE.md) file. 
+This project is licensed under the MIT License. See the [LICENSE.md](https://github.com/rburnham52/fluent-ui-scaffold/blob/main/LICENSE.md) file for details.

@@ -1,465 +1,327 @@
 # Page Object Pattern
 
+FluentUIScaffold's `Page<TSelf>` is a deferred execution chain builder that implements the page object pattern with a fluent API. Actions are queued up as you call methods, then all execute together when the chain is awaited.
+
 ## Overview
 
-The Page Object Pattern in FluentUIScaffold creates an abstraction layer between your test code and the browser. Each page object represents a page (or section) of your application, encapsulating all interactions as a deferred execution chain. Actions are not executed immediately -- they are queued and run only when the chain is awaited.
-
-`Page<TSelf>` is both a fluent chain builder and an awaitable object. Every method call enqueues an action and returns the page for further chaining. When you `await` the chain, all queued actions execute in order.
-
-## Benefits
-
-- **Deferred execution**: Actions queue up and run only on `await`, giving you full control over when side effects happen
-- **Cross-page chaining**: Navigate between pages in a single fluent chain without breaking the flow
-- **Framework-agnostic**: Page methods use `Enqueue<T>` to resolve driver-specific services (e.g., Playwright's `IPage`) from DI
-- **Maintainability**: Centralizes selectors and page logic in one place
-- **Readability**: Tests read like a script describing user behavior
-
-## Core Components
-
-### Page&lt;TSelf&gt;
-
-The base class for all page objects. It implements `GetAwaiter()` so that the entire action chain executes when awaited.
+Traditional page objects return completed tasks from each method. FluentUIScaffold takes a different approach: each method queues an action and returns `this`, allowing you to build fluent chains that execute atomically on `await`.
 
 ```csharp
-public abstract class Page<TSelf>
-    where TSelf : Page<TSelf>
-{
-    // Constructor
-    protected Page(IServiceProvider serviceProvider);
-
-    // Queue an action (no DI)
-    protected TSelf Enqueue(Func<Task> action);
-
-    // Queue an action with a DI-resolved service
-    protected TSelf Enqueue<T>(Func<T, Task> action);
-
-    // Navigate to another page, freezing the current one
-    public TTarget NavigateTo<TTarget>() where TTarget : Page<TTarget>;
-
-    // Awaiter support -- executes all queued actions
-    public TaskAwaiter GetAwaiter();
-}
-```
-
-Key points:
-
-- **`Enqueue(Func<Task>)`** -- queues an action that takes no DI service.
-- **`Enqueue<T>(Func<T, Task>)`** -- queues an action that receives a DI-resolved `T`. For Playwright, this is typically `IPage`.
-- **`NavigateTo<TTarget>()`** -- freezes the current page (no more actions can be enqueued on it) and returns a new page that shares the same action queue. The chain continues seamlessly on the target page.
-- **`GetAwaiter()`** -- makes the page awaitable. When you `await` any page in the chain, every queued action from every page in the chain runs in order.
-- All methods return `TSelf` (or `TTarget` for navigation), enabling fluent chaining.
-
-### Frozen Pages
-
-When you call `NavigateTo<TTarget>()`, the current page becomes frozen. Any attempt to enqueue further actions on a frozen page throws `FrozenPageException`. This enforces a linear chain where actions always flow forward.
-
-```csharp
-var homePage = app.NavigateTo<HomePage>();
-var loginPage = homePage.NavigateTo<LoginPage>();
-
-// This throws FrozenPageException -- homePage is frozen
-homePage.DoSomething();
-```
-
-## Creating Page Objects
-
-### Basic Page Object
-
-Define a page by extending `Page<TSelf>`, decorating with `[Route]`, and writing methods that use `Enqueue<IPage>` to interact with the browser.
-
-```csharp
-[Route("/login")]
-public class LoginPage : Page<LoginPage>
-{
-    protected LoginPage(IServiceProvider serviceProvider) : base(serviceProvider) { }
-
-    public LoginPage EnterEmail(string email)
-    {
-        return Enqueue<IPage>(async page =>
-        {
-            await page.FillAsync("#email-input", email).ConfigureAwait(false);
-        });
-    }
-
-    public LoginPage EnterPassword(string password)
-    {
-        return Enqueue<IPage>(async page =>
-        {
-            await page.FillAsync("#password-input", password).ConfigureAwait(false);
-        });
-    }
-
-    public LoginPage Submit()
-    {
-        return Enqueue<IPage>(async page =>
-        {
-            await page.ClickAsync("#login-button").ConfigureAwait(false);
-        });
-    }
-}
-```
-
-### Page with Verification Methods
-
-Verification methods are just regular page methods that enqueue assertions.
-
-```csharp
-[Route("/dashboard")]
-public class DashboardPage : Page<DashboardPage>
-{
-    protected DashboardPage(IServiceProvider serviceProvider) : base(serviceProvider) { }
-
-    public DashboardPage VerifyWelcomeVisible()
-    {
-        return Enqueue<IPage>(async page =>
-        {
-            await page.Locator("[data-testid='welcome-message']")
-                .WaitForAsync()
-                .ConfigureAwait(false);
-        });
-    }
-
-    public DashboardPage VerifyTitleContains(string expectedText)
-    {
-        return Enqueue<IPage>(async page =>
-        {
-            var title = await page.TitleAsync().ConfigureAwait(false);
-            if (!title.Contains(expectedText))
-                throw new AssertionException($"Expected title to contain '{expectedText}', but was '{title}'");
-        });
-    }
-
-    public DashboardPage ClickLogout()
-    {
-        return Enqueue<IPage>(async page =>
-        {
-            await page.ClickAsync("[data-testid='logout-button']").ConfigureAwait(false);
-        });
-    }
-}
-```
-
-### Advanced Page Object
-
-For pages with more complex interactions, compose multiple enqueued actions within a single method or chain calls together.
-
-```csharp
-[Route("/users")]
-public class UserManagementPage : Page<UserManagementPage>
-{
-    protected UserManagementPage(IServiceProvider serviceProvider) : base(serviceProvider) { }
-
-    public UserManagementPage SearchUser(string searchTerm)
-    {
-        return Enqueue<IPage>(async page =>
-        {
-            await page.FillAsync("[data-testid='search-input']", searchTerm).ConfigureAwait(false);
-            await page.PressAsync("[data-testid='search-input']", "Enter").ConfigureAwait(false);
-        });
-    }
-
-    public UserManagementPage FilterByRole(string role)
-    {
-        return Enqueue<IPage>(async page =>
-        {
-            await page.SelectOptionAsync("[data-testid='role-filter']", role).ConfigureAwait(false);
-        });
-    }
-
-    public UserManagementPage VerifyUserVisible(string userName)
-    {
-        return Enqueue<IPage>(async page =>
-        {
-            await page.Locator($"[data-testid='user-row']:has-text('{userName}')")
-                .WaitForAsync()
-                .ConfigureAwait(false);
-        });
-    }
-
-    public UserManagementPage ClickCreateUser()
-    {
-        return Enqueue<IPage>(async page =>
-        {
-            await page.ClickAsync("[data-testid='create-user-button']").ConfigureAwait(false);
-        });
-    }
-}
-```
-
-## Cross-Page Navigation
-
-### Chaining Across Pages with NavigateTo
-
-`NavigateTo<TTarget>()` freezes the current page and returns a new page instance that shares the same action queue. The entire chain executes in order when awaited.
-
-```csharp
-await app.NavigateTo<HomePage>()
+// Actions queue up...
+var chain = app.NavigateTo<HomePage>()
     .VerifyWelcomeVisible()
-    .NavigateTo<LoginPage>()
-    .EnterEmail("test@example.com")
-    .EnterPassword("s3cret")
-    .Submit();
+    .ClickCounter()
+    .ClickCounter();
+
+// ...and execute here
+await chain;
 ```
 
-This chain:
-1. Navigates to `HomePage`
-2. Verifies the welcome message is visible
-3. Navigates to `LoginPage` (freezing `HomePage`)
-4. Fills in the email and password
-5. Clicks the submit button
+This deferred model enables cross-page navigation within a single chain and prevents sync-over-async issues.
 
-All five steps execute sequentially when `await` is reached.
+## Anatomy of a Page Object
 
-### Multi-Page Workflows
+A page object consists of four elements:
 
-You can chain across as many pages as needed.
+1. **Class declaration** with self-referencing generic
+2. **Route attribute** declaring the URL path
+3. **Protected constructor** accepting `IServiceProvider`
+4. **Methods** that enqueue actions and return `TSelf`
 
 ```csharp
-await app.NavigateTo<LoginPage>()
-    .EnterEmail("admin@example.com")
-    .EnterPassword("admin-pass")
-    .Submit()
-    .NavigateTo<DashboardPage>()
-    .VerifyWelcomeVisible()
-    .NavigateTo<UserManagementPage>()
-    .SearchUser("john")
-    .VerifyUserVisible("John Doe");
-```
+using FluentUIScaffold.Core.Pages;
+using Microsoft.Playwright;
 
-## Route Attribute and Parameterized Routes
-
-### Basic Routes
-
-Use the `[Route]` attribute to define the URL path for a page. The path is combined with the configured `BaseUrl`.
-
-```csharp
-[Route("/login")]
-public class LoginPage : Page<LoginPage>
+[Route("/")]
+public class HomePage : Page<HomePage>
 {
-    protected LoginPage(IServiceProvider serviceProvider) : base(serviceProvider) { }
-    // ...
+    protected HomePage(IServiceProvider serviceProvider)
+        : base(serviceProvider) { }
+
+    public HomePage ClickCounter()
+    {
+        return Enqueue<IPage>(async page =>
+        {
+            await page.ClickAsync("button:has-text('count is')").ConfigureAwait(false);
+        });
+    }
+
+    public HomePage VerifyWelcomeVisible()
+    {
+        return Enqueue<IPage>(async page =>
+        {
+            await page.Locator("h2:has-text('Welcome')").WaitForAsync().ConfigureAwait(false);
+        });
+    }
 }
-
-// Navigates to: http://localhost:5000/login
-await app.NavigateTo<LoginPage>().EnterEmail("user@example.com").Submit();
 ```
 
-### Parameterized Routes
+Key rules:
+- The constructor **must** be `protected` and accept `IServiceProvider`.
+- The class inherits from `Page<TSelf>` where `TSelf` is the class itself -- this enables the fluent API to return the correct type.
+- Methods return `TSelf` (which is `HomePage` in this case) so the chain stays fluent.
 
-For pages with dynamic URL segments, use `{placeholder}` syntax in the route.
+## Enqueue Patterns
 
-```csharp
-[Route("/users/{userId}")]
-public class UserProfilePage : Page<UserProfilePage>
-{
-    protected UserProfilePage(IServiceProvider serviceProvider) : base(serviceProvider) { }
-    // ...
-}
-
-// Pass parameters as an anonymous object
-await app.NavigateTo<UserProfilePage>(new { userId = "123" })
-    .VerifyProfileLoaded();
-// Navigates to: http://localhost:5000/users/123
-```
-
-### Multiple Parameters
-
-```csharp
-[Route("/users/{userId}/posts/{postId}")]
-public class UserPostPage : Page<UserPostPage>
-{
-    protected UserPostPage(IServiceProvider serviceProvider) : base(serviceProvider) { }
-    // ...
-}
-
-await app.NavigateTo<UserPostPage>(new { userId = "456", postId = "789" })
-    .VerifyPostContent();
-// Navigates to: http://localhost:5000/users/456/posts/789
-```
-
-### SPA and Hash-Based Routing
-
-For SPAs with hash-based routing, include the hash in the BaseUrl configuration:
-
-```csharp
-// Configuration
-.Web<WebApp>(opts => opts.BaseUrl = new Uri("http://localhost:5000/#"))
-
-// Page definition
-[Route("/login")]
-public class LoginPage : Page<LoginPage> { /* ... */ }
-
-// Results in: http://localhost:5000/#/login
-```
-
-## Using Enqueue
+`Page<TSelf>` provides two `Enqueue` overloads for queuing actions.
 
 ### Enqueue without DI
 
-Use the no-argument `Enqueue` when you do not need a DI-resolved service.
+`Enqueue(Func<Task>)` queues an action that takes no injected services:
 
 ```csharp
-public LoginPage LogAction(string message)
+public HomePage LogMessage()
 {
     return Enqueue(async () =>
     {
-        Console.WriteLine($"[{DateTime.UtcNow}] {message}");
-        await Task.CompletedTask.ConfigureAwait(false);
+        await Task.Delay(100).ConfigureAwait(false);
+        // Any async work that doesn't need DI
     });
 }
 ```
 
-### Enqueue with DI-Resolved Services
+### Enqueue with DI
 
-Use `Enqueue<T>` to resolve a service from the DI container. For browser interactions, `T` is typically Playwright's `IPage`.
+`Enqueue<T>(Func<T, Task>)` queues an action that resolves `T` from DI at execution time:
+
+```csharp
+public HomePage ClickCounter()
+{
+    return Enqueue<IPage>(async page =>
+    {
+        await page.ClickAsync("button:has-text('count is')").ConfigureAwait(false);
+    });
+}
+```
+
+The type parameter `T` is resolved from the session's `IServiceProvider` when the action runs, not when it is enqueued. This is important because the session (and its `IPage` instance) may not exist yet when you build the chain.
+
+### Enqueue with IPage (most common)
+
+The most common pattern is `Enqueue<IPage>(...)` which gives you Playwright's `IPage` for direct browser interaction. This provides full access to Playwright's API without any wrapper layer:
+
+```csharp
+public HomePage FillSearchBox(string query)
+{
+    return Enqueue<IPage>(async page =>
+    {
+        await page.Locator("#search").FillAsync(query).ConfigureAwait(false);
+    });
+}
+```
+
+## Deferred Execution
+
+Actions do not run immediately. They are queued and execute in order when the chain is awaited.
+
+`Page<TSelf>` implements a custom awaitable via `GetAwaiter()` which returns a `TaskAwaiter`. When you `await` a page chain, all queued actions execute sequentially:
+
+```csharp
+// Nothing has executed yet -- three actions are queued
+var page = app.NavigateTo<HomePage>()
+    .VerifyWelcomeVisible()
+    .ClickCounter()
+    .ClickCounter();
+
+// Now all three actions execute in order
+await page;
+```
+
+You can also await inline:
+
+```csharp
+await app.NavigateTo<HomePage>()
+    .VerifyWelcomeVisible()
+    .ClickCounter();
+```
+
+### Unawaited Chain Warning
+
+In DEBUG builds, a finalizer warns via `Trace.TraceWarning` if a chain with queued actions is never awaited. Always `await` your chains to ensure actions execute.
+
+## Cross-Page Navigation
+
+`NavigateTo<TTarget>()` enables fluent navigation between pages within a single chain. When called, it:
+
+1. **Freezes** the current page (no more actions can be enqueued on it)
+2. **Creates** the target page, sharing the same action list
+3. **Returns** the target page for continued chaining
+
+```csharp
+await app.NavigateTo<HomePage>()
+    .VerifyWelcomeVisible()
+    .NavigateTo<LoginPage>()    // HomePage is frozen here
+    .ClickLoginTab()
+    .EnterEmail("test@example.com");
+```
+
+All actions from both pages execute in a single sequential pass when awaited.
+
+If you try to enqueue actions on a frozen page, a `FrozenPageException` is thrown:
+
+```csharp
+var home = app.NavigateTo<HomePage>()
+    .VerifyWelcomeVisible();
+
+var login = home.NavigateTo<LoginPage>(); // home is now frozen
+
+home.ClickCounter(); // Throws FrozenPageException
+```
+
+## Parameterized Routes
+
+Routes can contain parameters using `{paramName}` placeholders:
+
+```csharp
+[Route("/users/{userId}")]
+public class UserPage : Page<UserPage>
+{
+    protected UserPage(IServiceProvider serviceProvider)
+        : base(serviceProvider) { }
+
+    public UserPage VerifyUserName(string name)
+    {
+        return Enqueue<IPage>(async page =>
+        {
+            await page.Locator($"text={name}").WaitForAsync().ConfigureAwait(false);
+        });
+    }
+}
+```
+
+Supply route parameters as an anonymous object when navigating:
+
+```csharp
+await app.NavigateTo<UserPage>(new { userId = "123" })
+    .VerifyUserName("Alice");
+// Navigates to: http://localhost:5000/users/123
+```
+
+## Common Playwright Interactions
+
+Within `Enqueue<IPage>(...)`, you have full access to Playwright's `IPage` API. Here are common patterns:
+
+### Clicking
+
+```csharp
+public HomePage ClickButton()
+{
+    return Enqueue<IPage>(async page =>
+    {
+        await page.ClickAsync("button#submit").ConfigureAwait(false);
+    });
+}
+```
+
+### Filling Input Fields
 
 ```csharp
 public LoginPage EnterEmail(string email)
 {
     return Enqueue<IPage>(async page =>
     {
-        await page.FillAsync("[data-testid='email-input']", email).ConfigureAwait(false);
+        await page.Locator("#email").FillAsync(email).ConfigureAwait(false);
     });
 }
 ```
 
-You can resolve any registered service, not just `IPage`:
+### Waiting for Elements
 
 ```csharp
-public LoginPage DoSomethingCustom()
+public HomePage VerifyLoaded()
 {
-    return Enqueue<IMyCustomService>(async service =>
+    return Enqueue<IPage>(async page =>
     {
-        await service.PerformActionAsync().ConfigureAwait(false);
+        await page.Locator(".content").WaitForAsync().ConfigureAwait(false);
     });
 }
 ```
 
-## Testing with Page Objects
-
-### Basic Test
+### Using Locator Patterns
 
 ```csharp
-[TestClass]
-public class LoginTests
+public HomePage VerifyItemCount(int expected)
 {
-    [TestMethod]
-    public async Task Can_Login_Successfully()
+    return Enqueue<IPage>(async page =>
     {
-        await TestAssemblyHooks.App.NavigateTo<LoginPage>()
-            .EnterEmail("test@example.com")
-            .EnterPassword("password123")
-            .Submit()
-            .NavigateTo<DashboardPage>()
-            .VerifyWelcomeVisible();
-    }
+        var items = page.Locator(".list-item");
+        await Assertions.Expect(items).ToHaveCountAsync(expected).ConfigureAwait(false);
+    });
 }
 ```
 
-### Test with Parameterized Route
+### Text Content Assertions
 
 ```csharp
-[TestMethod]
-public async Task Can_View_User_Profile()
+public HomePage VerifyTitle(string title)
 {
-    await TestAssemblyHooks.App.NavigateTo<UserProfilePage>(new { userId = "42" })
-        .VerifyProfileLoaded()
-        .VerifyDisplayName("Jane Doe");
+    return Enqueue<IPage>(async page =>
+    {
+        var heading = page.Locator("h1");
+        await Assertions.Expect(heading).ToHaveTextAsync(title).ConfigureAwait(false);
+    });
 }
 ```
 
 ## Best Practices
 
-### 1. Keep Methods Focused
+### Always use ConfigureAwait(false) on internal awaits
 
-Each page method should represent a single user action. Avoid bundling multiple unrelated interactions into one method.
-
-```csharp
-// Good -- one action per method
-public LoginPage EnterEmail(string email)
-{
-    return Enqueue<IPage>(async page =>
-    {
-        await page.FillAsync("[data-testid='email-input']", email).ConfigureAwait(false);
-    });
-}
-
-public LoginPage Submit()
-{
-    return Enqueue<IPage>(async page =>
-    {
-        await page.ClickAsync("[data-testid='submit-button']").ConfigureAwait(false);
-    });
-}
-
-// Acceptable -- a convenience method that composes focused methods
-public LoginPage Login(string email, string password)
-{
-    return EnterEmail(email).EnterPassword(password).Submit();
-}
-```
-
-### 2. Use data-testid Selectors
-
-Prefer `[data-testid='...']` selectors over CSS classes or element IDs. They are stable, decoupled from styling, and signal explicit test contracts.
+Inside `Enqueue` callbacks, always append `.ConfigureAwait(false)` to awaited calls. This avoids deadlocks and unnecessary synchronization context captures:
 
 ```csharp
-// Good
-await page.ClickAsync("[data-testid='submit-button']").ConfigureAwait(false);
-
-// Fragile -- tied to styling
-await page.ClickAsync(".btn-primary.submit").ConfigureAwait(false);
-
-// Fragile -- IDs may be auto-generated or change
-await page.ClickAsync("#submit-btn").ConfigureAwait(false);
-```
-
-### 3. Always Use ConfigureAwait(false)
-
-All `await` calls inside `Enqueue` lambdas should use `ConfigureAwait(false)` to avoid deadlocks and unnecessary synchronization context captures.
-
-```csharp
+// Correct
 return Enqueue<IPage>(async page =>
 {
-    await page.FillAsync("#input", "value").ConfigureAwait(false);
-    await page.ClickAsync("#button").ConfigureAwait(false);
+    await page.ClickAsync("button").ConfigureAwait(false);
 });
 ```
 
-### 4. Avoid Storing Mutable State in Pages
+### Always await your chains
 
-Pages are chain builders, not stateful objects. Do not store mutable state (flags, counters) on the page instance. The deferred execution model means state would be set at enqueue time, not execution time.
-
-### 5. Group Related Pages Together
-
-Organize page objects in a `Pages/` folder that mirrors your application structure.
-
-```
-Tests/
-  Pages/
-    LoginPage.cs
-    DashboardPage.cs
-    Users/
-      UserManagementPage.cs
-      UserProfilePage.cs
-```
-
-### 6. Name Methods After User Intent
-
-Method names should describe what the user is doing, not how the automation works.
+Every chain with queued actions must be awaited. If you forget, actions will never execute. In DEBUG builds, the finalizer will emit a trace warning, but you should not rely on this.
 
 ```csharp
-// Good -- describes user intent
-public LoginPage EnterEmail(string email) { /* ... */ }
-public LoginPage Submit() { /* ... */ }
+// Correct
+await app.NavigateTo<HomePage>().VerifyWelcomeVisible();
 
-// Bad -- describes implementation details
-public LoginPage FillEmailInputField(string email) { /* ... */ }
-public LoginPage ClickSubmitButton() { /* ... */ }
+// Wrong -- actions are never executed
+app.NavigateTo<HomePage>().VerifyWelcomeVisible();
 ```
 
-## Conclusion
+### Keep page methods thin
 
-The Page Object Pattern in FluentUIScaffold provides a deferred-execution, fluent API for writing maintainable UI tests. By building chains of actions that execute on `await`, cross-page workflows become simple linear sequences. The `Enqueue<T>` mechanism keeps pages framework-agnostic while still giving you full access to the underlying driver through DI.
+Each method should do one logical thing. This keeps the fluent chain readable and makes tests easy to compose:
 
-For more information, see the [API Reference](api-reference.md) and [Getting Started](getting-started.md) guides.
+```csharp
+// Good -- each method does one thing
+await app.NavigateTo<LoginPage>()
+    .EnterEmail("test@example.com")
+    .EnterPassword("secret")
+    .ClickSubmit()
+    .VerifyLoginSuccess();
+
+// Avoid -- doing too much in one method
+await app.NavigateTo<LoginPage>()
+    .LoginAndVerify("test@example.com", "secret");
+```
+
+### Use the On method for pages you are already on
+
+If a navigation has already happened (e.g., a redirect after login) and you want to interact with the current page without triggering a new navigation, use `On<TPage>()`:
+
+```csharp
+await app.NavigateTo<LoginPage>()
+    .EnterEmail("test@example.com")
+    .EnterPassword("secret")
+    .ClickSubmit();
+
+// Already on the dashboard after login redirect
+await app.On<DashboardPage>()
+    .VerifyWelcomeMessage();
+```
+
+## Further Reading
+
+- [Getting Started](getting-started.md) -- project setup and first test
+- [API Reference](api-reference.md) -- complete `Page<TSelf>` and `AppScaffold` API documentation

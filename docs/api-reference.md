@@ -1,424 +1,368 @@
-# FluentUIScaffold API Reference
+# API Reference
 
-## Overview
+> **Scope note:** Infrastructure types that are public but not intended for direct consumer use (e.g., Server/ namespace internals, Launcher abstractions, project detectors) are intentionally excluded.
 
-This document provides a comprehensive reference for the FluentUIScaffold API. The framework uses a deferred execution chain pattern where page actions are queued and executed sequentially when the chain is awaited.
+This reference covers all public types organized by NuGet package. For usage examples, see the [Getting Started Guide](getting-started.md) and [Page Object Pattern](page-object-pattern.md).
 
-## Table of Contents
+---
 
-- [Core Framework](#core-framework)
-- [Configuration](#configuration)
-- [Page Object Pattern](#page-object-pattern)
-- [Plugin System](#plugin-system)
-- [Browser Sessions](#browser-sessions)
-- [Hosting Strategies](#hosting-strategies)
-- [Exceptions](#exceptions)
+## FluentUIScaffold.Core
 
-## Core Framework
+### `AppScaffold<TWebApp>`
 
-### FluentUIScaffoldBuilder
+Central orchestrator for the test lifecycle. Implements `IAsyncDisposable`.
 
-The main entry point for creating FluentUIScaffold instances. Instance-based builder with fluent API.
+**Constructor:**
 
 ```csharp
-public class FluentUIScaffoldBuilder
-{
-    // Plugin registration
-    public FluentUIScaffoldBuilder UsePlugin(IUITestingPlugin plugin);
-
-    // Web application configuration
-    public FluentUIScaffoldBuilder Web<TWebApp>(Action<FluentUIScaffoldOptions> configureOptions);
-
-    // Hosting strategies
-    public FluentUIScaffoldBuilder UseDotNetHosting(Action<DotNetHostingOptions> configure);
-    public FluentUIScaffoldBuilder UseNodeHosting(Action<NodeHostingOptions> configure);
-    public FluentUIScaffoldBuilder UseExternalServer(Uri baseUrl, params string[] healthCheckEndpoints);
-
-    // Environment configuration
-    public FluentUIScaffoldBuilder WithEnvironmentName(string environmentName);
-    public FluentUIScaffoldBuilder WithSpaProxy(bool enabled);
-    public FluentUIScaffoldBuilder WithHeadlessMode(bool? headless);
-    public FluentUIScaffoldBuilder WithEnvironmentVariable(string key, string value);
-
-    // Service and startup configuration
-    public FluentUIScaffoldBuilder ConfigureServices(Action<IServiceCollection> configure);
-    public FluentUIScaffoldBuilder AddStartupAction(Func<IServiceProvider, Task> action);
-
-    // Build
-    public AppScaffold<TWebApp> Build<TWebApp>();
-}
+AppScaffold(IServiceProvider serviceProvider, Func<IServiceProvider, Task> startAction, IUITestingPlugin plugin)
 ```
 
-#### Usage
+**Properties:**
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `ServiceProvider` | `IServiceProvider` | Root service provider |
+
+**Methods:**
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `StartAsync(CancellationToken cancellationToken = default)` | `Task` | Starts hosting and initializes the plugin. Idempotent. |
+| `CreateSessionAsync()` | `Task<IBrowserSession>` | Creates an isolated browser session, stores as instance field |
+| `DisposeSessionAsync()` | `Task` | Disposes the current session |
+| `NavigateTo<TPage>()` | `TPage` | Creates page and enqueues navigation. `where TPage : Page<TPage>` |
+| `NavigateTo<TPage>(object routeParams)` | `TPage` | Creates page with route parameter substitution. `where TPage : Page<TPage>` |
+| `On<TPage>()` | `TPage` | Resolves a page without navigating. `where TPage : Page<TPage>` |
+| `GetService<T>()` | `T` | Resolves a service from root DI. `where T : notnull` |
+
+---
+
+### `FluentUIScaffoldBuilder`
+
+Instance-based fluent configuration builder.
+
+**Constructor:**
 
 ```csharp
-// Web application with Playwright
-var app = new FluentUIScaffoldBuilder()
-    .UsePlaywright()
-    .Web<WebApp>(opts =>
-    {
-        opts.BaseUrl = new Uri("https://your-app.com");
-    })
-    .Build<WebApp>();
-
-await app.StartAsync();
-
-// Aspire-hosted application
-var app = new FluentUIScaffoldBuilder()
-    .UseAspireHosting<Projects.MyAppHost>(
-        appHost => { /* configure */ },
-        "myapp")
-    .UsePlaywright()
-    .Build<WebApp>();
-
-await app.StartAsync();
+FluentUIScaffoldBuilder()  // parameterless
 ```
 
-### AppScaffold\<TWebApp>
+**Methods:**
 
-The central hub for test infrastructure. Manages hosting, plugin lifecycle, and per-test browser session creation.
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `ConfigureServices(Action<IServiceCollection> configure)` | `FluentUIScaffoldBuilder` | Register additional services into DI |
+| `AddStartupAction(Func<IServiceProvider, Task> action)` | `FluentUIScaffoldBuilder` | Add an async action to run at startup |
+| `Web<TWebApp>(Action<FluentUIScaffoldOptions> configureOptions)` | `FluentUIScaffoldBuilder` | Configure web application options |
+| `WithEnvironmentName(string environmentName)` | `FluentUIScaffoldBuilder` | Set environment name. Rejects "Production". |
+| `WithSpaProxy(bool enabled)` | `FluentUIScaffoldBuilder` | Toggle SPA dev server proxy |
+| `WithHeadlessMode(bool? headless)` | `FluentUIScaffoldBuilder` | Set headless mode. `null` = auto-detect (headless unless debugger attached). |
+| `WithEnvironmentVariable(string key, string value)` | `FluentUIScaffoldBuilder` | Set an environment variable. Blocks dangerous keys (PATH, LD_PRELOAD, etc.). |
+| `UseDotNetHosting(Action<DotNetHostingOptions> configure)` | `FluentUIScaffoldBuilder` | Configure .NET hosting. Requires BaseUrl + ProjectPath. |
+| `UseNodeHosting(Action<NodeHostingOptions> configure)` | `FluentUIScaffoldBuilder` | Configure Node.js hosting. Requires BaseUrl + ProjectPath. |
+| `UseExternalServer(Uri baseUrl, params string[] healthCheckEndpoints)` | `FluentUIScaffoldBuilder` | Configure an external (pre-started) server |
+| `UsePlugin(IUITestingPlugin plugin)` | `FluentUIScaffoldBuilder` | Register a UI testing plugin. Only one plugin allowed. |
+| `SetHostingStrategyRegistered()` | `void` | For extension methods that register hosting strategies externally |
+| `Build<TWebApp>()` | `AppScaffold<TWebApp>` | Build the scaffold. Requires a plugin to be registered. Resolves HeadlessMode. |
 
-```csharp
-public class AppScaffold<TWebApp> : IAsyncDisposable
-{
-    public IServiceProvider ServiceProvider { get; }
+---
 
-    // Lifecycle
-    public Task StartAsync(CancellationToken cancellationToken = default);
-    public ValueTask DisposeAsync();
+### `FluentUIScaffoldOptions`
 
-    // Session management (per-test)
-    public Task<IBrowserSession> CreateSessionAsync();
-    public Task DisposeSessionAsync();
+Configuration options record.
 
-    // Page navigation
-    public TPage NavigateTo<TPage>() where TPage : Page<TPage>;
-    public TPage NavigateTo<TPage>(object routeParams) where TPage : Page<TPage>;
-    public TPage On<TPage>() where TPage : Page<TPage>;
-
-    // Service resolution
-    public T GetService<T>() where T : notnull;
-}
-```
-
-#### Methods
-
-| Method | Description | Returns |
-|--------|-------------|---------|
-| `StartAsync` | Starts hosting strategies and initializes the plugin (launches browser) | `Task` |
-| `DisposeAsync` | Disposes the application, sessions, plugin, and hosting | `ValueTask` |
-| `CreateSessionAsync` | Creates an isolated browser session for the current test | `Task<IBrowserSession>` |
-| `DisposeSessionAsync` | Disposes the current test's browser session | `Task` |
-| `NavigateTo<TPage>` | Creates a page and enqueues navigation to its route | `TPage` |
-| `NavigateTo<TPage>(routeParams)` | Creates a page and enqueues navigation with route parameters | `TPage` |
-| `On<TPage>` | Creates a page without navigating (for current page) | `TPage` |
-| `GetService<T>` | Resolves a service from the root DI container | `T` |
-
-#### Usage
-
-```csharp
-var app = new FluentUIScaffoldBuilder()
-    .UsePlaywright()
-    .Web<WebApp>(opts => opts.BaseUrl = new Uri("https://your-app.com"))
-    .Build<WebApp>();
-
-await app.StartAsync();
-
-// Per-test session lifecycle
-await app.CreateSessionAsync();
-
-// Navigate to page and interact (must be awaited)
-await app.NavigateTo<HomePage>()
-    .ClickLogin();
-
-// Clean up session after test
-await app.DisposeSessionAsync();
-
-// Clean up app after all tests
-await app.DisposeAsync();
-```
-
-## Configuration
-
-### FluentUIScaffoldOptions
-
-Configuration options for the FluentUIScaffold framework.
-
-```csharp
-public class FluentUIScaffoldOptions
-{
-    public Uri? BaseUrl { get; set; }
-    public bool? HeadlessMode { get; set; } = null;
-    public int? SlowMo { get; set; } = null;
-    public string EnvironmentName { get; set; } = "Testing";
-    public bool SpaProxyEnabled { get; set; } = false;
-    public Dictionary<string, string> EnvironmentVariables { get; }
-}
-```
-
-#### Properties
+**Properties:**
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
-| `BaseUrl` | `Uri?` | `null` | Base URL for the application under test |
-| `HeadlessMode` | `bool?` | `null` | Explicit headless control (null = auto: visible when debugger attached, headless otherwise) |
-| `SlowMo` | `int?` | `null` | Browser slow-motion delay in milliseconds (null = automatic) |
-| `EnvironmentName` | `string` | `"Testing"` | Logical environment name passed to hosted apps |
-| `SpaProxyEnabled` | `bool` | `false` | Whether to enable the ASP.NET SPA dev server proxy |
-| `EnvironmentVariables` | `Dictionary<string, string>` | empty | Custom environment variables for hosted applications |
+| `BaseUrl` | `Uri?` | `null` | Application under test URL |
+| `HeadlessMode` | `bool?` | `null` | Headless browser mode. `null` = auto-detect. |
+| `SlowMo` | `int?` | `null` | Browser slow-motion delay in milliseconds |
+| `EnvironmentVariables` | `Dictionary<string, string>` | empty (case-insensitive) | Custom env vars for hosted applications |
+| `EnvironmentName` | `string` | `"Testing"` | Logical environment name |
+| `SpaProxyEnabled` | `bool` | `false` | ASP.NET SPA dev server proxy toggle |
 
-### RouteAttribute
+---
 
-Specifies the route path for a page. Combined with `BaseUrl` to form the full URL.
+### `DotNetHostingOptions`
+
+Configuration for .NET-hosted applications.
+
+**Properties:**
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `ProjectPath` | `string` | — | Path to .csproj file |
+| `BaseUrl` | `Uri?` | `null` | Application base URL |
+| `Framework` | `string` | `"net8.0"` | Target framework |
+| `Configuration` | `string` | `"Release"` | Build configuration |
+| `StartupTimeout` | `TimeSpan` | 60 seconds | Maximum time to wait for startup |
+| `HealthCheckEndpoints` | `string[]` | `["/"]` | Endpoints to poll for readiness |
+| `WorkingDirectory` | `string?` | `null` | Working directory override |
+| `ProcessName` | `string?` | `null` | Process name override |
+
+---
+
+### `NodeHostingOptions`
+
+Configuration for Node.js-hosted applications.
+
+**Properties:**
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `ProjectPath` | `string` | — | Path to directory containing package.json |
+| `BaseUrl` | `Uri?` | `null` | Application base URL |
+| `Script` | `string` | `"start"` | npm script to run |
+| `StartupTimeout` | `TimeSpan` | 60 seconds | Maximum time to wait for startup |
+| `HealthCheckEndpoints` | `string[]` | `["/"]` | Endpoints to poll for readiness |
+| `WorkingDirectory` | `string?` | `null` | Working directory override |
+
+---
+
+### `Page<TSelf>`
+
+Abstract page object base class. Custom awaitable -- chains execute when awaited via `GetAwaiter()`. Constraint: `where TSelf : Page<TSelf>`.
+
+**Constructors:**
+
+```csharp
+protected Page(IServiceProvider serviceProvider)                                              // fresh action list
+internal Page(IServiceProvider serviceProvider, List<Func<IServiceProvider, Task>> sharedActions)  // shared action list (cross-page navigation)
+```
+
+**Properties:**
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `ServiceProvider` | `IServiceProvider` | (protected) Scoped service provider |
+| `Self` | `TSelf` | (protected) Typed self-reference for fluent returns |
+
+**Methods:**
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `Enqueue(Func<Task> action)` | `TSelf` | (protected) Queue a deferred action with no DI |
+| `Enqueue<T>(Func<T, Task> action)` | `TSelf` | (protected) Queue an action with DI-resolved `T`. `where T : notnull` |
+| `NavigateTo<TTarget>()` | `TTarget` | Freeze this page and create target sharing the action list. `where TTarget : Page<TTarget>` |
+| `GetAwaiter()` | `TaskAwaiter` | Makes the page awaitable. Executes all queued actions sequentially. |
+
+**Behavioral notes:**
+- Frozen pages throw `FrozenPageException` if you attempt to enqueue more actions after `NavigateTo`.
+- In DEBUG builds, a finalizer warns via `Trace.TraceWarning` if a chain with actions is never awaited.
+
+---
+
+### `RouteAttribute`
+
+Marks a page class with its URL route pattern.
 
 ```csharp
 [AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = true)]
 public sealed class RouteAttribute : Attribute
-{
-    public string Path { get; }
-    public RouteAttribute(string path);
-}
 ```
 
-#### Usage
+**Constructor:**
 
 ```csharp
-[Route("/login")]
-public class LoginPage : Page<LoginPage> { /* ... */ }
-// Full URL: BaseUrl + "/login"
-
-[Route("/users/{userId}")]
-public class UserPage : Page<UserPage> { /* ... */ }
-// Navigate with parameters:
-app.NavigateTo<UserPage>(new { userId = "123" });
-// Full URL: BaseUrl + "/users/123"
+RouteAttribute(string path)
 ```
 
-## Page Object Pattern
+**Properties:**
 
-### Page\<TSelf>
+| Property | Type | Description |
+|----------|------|-------------|
+| `Path` | `string` | Route template (e.g., `"/users/{userId}"`) |
 
-Base class for all page objects. Acts as a deferred execution chain builder with `GetAwaiter()` support. Page methods queue actions via `Enqueue` that execute sequentially when the chain is awaited.
+---
+
+### `IBrowserSession`
+
+Per-test browser session. Implements `IAsyncDisposable`.
+
+**Properties:**
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `ServiceProvider` | `IServiceProvider` | Session-scoped service provider |
+
+**Methods:**
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `NavigateToUrlAsync(Uri url)` | `Task` | Navigate the session's page to a URL |
+
+---
+
+### `IUITestingPlugin`
+
+Plugin contract for UI testing frameworks. Implements `IAsyncDisposable`.
+
+**Methods:**
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `ConfigureServices(IServiceCollection services)` | `void` | Register shared services into DI |
+| `InitializeAsync(FluentUIScaffoldOptions options, CancellationToken cancellationToken = default)` | `Task` | One-time initialization (e.g., launch browser) |
+| `CreateSessionAsync(IServiceProvider rootProvider)` | `Task<IBrowserSession>` | Create an isolated browser session |
+
+---
+
+### `IHostingStrategy`
+
+Pluggable hosting contract. Implements `IAsyncDisposable`.
+
+**Properties:**
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `ConfigurationHash` | `string` | Hash identifying the current configuration |
+| `BaseUrl` | `Uri?` | Resolved base URL (available after start) |
+
+**Methods:**
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `StartAsync(ILogger logger, CancellationToken cancellationToken = default)` | `Task<HostingResult>` | Start the hosted application |
+| `StopAsync(CancellationToken cancellationToken = default)` | `Task` | Stop the hosted application |
+| `GetStatus()` | `HostingStatus` | Get current hosting status |
+
+---
+
+### `HostingResult`
 
 ```csharp
-public abstract class Page<TSelf> where TSelf : Page<TSelf>
-{
-    // Constructor
-    protected Page(IServiceProvider serviceProvider);
-
-    // Properties
-    protected IServiceProvider ServiceProvider { get; }
-    protected TSelf Self { get; }
-
-    // Deferred execution
-    public TaskAwaiter GetAwaiter();
-
-    // Action enqueueing
-    protected TSelf Enqueue(Func<Task> action);
-    protected TSelf Enqueue<T>(Func<T, Task> action) where T : notnull;
-
-    // Cross-page navigation
-    public TTarget NavigateTo<TTarget>() where TTarget : Page<TTarget>;
-}
+public sealed record HostingResult(Uri BaseUrl, bool WasReused);
 ```
 
-#### Key Concepts
+---
 
-**Deferred Execution**: Page methods do not execute immediately. Instead, they enqueue actions into an internal list. The entire chain executes when awaited.
-
-**DI-Injected Lambdas**: `Enqueue<T>` resolves a service of type `T` from the session's service provider at execution time, not at enqueue time.
-
-**Frozen Pages**: After calling `NavigateTo<TTarget>()`, the source page is frozen and cannot accept new actions. Use the returned target page to continue the chain.
-
-#### Usage
+### `HostingStatus`
 
 ```csharp
-[Route("/")]
-public class HomePage : Page<HomePage>
-{
-    public HomePage(IServiceProvider serviceProvider) : base(serviceProvider) { }
-
-    public HomePage ClickLogin() => Enqueue<IPage>(async page =>
-    {
-        await page.ClickAsync("[data-testid='login-button']");
-    });
-
-    public HomePage EnterSearch(string text) => Enqueue<IPage>(async page =>
-    {
-        await page.FillAsync("#search-input", text);
-    });
-
-    public LoginPage GoToLogin() => NavigateTo<LoginPage>();
-}
-
-// In tests (must await the chain):
-await app.NavigateTo<HomePage>()
-    .ClickLogin();
-
-// Cross-page navigation:
-await app.NavigateTo<HomePage>()
-    .EnterSearch("test")
-    .GoToLogin()
-    .EnterUsername("admin")
-    .SubmitForm();
+public sealed record HostingStatus(bool IsRunning, Uri? BaseUrl, int? ProcessId);
 ```
 
-## Plugin System
+---
 
-### IUITestingPlugin
+### Hosting Strategy Implementations
 
-Plugin contract for UI testing frameworks. Owns the browser singleton and creates per-test sessions.
+| Type | Description |
+|------|-------------|
+| `DotNetHostingStrategy` | Sealed. Manages .NET application lifecycle via `dotnet run`. |
+| `NodeHostingStrategy` | Sealed. Manages Node.js application lifecycle via `npm run`. |
+| `ExternalHostingStrategy` | Sealed. For pre-started servers (CI environments, staging). |
+
+---
+
+### Exceptions
+
+| Exception | Base Class | Key Properties |
+|-----------|-----------|----------------|
+| `FluentUIScaffoldException` | `Exception` | `string? ScreenshotPath`, `string? DOMState`, `Uri? CurrentUrl`, `Dictionary<string, object> Context` |
+| `InvalidPageException` | `FluentUIScaffoldException` | (inherited) |
+| `ElementNotFoundException` | `FluentUIScaffoldException` | (inherited) |
+| `TimeoutException` | `FluentUIScaffoldException` | (inherited) |
+| `FluentUIScaffoldValidationException` | `FluentUIScaffoldException` | `string? Property` |
+| `FluentUIScaffoldPluginException` | `FluentUIScaffoldException` | (inherited) |
+| `FrozenPageException` | `InvalidOperationException` | `Type PageType` |
+
+> **Note:** `FrozenPageException` extends `InvalidOperationException`, not `FluentUIScaffoldException`.
+
+---
+
+## FluentUIScaffold.Playwright
+
+### `PlaywrightPlugin`
+
+Implements `IUITestingPlugin`. Uses Chromium with `DOMContentLoaded` wait strategy.
+
+**SlowMo behavior:** Uses the explicit value from options if set; otherwise defaults to 0 in headless mode, 50ms in headed mode.
+
+---
+
+### `PlaywrightBrowserSession`
+
+Implements `IBrowserSession`. Each session owns its own `IBrowserContext` and `IPage`. Navigation uses `WaitUntilState.DOMContentLoaded`.
+
+---
+
+### `SessionServiceProvider`
+
+Lightweight `IServiceProvider` wrapper for session-scoped resolution.
+
+- Checks session-local dictionary (`IPage`, `IBrowserContext`, `IBrowser`) first
+- Falls back to root provider for all other services
+- Implements `IServiceProviderIsService` for `ActivatorUtilities` compatibility
+
+---
+
+### `FluentUIScaffoldPlaywrightBuilder`
+
+Static extension class.
 
 ```csharp
-public interface IUITestingPlugin : IAsyncDisposable
-{
-    void ConfigureServices(IServiceCollection services);
-    Task InitializeAsync(FluentUIScaffoldOptions options, CancellationToken cancellationToken = default);
-    Task<IBrowserSession> CreateSessionAsync(IServiceProvider rootProvider);
-}
+public static FluentUIScaffoldBuilder UsePlaywright(this FluentUIScaffoldBuilder builder)
 ```
 
-#### Methods
+Convenience method that registers `PlaywrightPlugin` as the UI testing plugin.
 
-| Method | Description |
-|--------|-------------|
-| `ConfigureServices` | Registers shared services into the DI container. Called once during builder configuration. |
-| `InitializeAsync` | Initializes the plugin (e.g., launches browser). Called once during `AppScaffold.StartAsync()`. |
-| `CreateSessionAsync` | Creates an isolated browser session for a single test. Each session owns its own browser context and page. |
+---
 
-### PlaywrightPlugin
+## FluentUIScaffold.AspireHosting
 
-Playwright implementation of `IUITestingPlugin`. Manages the Playwright browser singleton and creates per-test `PlaywrightBrowserSession` instances.
+For Aspire integration details and usage patterns, see [Aspire Integration](aspire-integration.md).
+
+### `AspireHostingExtensions`
+
+Static extension class.
 
 ```csharp
-public class PlaywrightPlugin : IUITestingPlugin
-{
-    public void ConfigureServices(IServiceCollection services);
-    public Task InitializeAsync(FluentUIScaffoldOptions options, CancellationToken ct = default);
-    public Task<IBrowserSession> CreateSessionAsync(IServiceProvider rootProvider);
-    public ValueTask DisposeAsync();
-}
+public static FluentUIScaffoldBuilder UseAspireHosting<TEntryPoint>(
+    this FluentUIScaffoldBuilder builder,
+    Action<IDistributedApplicationTestingBuilder> configure,
+    string? baseUrlResourceName = null,
+    string? baseUrlPrefix = null)
+    where TEntryPoint : class
 ```
 
-#### Registration
+Configures the builder for Aspire-based hosting. Auto-discovers base URL from the named resource. The optional `baseUrlPrefix` supports hash-based SPA routing.
+
+---
+
+### `AspireHostingStrategy<TEntryPoint>`
+
+Sealed. Implements `IHostingStrategy`. Constraint: `where TEntryPoint : class`.
+
+**Properties:**
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `Application` | `DistributedApplication?` | The running Aspire application instance |
+
+**Behavioral notes:** Manages process-level environment variable mutation serialized via semaphore with snapshot/restore.
+
+---
+
+### `AspireResourceExtensions`
+
+Static class.
 
 ```csharp
-// Explicit plugin registration
-var builder = new FluentUIScaffoldBuilder();
-builder.UsePlugin(new PlaywrightPlugin());
-
-// Convenience extension method
-var builder = new FluentUIScaffoldBuilder();
-builder.UsePlaywright();
+public static HttpClient CreateHttpClient<T>(this AppScaffold<T> app, string resourceName)
 ```
 
-## Browser Sessions
+Creates an `HttpClient` configured to communicate with a named Aspire resource.
 
-### IBrowserSession
+---
 
-Represents an isolated browser session for a single test. Each session owns its own browser context and page.
+### `DistributedApplicationHolder`
 
-```csharp
-public interface IBrowserSession : IAsyncDisposable
-{
-    Task NavigateToUrlAsync(Uri url);
-    IServiceProvider ServiceProvider { get; }
-}
-```
+Backward-compatibility DI accessor for the Aspire application instance.
 
-The session's `ServiceProvider` is a `SessionServiceProvider` that resolves session-specific services first (e.g., `IPage`, `IBrowserContext`, `IBrowser`), then falls back to the root provider for shared services (e.g., `FluentUIScaffoldOptions`).
+**Properties:**
 
-### PlaywrightBrowserSession
-
-Playwright implementation of `IBrowserSession`. Owns an `IBrowserContext` and `IPage`.
-
-```csharp
-public class PlaywrightBrowserSession : IBrowserSession
-{
-    public IServiceProvider ServiceProvider { get; }
-    public Task NavigateToUrlAsync(Uri url);
-    public ValueTask DisposeAsync();
-}
-```
-
-### SessionServiceProvider
-
-Lightweight wrapper `IServiceProvider` that checks session-local services first, then falls back to the root provider. Available session services for Playwright:
-
-| Service Type | Description |
-|-------------|-------------|
-| `IPage` | The Playwright page for this test session |
-| `IBrowserContext` | The Playwright browser context for this test session |
-| `IBrowser` | The shared Playwright browser instance |
-
-## Hosting Strategies
-
-### IHostingStrategy
-
-Pluggable abstraction for managing application hosts.
-
-```csharp
-public interface IHostingStrategy : IAsyncDisposable
-{
-    string ConfigurationHash { get; }
-    Uri? BaseUrl { get; }
-    Task<HostingResult> StartAsync(ILogger logger, CancellationToken ct = default);
-    Task StopAsync(CancellationToken ct = default);
-    HostingStatus GetStatus();
-}
-```
-
-### Available Strategies
-
-| Strategy | Description | Use Case |
-|----------|-------------|----------|
-| `DotNetHostingStrategy` | Manages .NET app via `dotnet run` | Standard .NET apps |
-| `NodeHostingStrategy` | Manages Node.js app via `npm run` | Node.js/SPA apps |
-| `ExternalHostingStrategy` | Health check only, no process management | CI/staging environments |
-| `AspireHostingStrategy` | Wraps `DistributedApplicationTestingBuilder` | Aspire distributed apps |
-
-## Exceptions
-
-### FluentUIScaffoldException
-
-Base exception for FluentUIScaffold.
-
-```csharp
-public class FluentUIScaffoldException : Exception
-{
-    public string? ScreenshotPath { get; set; }
-    public string? DOMState { get; set; }
-    public string? CurrentUrl { get; set; }
-    public Dictionary<string, object>? Context { get; set; }
-}
-```
-
-### FrozenPageException
-
-Thrown when attempting to enqueue actions on a page that has been frozen by a `NavigateTo` call.
-
-```csharp
-public class FrozenPageException : InvalidOperationException
-{
-    public Type PageType { get; }
-}
-```
-
-### FluentUIScaffoldValidationException
-
-Exception for validation errors.
-
-```csharp
-public class FluentUIScaffoldValidationException : FluentUIScaffoldException
-{
-    public string PropertyName { get; }
-}
-```
-
-### FluentUIScaffoldPluginException
-
-Exception for plugin-related errors.
-
-```csharp
-public class FluentUIScaffoldPluginException : FluentUIScaffoldException { }
-```
+| Property | Type | Description |
+|----------|------|-------------|
+| `Instance` | `DistributedApplication?` | The current application instance (get/set) |
