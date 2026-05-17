@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 using Aspire.Hosting;
 using Aspire.Hosting.Testing;
@@ -20,6 +21,7 @@ namespace FluentUIScaffold.AspireHosting
     {
         public bool SkipDockerPreflightCheck { get; set; }
         public TimeSpan? AspireStartupTimeout { get; set; }
+        public bool HttpOnlyMode { get; set; }
     }
 
     /// <summary>
@@ -149,6 +151,65 @@ namespace FluentUIScaffold.AspireHosting
                 throw new ArgumentOutOfRangeException(nameof(timeout), "Startup timeout must be positive.");
             GetOrCreateConfig(builder).AspireStartupTimeout = timeout;
             return builder;
+        }
+
+        /// <summary>
+        /// Forces all ASP.NET Core resources hosted by Aspire to bind HTTP only and disables
+        /// <c>UseHttpsRedirection</c>'s port resolution. Opt-in; disabled by default.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// <b>The footgun this avoids:</b> many ASP.NET Core templates ship with
+        /// <c>app.UseHttpsRedirection()</c> enabled, which is fine in Development but in
+        /// other environments (including <c>Testing</c>) issues a <c>307 Temporary Redirect</c>
+        /// to the absolute HTTPS upstream URL, e.g. <c>https://localhost:7039/api/...</c>.
+        /// When the API sits behind a YARP reverse proxy serving an SPA, the browser sees
+        /// the absolute redirect and the SPA's CSP <c>connect-src 'self'</c> blocks the
+        /// follow-up request, producing a cryptic <c>"Failed to fetch"</c> in every test.
+        /// </para>
+        /// <para>
+        /// Enabling HTTP-only mode injects:
+        /// <list type="bullet">
+        ///   <item><c>ASPNETCORE_URLS=http://+:0</c> — Aspire picks the port; no HTTPS endpoint is advertised.</item>
+        ///   <item><c>ASPNETCORE_HTTPS_PORT=</c> (empty) — disables the <c>UseHttpsRedirection</c> middleware's port resolution.</item>
+        /// </list>
+        /// These env vars are propagated to every Aspire-hosted process via FluentUIScaffold's
+        /// existing environment-variable bag.
+        /// </para>
+        /// <para>
+        /// Off by default because it changes wire-protocol expectations — opt in only when
+        /// your tests genuinely run over HTTP.
+        /// </para>
+        /// </remarks>
+        /// <param name="builder">The FluentUIScaffold builder.</param>
+        /// <param name="enabled">When true (default), enables HTTP-only mode.</param>
+        public static FluentUIScaffoldBuilder WithHttpOnlyMode(this FluentUIScaffoldBuilder builder, bool enabled = true)
+        {
+            GetOrCreateConfig(builder).HttpOnlyMode = enabled;
+            if (enabled)
+            {
+                ApplyHttpOnlyModeEnvVars(builder);
+            }
+            return builder;
+        }
+
+        /// <summary>
+        /// Names of the env vars HTTP-only mode sets. Exposed for tests.
+        /// </summary>
+        internal static readonly IReadOnlyDictionary<string, string> HttpOnlyEnvVars
+            = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["ASPNETCORE_URLS"] = "http://+:0",
+                ["ASPNETCORE_HTTPS_PORT"] = string.Empty,
+            };
+
+        private static void ApplyHttpOnlyModeEnvVars(FluentUIScaffoldBuilder builder)
+        {
+            // Use WithEnvironmentVariable so the same key-validation + storage path is exercised.
+            foreach (var kv in HttpOnlyEnvVars)
+            {
+                builder.WithEnvironmentVariable(kv.Key, kv.Value);
+            }
         }
 
         /// <summary>
