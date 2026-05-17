@@ -1,3 +1,5 @@
+using System;
+
 using Aspire.Hosting;
 using Aspire.Hosting.Testing;
 
@@ -11,10 +13,29 @@ using Microsoft.Extensions.Logging;
 namespace FluentUIScaffold.AspireHosting
 {
     /// <summary>
+    /// Configuration bag for Aspire-specific options that the builder extensions need to
+    /// propagate to the strategy at DI-resolution time.
+    /// </summary>
+    internal sealed class AspireHostingConfiguration
+    {
+        public bool SkipDockerPreflightCheck { get; set; }
+    }
+
+    /// <summary>
     /// Extension methods for configuring Aspire hosting with FluentUIScaffold.
     /// </summary>
     public static class AspireHostingExtensions
     {
+        // Per-builder configuration store. ConditionalWeakTable lets us attach Aspire-specific
+        // settings to the builder without modifying Core's public API surface.
+        private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<FluentUIScaffoldBuilder, AspireHostingConfiguration> _configs
+            = new();
+
+        internal static AspireHostingConfiguration GetOrCreateConfig(FluentUIScaffoldBuilder builder)
+        {
+            return _configs.GetValue(builder, _ => new AspireHostingConfiguration());
+        }
+
         /// <summary>
         /// Configures hosting via Aspire's DistributedApplicationTestingBuilder.
         /// Delegates all lifecycle management to Aspire's testing infrastructure.
@@ -36,13 +57,18 @@ namespace FluentUIScaffold.AspireHosting
             // Enforce single-strategy guard (same as DotNet/Node paths)
             builder.SetHostingStrategyRegistered();
 
+            var aspireConfig = GetOrCreateConfig(builder);
+
             // Register the hosting strategy via factory delegate so it receives the final options
             builder.ConfigureServices(services =>
             {
                 services.AddSingleton<AspireHostingStrategy<TEntryPoint>>(sp =>
                 {
                     var scaffoldOptions = sp.GetRequiredService<FluentUIScaffoldOptions>();
-                    return new AspireHostingStrategy<TEntryPoint>(configure, scaffoldOptions, baseUrlResourceName);
+                    return new AspireHostingStrategy<TEntryPoint>(configure, scaffoldOptions, baseUrlResourceName)
+                    {
+                        SkipDockerPreflightCheck = aspireConfig.SkipDockerPreflightCheck,
+                    };
                 });
                 services.AddSingleton<IHostingStrategy>(sp =>
                     sp.GetRequiredService<AspireHostingStrategy<TEntryPoint>>());
@@ -72,6 +98,30 @@ namespace FluentUIScaffold.AspireHosting
                 options.BaseUrl = ApplyBaseUrlPrefix(result.BaseUrl, baseUrlPrefix);
             });
 
+            return builder;
+        }
+
+        /// <summary>
+        /// Opts out of the Docker daemon pre-flight check that <c>UseAspireHosting</c>
+        /// performs by default.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// By default, <c>UseAspireHosting</c> runs <c>docker info</c> with a 2-second
+        /// timeout before booting the Aspire AppHost. If the daemon is unreachable it
+        /// throws a single-line <see cref="InvalidOperationException"/> instead of letting
+        /// Aspire hang and bury the failure ~20 stack frames deep behind
+        /// <c>DistributedApplicationFactory → DcpHost → DcpDependencyCheck</c>.
+        /// </para>
+        /// <para>
+        /// Call this when you run against a remote container runtime where the local
+        /// <c>docker</c> CLI is not installed but Aspire still works (e.g., DOCKER_HOST
+        /// points at a remote daemon).
+        /// </para>
+        /// </remarks>
+        public static FluentUIScaffoldBuilder SkipDockerPreflightCheck(this FluentUIScaffoldBuilder builder)
+        {
+            GetOrCreateConfig(builder).SkipDockerPreflightCheck = true;
             return builder;
         }
 

@@ -46,6 +46,13 @@ namespace FluentUIScaffold.AspireHosting
         private bool _isStarted;
 
         /// <summary>
+        /// When true, the Docker daemon pre-flight check is skipped. Default false.
+        /// Useful for users running against remote container runtimes where a local
+        /// <c>docker info</c> probe would (incorrectly) fail.
+        /// </summary>
+        public bool SkipDockerPreflightCheck { get; set; }
+
+        /// <summary>
         /// Creates a new AspireHostingStrategy for the specified AppHost entry point.
         /// </summary>
         /// <param name="configureAction">Action to configure the distributed application builder.</param>
@@ -81,6 +88,16 @@ namespace FluentUIScaffold.AspireHosting
             if (_isStarted) return new HostingResult(_baseUrl!, WasReused: true);
 
             logger.LogInformation("Starting Aspire host via AspireHostingStrategy<{EntryPoint}>", typeof(TEntryPoint).Name);
+
+            // Fail fast if Docker is unreachable, before Aspire gets a chance to hang.
+            // Aspire's own daemon health check is buried ~20 stack frames deep behind
+            // DistributedApplicationFactory → DcpHost → DcpDependencyCheck, so the real
+            // cause is invisible without --logger "console;verbosity=detailed".
+            if (!SkipDockerPreflightCheck)
+            {
+                await DockerPreflightCheck.EnsureDockerHealthyAsync(cancellationToken: cancellationToken)
+                    .ConfigureAwait(false);
+            }
 
             // Serialize env var mutations across all AspireHostingStrategy<T> instances.
             // Environment.SetEnvironmentVariable is process-global and not thread-safe
