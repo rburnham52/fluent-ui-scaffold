@@ -18,7 +18,7 @@ namespace FluentUIScaffold.AspireHosting.Tests
         public void DockerUnreachableMessage_IsExposedAsPublicConstant()
         {
             // The message text must be exposed publicly so downstream test suites
-            // (e.g., the kitchen-chef BDD suite) can assert on it without hardcoding strings.
+            // can assert on it without hardcoding strings.
             Assert.IsFalse(string.IsNullOrWhiteSpace(DockerPreflightCheck.DockerUnreachableMessage));
             StringAssert.Contains(DockerPreflightCheck.DockerUnreachableMessage, "Docker daemon is not reachable");
             StringAssert.Contains(DockerPreflightCheck.DockerUnreachableMessage, "Resource Saver");
