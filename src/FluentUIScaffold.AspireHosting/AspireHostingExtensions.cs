@@ -19,6 +19,7 @@ namespace FluentUIScaffold.AspireHosting
     internal sealed class AspireHostingConfiguration
     {
         public bool SkipDockerPreflightCheck { get; set; }
+        public TimeSpan? AspireStartupTimeout { get; set; }
     }
 
     /// <summary>
@@ -65,10 +66,15 @@ namespace FluentUIScaffold.AspireHosting
                 services.AddSingleton<AspireHostingStrategy<TEntryPoint>>(sp =>
                 {
                     var scaffoldOptions = sp.GetRequiredService<FluentUIScaffoldOptions>();
-                    return new AspireHostingStrategy<TEntryPoint>(configure, scaffoldOptions, baseUrlResourceName)
+                    var strategy = new AspireHostingStrategy<TEntryPoint>(configure, scaffoldOptions, baseUrlResourceName)
                     {
                         SkipDockerPreflightCheck = aspireConfig.SkipDockerPreflightCheck,
                     };
+                    if (aspireConfig.AspireStartupTimeout.HasValue)
+                    {
+                        strategy.AspireStartupTimeout = aspireConfig.AspireStartupTimeout.Value;
+                    }
+                    return strategy;
                 });
                 services.AddSingleton<IHostingStrategy>(sp =>
                     sp.GetRequiredService<AspireHostingStrategy<TEntryPoint>>());
@@ -122,6 +128,26 @@ namespace FluentUIScaffold.AspireHosting
         public static FluentUIScaffoldBuilder SkipDockerPreflightCheck(this FluentUIScaffoldBuilder builder)
         {
             GetOrCreateConfig(builder).SkipDockerPreflightCheck = true;
+            return builder;
+        }
+
+        /// <summary>
+        /// Bounds the time spent waiting for the Aspire AppHost to finish startup.
+        /// When the timeout fires, a <see cref="TimeoutException"/> is thrown instead
+        /// of hanging indefinitely. Default is 90 seconds.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// During the wait, FluentUIScaffold emits an <c>ILogger.LogInformation</c> heartbeat
+        /// line every 10 seconds (<c>"Aspire host starting... ({elapsed}s elapsed)"</c>) so
+        /// you can tell whether startup is making progress.
+        /// </para>
+        /// </remarks>
+        public static FluentUIScaffoldBuilder WithAspireStartupTimeout(this FluentUIScaffoldBuilder builder, TimeSpan timeout)
+        {
+            if (timeout <= TimeSpan.Zero)
+                throw new ArgumentOutOfRangeException(nameof(timeout), "Startup timeout must be positive.");
+            GetOrCreateConfig(builder).AspireStartupTimeout = timeout;
             return builder;
         }
 
