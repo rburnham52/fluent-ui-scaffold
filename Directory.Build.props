@@ -5,7 +5,13 @@
     <Authors>Ryan Burnham</Authors>
     <RepositoryType>git</RepositoryType>
     <RepositoryUrl>https://github.com/rburnham52/fluent-ui-scaffold</RepositoryUrl>
-    <TargetFrameworks>net6.0;net7.0;net8.0</TargetFrameworks>
+    <!--
+      No default TargetFrameworks here. Every csproj in the repo sets its own
+      TargetFramework or TargetFrameworks explicitly. A multi-value plural here
+      would bleed into singular-target projects (notably samples/SampleApp) and
+      cause "dotnet run" (used by Aspire DCP to launch project resources) to
+      see multiple TFMs and refuse to start without an explicit framework flag.
+    -->
     <LangVersion>latest</LangVersion>
     <!-- Version Management -->
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
@@ -46,6 +47,26 @@ namespace FluentUIScaffold.AspireHosting
         private bool _isStarted;
 
         /// <summary>
+        /// When true, the Docker daemon pre-flight check is skipped. Default false.
+        /// Useful for users running against remote container runtimes where a local
+        /// <c>docker info</c> probe would (incorrectly) fail.
+        /// </summary>
+        public bool SkipDockerPreflightCheck { get; set; }
+
+        /// <summary>
+        /// Maximum time to wait for the Aspire AppHost to finish StartAsync.
+        /// When exceeded, a <see cref="TimeoutException"/> is thrown instead of hanging indefinitely.
+        /// Default 90 seconds.
+        /// </summary>
+        public TimeSpan AspireStartupTimeout { get; set; } = TimeSpan.FromSeconds(90);
+
+        /// <summary>
+        /// Interval between "still starting..." heartbeat log lines emitted during Aspire startup.
+        /// Default 10 seconds.
+        /// </summary>
+        public TimeSpan StartupHeartbeatInterval { get; set; } = TimeSpan.FromSeconds(10);
+
+        /// <summary>
         /// Creates a new AspireHostingStrategy for the specified AppHost entry point.
         /// </summary>
         /// <param name="configureAction">Action to configure the distributed application builder.</param>
@@ -82,6 +103,16 @@ namespace FluentUIScaffold.AspireHosting
 
             logger.LogInformation("Starting Aspire host via AspireHostingStrategy<{EntryPoint}>", typeof(TEntryPoint).Name);
 
+            // Fail fast if Docker is unreachable, before Aspire gets a chance to hang.
+            // Aspire's own daemon health check is buried ~20 stack frames deep behind
+            // DistributedApplicationFactory → DcpHost → DcpDependencyCheck, so the real
+            // cause is invisible without --logger "console;verbosity=detailed".
+            if (!SkipDockerPreflightCheck)
+            {
+                await DockerPreflightCheck.EnsureDockerHealthyAsync(cancellationToken: cancellationToken)
+                    .ConfigureAwait(false);
+            }
+
             // Serialize env var mutations across all AspireHostingStrategy<T> instances.
             // Environment.SetEnvironmentVariable is process-global and not thread-safe
             // against concurrent reads/writes from parallel test runners.
@@ -104,7 +135,7 @@ namespace FluentUIScaffold.AspireHosting
                 _app = await appBuilder.BuildAsync(cancellationToken);
 
                 logger.LogInformation("Starting distributed application");
-                await _app.StartAsync(cancellationToken);
+                await StartAppWithTimeoutAndHeartbeatAsync(_app, logger, cancellationToken).ConfigureAwait(false);
             }
             finally
             {
@@ -240,6 +271,92 @@ namespace FluentUIScaffold.AspireHosting
             }
 
             _envVarSnapshot = null;
+        }
+
+        /// <summary>
+        /// Wraps <see cref="DistributedApplication.StartAsync"/> with a bounded timeout
+        /// and periodic heartbeat log lines so the caller can see whether startup is
+        /// progressing or stuck. On timeout, throws <see cref="TimeoutException"/> with
+        /// an informative message naming the timeout duration.
+        /// </summary>
+        private Task StartAppWithTimeoutAndHeartbeatAsync(
+            DistributedApplication app,
+            ILogger logger,
+            CancellationToken cancellationToken)
+        {
+            return StartWithTimeoutAndHeartbeatAsync(
+                ct => app.StartAsync(ct),
+                AspireStartupTimeout,
+                StartupHeartbeatInterval,
+                logger,
+                cancellationToken);
+        }
+
+        /// <summary>
+        /// Test-visible core of the timeout + heartbeat logic. Runs <paramref name="startupFactory"/>,
+        /// emits a "still starting..." log line every <paramref name="heartbeatInterval"/>, and throws
+        /// <see cref="TimeoutException"/> if the task does not complete within <paramref name="timeout"/>.
+        /// </summary>
+        internal static async Task StartWithTimeoutAndHeartbeatAsync(
+            Func<CancellationToken, Task> startupFactory,
+            TimeSpan timeout,
+            TimeSpan heartbeatInterval,
+            ILogger logger,
+            CancellationToken cancellationToken)
+        {
+            using var startupCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            using var heartbeatCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+
+            var sw = Stopwatch.StartNew();
+            var heartbeatTask = RunHeartbeatAsync(sw, heartbeatInterval, logger, heartbeatCts.Token);
+
+            var startupTask = startupFactory(startupCts.Token);
+            var timeoutTask = Task.Delay(timeout, cancellationToken);
+
+            var winner = await Task.WhenAny(startupTask, timeoutTask).ConfigureAwait(false);
+
+            heartbeatCts.Cancel();
+            try { await heartbeatTask.ConfigureAwait(false); } catch { /* heartbeat is best-effort */ }
+
+            if (winner == startupTask)
+            {
+                // Surface startup exceptions normally
+                await startupTask.ConfigureAwait(false);
+                return;
+            }
+
+            // Timeout fired first — try to cancel the in-flight startup so it doesn't
+            // continue churning in the background.
+            try { startupCts.Cancel(); } catch { /* best-effort */ }
+
+            throw new TimeoutException(
+                $"Aspire AppHost did not start within {timeout.TotalSeconds:F0}s. " +
+                "Increase the timeout via .WithAspireStartupTimeout(TimeSpan) if your AppHost legitimately needs longer, " +
+                "or check Docker / container logs for a stuck resource.");
+        }
+
+        private static async Task RunHeartbeatAsync(
+            Stopwatch sw,
+            TimeSpan interval,
+            ILogger logger,
+            CancellationToken cancellationToken)
+        {
+            if (interval <= TimeSpan.Zero) return;
+
+            try
+            {
+                while (!cancellationToken.IsCancellationRequested)
+                {
+                    await Task.Delay(interval, cancellationToken).ConfigureAwait(false);
+                    logger.LogInformation(
+                        "Aspire host starting... ({Elapsed}s elapsed)",
+                        (int)sw.Elapsed.TotalSeconds);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // expected on completion
+            }
         }
 
         private async Task VerifyHealthAsync(ILogger logger, CancellationToken cancellationToken)
