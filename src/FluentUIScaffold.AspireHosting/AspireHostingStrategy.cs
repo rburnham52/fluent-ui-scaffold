@@ -137,6 +137,26 @@ namespace FluentUIScaffold.AspireHosting
                 logger.LogInformation("Starting distributed application");
                 await StartAppWithTimeoutAndHeartbeatAsync(_app, logger, cancellationToken).ConfigureAwait(false);
             }
+            catch
+            {
+                // A failed or timed-out start can leave a partially-initialized
+                // DistributedApplication with DCP child processes (dcp/dcpproc) and
+                // containers still running. Dispose it here so they are reaped
+                // immediately, instead of relying on a later outer teardown that may
+                // never run (e.g. the test process is force-killed / CI-cancelled).
+                if (_app != null)
+                {
+                    try { await _app.DisposeAsync().ConfigureAwait(false); }
+                    catch (Exception disposeEx)
+                    {
+                        logger.LogWarning(disposeEx,
+                            "Error disposing partially-started Aspire app after a failed start.");
+                    }
+                    _app = null;
+                }
+
+                throw;
+            }
             finally
             {
                 // Restore env vars immediately after CreateAsync + Start.
@@ -328,6 +348,18 @@ namespace FluentUIScaffold.AspireHosting
             // Timeout fired first — try to cancel the in-flight startup so it doesn't
             // continue churning in the background.
             try { startupCts.Cancel(); } catch { /* best-effort */ }
+
+            // Observe the abandoned startup task so that if it later faults (e.g. the
+            // cancelled StartAsync throws), it doesn't surface as an UnobservedTaskException
+            // and tear down the process on GC. We deliberately do NOT await it: a startup
+            // that ignores cancellation could otherwise block us indefinitely — the very
+            // thing this timeout exists to prevent. Reaping the started resources is the
+            // caller's responsibility (it disposes the DistributedApplication on failure).
+            _ = startupTask.ContinueWith(
+                static t => { _ = t.Exception; },
+                CancellationToken.None,
+                TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
 
             throw new TimeoutException(
                 $"Aspire AppHost did not start within {timeout.TotalSeconds:F0}s. " +
